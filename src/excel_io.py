@@ -31,7 +31,7 @@ FONT_SUB     = Font(name="Calibri", size=10, color="D5D8DC", italic=True)
 FONT_HEADER  = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
 FONT_STAT    = Font(name="Calibri", size=12, bold=True, color="FFFFFF")
 FONT_BODY    = Font(name="Calibri", size=10, color=TEXTO_OSCURO)
-FONT_BODY_B  = Font(name="Calibri", size=10, bold=True, color=TEXTO_OSCURO)
+FONT_BODY_B  = Font(name="Segoe UI Emoji", size=10, bold=True, color=TEXTO_OSCURO)
 FONT_CEDULA  = Font(name="Consolas", size=10, color=TEXTO_OSCURO)
 
 ALIGN_CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -169,9 +169,10 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
         )
         ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_cols)
         st = ws.cell(row=3, column=1, value=stats_text)
-        # Navy oscuro para mejor contraste con los emojis de color
+        # Navy oscuro para mejor contraste
         st.fill      = PatternFill(start_color=NAVY, end_color=NAVY, fill_type="solid")
-        st.font      = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+        # Segoe UI Emoji renderiza los emojis 🟢🟡🔴⚪🚨 a color real
+        st.font      = Font(name="Segoe UI Emoji", size=13, bold=True, color="FFFFFF")
         st.alignment = Alignment(horizontal="center", vertical="center")
         ws.row_dimensions[3].height = 34
         header_row_num = 4

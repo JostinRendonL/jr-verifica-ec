@@ -98,7 +98,13 @@ async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:
     # ── Cache hit ────────────────────────────────────────────────────────────
     cached = buscar_cache(cedula, tipo)
     if cached is not None:
-        # Devolver el resultado cacheado, marcado como tal
+        # Recalcular el semáforo con la lógica actual (no usar el guardado)
+        if tipo == "completo":
+            cached["semaforo"] = _calcular_semaforo(
+                cached.get("bachiller") or {},
+                cached.get("satje") or {},
+                "completo",
+            )
         return {**cached, "_cache": True}
 
     async with sem:

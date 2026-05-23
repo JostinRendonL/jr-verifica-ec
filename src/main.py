@@ -221,6 +221,13 @@ async def buscar_individual(
     # ── Cache ────────────────────────────────────────────────────────────────
     cached = None if forzar else buscar_cache(cedula, tipo)
     if cached:
+        # Recalcular semáforo con lógica actual (no usar el guardado)
+        if quiere_b and quiere_s:
+            cached["semaforo"] = _calcular_semaforo(
+                cached.get("bachiller") or {},
+                cached.get("satje") or {},
+                "completo",
+            )
         resultado = {**cached, "_cache": True}
     else:
         raw = await consultar(cedula, tipo=tipo)
