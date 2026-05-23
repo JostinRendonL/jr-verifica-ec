@@ -23,6 +23,7 @@ from src.bg_client import consultar, extraer_bachiller, extraer_satje
 from src.processor import _calcular_semaforo
 from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG
 from src.pdf_generator import generar_pdf
+from src.verificaciones import obtener as obtener_verificacion
 
 app = FastAPI(title="JR Verifica EC")
 
@@ -80,6 +81,23 @@ def _redirect_login() -> RedirectResponse:
 @app.get("/health")
 async def health():
     return {"status": "ok", "app": "jr-verifica-ec", "version": "1.0.0"}
+
+
+# ── Verificación pública de PDFs (NO requiere login) ─────────────────────────
+
+@app.get("/verificar/{codigo}", response_class=HTMLResponse)
+async def verificar_codigo(request: Request, codigo: str):
+    """Endpoint PÚBLICO — cualquiera puede escanear el QR y validar autenticidad."""
+    codigo = codigo.strip().upper()
+    info = obtener_verificacion(codigo)
+
+    return templates.TemplateResponse("verificar.html", {
+        "request": request,
+        "codigo":  codigo,
+        "valido":  info is not None,
+        "info":    info,
+        "fecha":   datetime.fromtimestamp(info["timestamp"]).strftime("%d/%m/%Y %H:%M") if info else None,
+    })
 
 
 # ── Login ────────────────────────────────────────────────────────────────────

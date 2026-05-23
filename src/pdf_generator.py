@@ -15,8 +15,11 @@ from pathlib import Path
 from weasyprint import HTML, CSS
 import qrcode
 
+from src.verificaciones import registrar as registrar_verificacion
+
 # Secret para firmar los hashes de verificación
-_SECRET = os.getenv("PDF_VERIFY_SECRET", os.getenv("SESSION_SECRET", "jr-default"))
+_SECRET     = os.getenv("PDF_VERIFY_SECRET", os.getenv("SESSION_SECRET", "jr-default"))
+_PUBLIC_URL = os.getenv("PUBLIC_URL", "https://verifica.dentaklin.shop")
 
 
 def _hash_verificacion(cedula: str, timestamp: int) -> str:
@@ -61,7 +64,15 @@ def generar_pdf(resultado: dict) -> bytes:
     fecha_str  = datetime.fromtimestamp(timestamp).strftime("%d de %B de %Y · %H:%M")
     codigo_ver = _hash_verificacion(cedula, timestamp)
 
-    qr_b64     = _qr_base64(f"JR-VERIFICA-EC:{cedula}:{codigo_ver}")
+    # Registrar el código para que sea verificable después
+    try:
+        registrar_verificacion(codigo_ver, cedula, nombre, sem, timestamp)
+    except Exception as e:
+        print(f"[pdf] no se pudo registrar código de verificación: {e}")
+
+    # QR ahora apunta a una URL real de verificación pública
+    url_verificacion = f"{_PUBLIC_URL}/verificar/{codigo_ver}"
+    qr_b64     = _qr_base64(url_verificacion)
     logo_b64   = _logo_base64()
 
     # Color del banner según nivel
@@ -191,9 +202,9 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje,
 <div class="header">
     <div class="header-left">
         {logo_html}
-        <div>
+        <div class="brand-text">
             <div class="brand">JR Verifica EC</div>
-            <div class="brand-sub">Verificación de antecedentes oficiales · Powered by JR Automata</div>
+            <div class="brand-sub">Verificación de antecedentes oficiales<br/>Powered by JR Automata</div>
         </div>
     </div>
     <div class="header-right">
@@ -255,10 +266,11 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
     border-bottom: 2px solid #1A3A5C;
     margin-bottom: 16px;
 }
-.header-left { display: flex; align-items: center; gap: 12px; }
-.logo-img { height: 44px; width: auto; }
-.brand { font-size: 16pt; font-weight: bold; color: #1A3A5C; letter-spacing: -0.5px; }
-.brand-sub { font-size: 8pt; color: #7B7D7D; margin-top: 2px; }
+.header-left { display: flex; align-items: center; gap: 18px; }
+.logo-img { height: 50px; width: 50px; object-fit: contain; }
+.brand-text { display: flex; flex-direction: column; }
+.brand { font-size: 18pt; font-weight: bold; color: #1A3A5C; letter-spacing: -0.5px; line-height: 1.1; }
+.brand-sub { font-size: 8pt; color: #7B7D7D; margin-top: 4px; line-height: 1.3; }
 .header-right { text-align: right; }
 .codigo-lbl { font-size: 7pt; color: #7B7D7D; text-transform: uppercase; letter-spacing: 1px; }
 .codigo { font-family: 'Courier', monospace; font-size: 11pt; font-weight: bold; color: #1A3A5C; letter-spacing: 1px; }

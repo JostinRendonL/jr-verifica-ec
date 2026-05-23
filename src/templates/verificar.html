@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Verificación · JR Verifica EC{% endblock %}
+
+{% block navbar %}
+<nav class="gradient-bg text-white">
+    <div class="max-w-6xl mx-auto px-6 py-3">
+        <div class="flex items-center gap-3">
+            <img src="/static/logo.png" alt="JR Automata" class="h-11 w-auto bg-white rounded-lg p-1" onerror="this.style.display='none'">
+            <div>
+                <div class="text-xl font-extrabold tracking-tight leading-tight">JR Verifica EC</div>
+                <div class="text-[10px] text-white/70 leading-tight">powered by JR Automata</div>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto mt-10">
+    {% if valido %}
+    <!-- AUTÉNTICO -->
+    <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+        <div class="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-8 py-8 text-center">
+            <div class="text-6xl mb-3">✅</div>
+            <h1 class="text-3xl font-bold">Documento auténtico</h1>
+            <p class="text-emerald-100 mt-2 text-sm">Este reporte fue generado por JR Verifica EC</p>
+        </div>
+
+        <div class="p-8 space-y-5">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">Código</div>
+                    <div class="font-mono font-bold text-slate-800">{{ codigo }}</div>
+                </div>
+                <div>
+                    <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">Generado</div>
+                    <div class="font-semibold text-slate-800">{{ fecha }}</div>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-5">
+                <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">Cédula verificada</div>
+                <div class="text-xl font-mono font-bold text-slate-800">{{ info.cedula }}</div>
+            </div>
+
+            {% if info.nombre %}
+            <div>
+                <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">Nombre</div>
+                <div class="font-bold text-slate-800">{{ info.nombre }}</div>
+            </div>
+            {% endif %}
+
+            {% if info.semaforo %}
+            <div>
+                <div class="text-xs text-slate-500 uppercase tracking-wide mb-1">Veredicto</div>
+                {% set sem = info.semaforo %}
+                <div class="inline-block px-4 py-2 rounded-lg font-bold text-sm
+                    {% if 'APTO' in sem %}bg-emerald-100 text-emerald-700
+                    {% elif 'OBSERVACIÓN' in sem %}bg-amber-100 text-amber-700
+                    {% elif 'CRÍTICO' in sem %}bg-red-900 text-white
+                    {% elif 'RECHAZAR' in sem %}bg-red-100 text-red-700
+                    {% else %}bg-slate-100 text-slate-700{% endif %}">
+                    {{ sem }}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="border-t border-slate-100 pt-5 text-xs text-slate-500 leading-relaxed">
+                Este documento confirma que la cédula <strong>{{ info.cedula }}</strong> fue consultada
+                a través de las fuentes oficiales del Estado ecuatoriano (Ministerio de Educación y/o
+                Función Judicial) en la fecha indicada.<br><br>
+                El reporte completo solo está disponible para usuarios autorizados.
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <!-- NO VÁLIDO -->
+    <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+        <div class="bg-gradient-to-r from-red-500 to-red-700 text-white px-8 py-8 text-center">
+            <div class="text-6xl mb-3">❌</div>
+            <h1 class="text-3xl font-bold">Código no válido</h1>
+            <p class="text-red-100 mt-2 text-sm">Este código no corresponde a ningún reporte generado</p>
+        </div>
+
+        <div class="p-8 text-center">
+            <div class="text-sm text-slate-500 mb-2">Código consultado:</div>
+            <div class="font-mono font-bold text-slate-800 text-lg mb-6">{{ codigo }}</div>
+
+            <div class="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg">
+                Si recibiste este PDF y crees que es legítimo, verifica que hayas escaneado el QR
+                completo correctamente. Los códigos generados por JR Verifica EC son siempre válidos.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <p class="text-center text-xs text-slate-400 mt-6">
+        🔐 Servicio de verificación de autenticidad · JR Automata
+    </p>
+</div>
+{% endblock %}
