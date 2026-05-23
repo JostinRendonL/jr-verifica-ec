@@ -28,12 +28,13 @@
     {% endif %}
     <!-- Header con cédula + nombre -->
     <div class="bg-white rounded-2xl card-shadow overflow-hidden">
-        <!-- Banner del semáforo -->
+        <!-- Banner del nivel de riesgo -->
         {% if sem %}
         <div class="
-            {% if 'VERDE' in sem %}bg-gradient-to-r from-emerald-500 to-emerald-600
-            {% elif 'AMARILLO' in sem %}bg-gradient-to-r from-amber-400 to-amber-500
-            {% elif 'ROJO' in sem %}bg-gradient-to-r from-red-500 to-red-600
+            {% if 'APTO' in sem %}bg-gradient-to-r from-emerald-500 to-emerald-600
+            {% elif 'OBSERVACIÓN' in sem %}bg-gradient-to-r from-amber-400 to-amber-500
+            {% elif 'CRÍTICO' in sem %}bg-gradient-to-r from-red-700 to-red-900
+            {% elif 'RECHAZAR' in sem %}bg-gradient-to-r from-red-500 to-red-600
             {% else %}bg-gradient-to-r from-slate-400 to-slate-500{% endif %}
             text-white px-8 py-5 flex items-center justify-between
         ">

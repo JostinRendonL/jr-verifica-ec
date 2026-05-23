@@ -11,10 +11,11 @@ NAVY        = "1A3A5C"
 NAVY_LIGHT  = "2980B9"
 ACCENT      = "3498DB"
 
-VERDE_BG    = "D4EFDF"
-AMARILLO_BG = "FCF3CF"
-ROJO_BG     = "F1948A"
-GRIS_BG     = "EAEDED"
+VERDE_BG    = "D4EFDF"  # APTO
+AMARILLO_BG = "FCF3CF"  # OBSERVACIÓN
+ROJO_BG     = "F1948A"  # RECHAZAR
+CRITICO_BG  = "922B21"  # CRÍTICO (rojo intenso oscuro)
+GRIS_BG     = "EAEDED"  # SIN DATOS
 
 ROW_ALT_BG  = "FAFBFC"
 HEADER_BG   = NAVY
@@ -152,17 +153,19 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
 
     # ── Fila 3: Stats en una sola línea con contraste fuerte ─────────────────
     if tipo == "completo":
-        verdes    = sum(1 for r in resultados if "VERDE"    in r.get("semaforo", ""))
-        amarillos = sum(1 for r in resultados if "AMARILLO" in r.get("semaforo", ""))
-        rojos     = sum(1 for r in resultados if "ROJO"     in r.get("semaforo", ""))
-        gris      = sum(1 for r in resultados if "GRIS"     in r.get("semaforo", ""))
+        aptos          = sum(1 for r in resultados if "APTO"        in r.get("semaforo", ""))
+        observaciones  = sum(1 for r in resultados if "OBSERVACIÓN" in r.get("semaforo", ""))
+        rechazar       = sum(1 for r in resultados if "RECHAZAR"    in r.get("semaforo", ""))
+        criticos       = sum(1 for r in resultados if "CRÍTICO"     in r.get("semaforo", ""))
+        sin_datos      = sum(1 for r in resultados if "SIN DATOS"   in r.get("semaforo", ""))
 
         stats_text = (
             f"📊 TOTAL: {len(resultados)}     "
-            f"🟢 {verdes} VERDES     "
-            f"🟡 {amarillos} AMARILLOS     "
-            f"🔴 {rojos} ROJOS     "
-            f"⚪ {gris} GRIS"
+            f"🟢 {aptos} APTOS     "
+            f"🟡 {observaciones} OBSERVACIÓN     "
+            f"🔴 {rechazar} RECHAZAR     "
+            f"🚨 {criticos} CRÍTICOS     "
+            f"⚪ {sin_datos} SIN DATOS"
         )
         ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_cols)
         st = ws.cell(row=3, column=1, value=stats_text)
@@ -242,19 +245,26 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
             c.alignment = ALIGN_LEFT if i in (2, 4, 5, 6, 10) else ALIGN_CENTER
             c.border    = _BORDER
 
-        # Color del semáforo
+        # Color del nivel de riesgo
         if tipo == "completo":
             sem = r.get("semaforo", "")
             sem_cell = ws.cell(row=idx, column=3)
-            if "VERDE" in sem:
+            if "APTO" in sem:
                 sem_cell.fill = PatternFill(start_color=VERDE_BG,    end_color=VERDE_BG,    fill_type="solid")
-            elif "AMARILLO" in sem:
+                sem_cell.font = FONT_BODY_B
+            elif "OBSERVACIÓN" in sem:
                 sem_cell.fill = PatternFill(start_color=AMARILLO_BG, end_color=AMARILLO_BG, fill_type="solid")
-            elif "ROJO" in sem:
+                sem_cell.font = FONT_BODY_B
+            elif "CRÍTICO" in sem:
+                # Rojo intenso oscuro + texto blanco
+                sem_cell.fill = PatternFill(start_color=CRITICO_BG, end_color=CRITICO_BG, fill_type="solid")
+                sem_cell.font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+            elif "RECHAZAR" in sem:
                 sem_cell.fill = PatternFill(start_color=ROJO_BG,     end_color=ROJO_BG,     fill_type="solid")
-            elif "GRIS" in sem:
+                sem_cell.font = FONT_BODY_B
+            elif "SIN DATOS" in sem:
                 sem_cell.fill = PatternFill(start_color=GRIS_BG,     end_color=GRIS_BG,     fill_type="solid")
-            sem_cell.font = FONT_BODY_B
+                sem_cell.font = FONT_BODY_B
             sem_cell.alignment = ALIGN_CENTER
 
         # Resaltar SATJE con procesos en rojo

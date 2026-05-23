@@ -35,22 +35,59 @@ def obtener_job(job_id: str) -> dict | None:
     return _jobs.get(job_id)
 
 
+# Delitos que disparan el nivel CRÍTICO (escala de gravedad alta)
+DELITOS_GRAVES = [
+    "ASESINATO", "HOMICIDIO", "FEMICIDIO", "PARRICIDIO", "SICARIATO",
+    "VIOLACION", "VIOLACIÓN", "ABUSO SEXUAL", "ESTUPRO",
+    "SECUESTRO", "EXTORSION", "EXTORSIÓN", "PLAGIO",
+    "ROBO", "ASALTO",
+    "NARCOTRAFICO", "NARCOTRÁFICO", "DROGAS", "ESTUPEFACIENTES",
+    "DELINCUENCIA ORGANIZADA",
+    "TERRORISMO",
+    "TRATA DE PERSONAS",
+    "LAVADO DE ACTIVOS",
+    "TENENCIA DE ARMAS", "TENENCIA ILEGAL",
+    "PECULADO", "ENRIQUECIMIENTO ILICITO",
+]
+
+
+def _tiene_delitos_graves(satje: dict) -> bool:
+    """Detecta si entre los delitos hay alguno considerado grave."""
+    delitos = satje.get("delitos", []) or []
+    texto = " ".join(d.upper() for d in delitos)
+    return any(g in texto for g in DELITOS_GRAVES)
+
+
 def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
-    """Calcula semáforo si se piden ambos checks."""
+    """
+    Calcula nivel de riesgo si se piden ambos checks.
+
+    Niveles:
+      🟢 APTO         — Bachiller confirmado + sin procesos
+      🟡 OBSERVACIÓN  — Sin título oficial, O procesos como actor (víctima/demandante)
+      🔴 RECHAZAR     — Procesos como demandado (sin delitos graves)
+      🚨 CRÍTICO      — Delitos graves detectados (homicidio, narcos, etc)
+      ⚪ SIN DATOS    — Error en alguna consulta
+    """
     if tipo != "completo":
         return ""
 
-    # ROJO: procesos judiciales como demandado
-    if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
-        return "🔴 ROJO"
-    # GRIS: error en alguno
+    # ⚪ SIN DATOS — error en algo
     if bachiller.get("estado") == "ERROR" or satje.get("estado") == "ERROR":
-        return "⚪ GRIS"
-    # AMARILLO: sin título o causas como actor
+        return "⚪ SIN DATOS"
+
+    # 🚨 CRÍTICO o 🔴 RECHAZAR — procesos como demandado
+    if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
+        if _tiene_delitos_graves(satje):
+            return "🚨 CRÍTICO"
+        return "🔴 RECHAZAR"
+
+    # 🟡 OBSERVACIÓN — sin título o procesos como actor
     if bachiller.get("estado") != "ENCONTRADO" or satje.get("total_actor", 0) > 0:
-        return "🟡 AMARILLO"
-    # VERDE: bachiller confirmado, sin procesos
-    return "🟢 VERDE"
+        return "🟡 OBSERVACIÓN"
+
+    # 🟢 APTO
+    return "🟢 APTO"
 
 
 async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:

@@ -29,10 +29,11 @@
                 <label class="block text-xs font-semibold text-slate-600 mb-1 uppercase tracking-wider">Semáforo</label>
                 <select name="semaforo" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition">
                     <option value="">Todos</option>
-                    <option value="VERDE"    {% if filtro_semaforo == "VERDE" %}selected{% endif %}>🟢 VERDE</option>
-                    <option value="AMARILLO" {% if filtro_semaforo == "AMARILLO" %}selected{% endif %}>🟡 AMARILLO</option>
-                    <option value="ROJO"     {% if filtro_semaforo == "ROJO" %}selected{% endif %}>🔴 ROJO</option>
-                    <option value="GRIS"     {% if filtro_semaforo == "GRIS" %}selected{% endif %}>⚪ GRIS</option>
+                    <option value="APTO"        {% if filtro_semaforo == "APTO" %}selected{% endif %}>🟢 APTO</option>
+                    <option value="OBSERVACIÓN" {% if filtro_semaforo == "OBSERVACIÓN" %}selected{% endif %}>🟡 OBSERVACIÓN</option>
+                    <option value="RECHAZAR"    {% if filtro_semaforo == "RECHAZAR" %}selected{% endif %}>🔴 RECHAZAR</option>
+                    <option value="CRÍTICO"     {% if filtro_semaforo == "CRÍTICO" %}selected{% endif %}>🚨 CRÍTICO</option>
+                    <option value="SIN DATOS"   {% if filtro_semaforo == "SIN DATOS" %}selected{% endif %}>⚪ SIN DATOS</option>
                 </select>
             </div>
             <button type="submit" class="px-6 py-2.5 gradient-bg text-white font-semibold rounded-lg hover:opacity-90 transition">
@@ -87,9 +88,10 @@
                         <td class="px-4 py-3 text-center">
                             {% set sem = e.semaforo %}
                             <span class="inline-block px-3 py-1 text-xs font-bold rounded-full
-                                {% if 'VERDE' in sem %}bg-emerald-100 text-emerald-700
-                                {% elif 'AMARILLO' in sem %}bg-amber-100 text-amber-700
-                                {% elif 'ROJO' in sem %}bg-red-100 text-red-700
+                                {% if 'APTO' in sem %}bg-emerald-100 text-emerald-700
+                                {% elif 'OBSERVACIÓN' in sem %}bg-amber-100 text-amber-700
+                                {% elif 'CRÍTICO' in sem %}bg-red-900 text-white
+                                {% elif 'RECHAZAR' in sem %}bg-red-100 text-red-700
                                 {% else %}bg-slate-100 text-slate-500{% endif %}">
                                 {{ sem or "—" }}
                             </span>
