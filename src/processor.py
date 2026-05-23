@@ -13,13 +13,13 @@ MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
 _jobs: dict[str, dict] = {}
 
 
-def crear_job(cedulas: list[str], tipo: str) -> str:
-    """Crea un job nuevo y retorna su ID."""
+def crear_job(items: list[dict], tipo: str) -> str:
+    """Crea un job nuevo y retorna su ID. items = [{'cedula': '...', 'nombre': '...'}]"""
     job_id = uuid.uuid4().hex[:12]
     _jobs[job_id] = {
         "id":          job_id,
         "tipo":        tipo,
-        "total":       len(cedulas),
+        "total":       len(items),
         "procesados":  0,
         "estado":      "pendiente",
         "iniciado":    time.time(),
@@ -52,19 +52,25 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
     return "🟢 VERDE"
 
 
-async def _procesar_una(cedula: str, tipo: str, sem: asyncio.Semaphore) -> dict:
+async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:
     """Procesa una sola cédula con semáforo de concurrencia."""
+    cedula = item["cedula"]
+    nombre_input = item.get("nombre", "")
+
     async with sem:
         if tipo == "bachiller":
             raw = await consultar(cedula, tipo="bachiller")
+            b = extraer_bachiller(raw)
             return {
                 "cedula":    cedula,
-                "bachiller": extraer_bachiller(raw),
+                "nombre":    nombre_input or b.get("nombre", ""),
+                "bachiller": b,
             }
         if tipo == "satje":
             raw = await consultar(cedula, tipo="satje")
             return {
                 "cedula": cedula,
+                "nombre": nombre_input,
                 "satje":  extraer_satje(raw),
             }
         # completo: pedimos ambos en una sola llamada al endpoint /completo
@@ -73,13 +79,14 @@ async def _procesar_una(cedula: str, tipo: str, sem: asyncio.Semaphore) -> dict:
         s = extraer_satje(raw)
         return {
             "cedula":    cedula,
+            "nombre":    nombre_input or b.get("nombre", ""),
             "bachiller": b,
             "satje":     s,
             "semaforo":  _calcular_semaforo(b, s, "completo"),
         }
 
 
-async def ejecutar_job(job_id: str, cedulas: list[str], tipo: str) -> None:
+async def ejecutar_job(job_id: str, items: list[dict], tipo: str) -> None:
     """
     Ejecuta el job en background, actualizando _jobs[job_id]['procesados']
     en cada cédula completada.
@@ -91,17 +98,17 @@ async def ejecutar_job(job_id: str, cedulas: list[str], tipo: str) -> None:
 
     sem = asyncio.Semaphore(MAX_WORKERS)
 
-    async def _task(c: str):
-        r = await _procesar_una(c, tipo, sem)
+    async def _task(it: dict):
+        r = await _procesar_una(it, tipo, sem)
         job["resultados"].append(r)
         job["procesados"] = len(job["resultados"])
         return r
 
     try:
-        await asyncio.gather(*[_task(c) for c in cedulas])
+        await asyncio.gather(*[_task(it) for it in items])
 
-        # Ordenar resultados por orden original de cédulas
-        orden = {c: i for i, c in enumerate(cedulas)}
+        # Ordenar resultados por orden original
+        orden = {it["cedula"]: i for i, it in enumerate(items)}
         job["resultados"].sort(key=lambda r: orden.get(r.get("cedula", ""), 9999))
 
         # Generar Excel

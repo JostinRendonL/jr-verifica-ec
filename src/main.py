@@ -122,16 +122,16 @@ async def procesar(
 
     # Leer Excel
     contenido = await archivo.read()
-    cedulas, errores = leer_cedulas(contenido)
+    items, errores = leer_cedulas(contenido)
 
     if errores:
         return RedirectResponse(url=f"/?error=excel", status_code=303)
-    if not cedulas:
+    if not items:
         return RedirectResponse(url="/?error=vacio", status_code=303)
 
     # Crear job y disparar background task
-    job_id = crear_job(cedulas, tipo)
-    background_tasks.add_task(ejecutar_job, job_id, cedulas, tipo)
+    job_id = crear_job(items, tipo)
+    background_tasks.add_task(ejecutar_job, job_id, items, tipo)
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
