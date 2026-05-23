@@ -9,6 +9,7 @@ import os
 import json
 import time
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -151,3 +152,98 @@ def obtener_resultado(id_entrada: str) -> Optional[dict]:
 
 def total_entradas() -> int:
     return len(_entradas)
+
+
+# ── Stats para dashboard ─────────────────────────────────────────────────────
+
+def calcular_stats() -> dict:
+    """Calcula métricas agregadas para el dashboard."""
+    ahora = int(time.time())
+    UN_DIA  = 86400
+    UNA_SEM = UN_DIA * 7
+    UN_MES  = UN_DIA * 30
+
+    total = len(_entradas)
+
+    # Conteos por nivel
+    niveles = {"APTO": 0, "OBSERVACIÓN": 0, "RECHAZAR": 0, "CRÍTICO": 0, "SIN DATOS": 0, "OTROS": 0}
+    delitos_count: dict[str, int] = {}
+    instituciones: dict[str, int] = {}
+
+    # Por día (últimos 30 días)
+    por_dia: dict[str, int] = {}
+
+    hoy_count   = 0
+    semana_count = 0
+    mes_count   = 0
+
+    for e in _entradas:
+        ts = e.get("timestamp", 0)
+        sem_str = (e.get("semaforo", "") or "").upper()
+
+        # Nivel
+        nivel = "OTROS"
+        for k in niveles:
+            if k in sem_str:
+                nivel = k
+                break
+        niveles[nivel] = niveles.get(nivel, 0) + 1
+
+        # Periodos
+        if ahora - ts < UN_DIA:
+            hoy_count += 1
+        if ahora - ts < UNA_SEM:
+            semana_count += 1
+        if ahora - ts < UN_MES:
+            mes_count += 1
+
+        # Por día (último mes)
+        if ahora - ts < UN_MES:
+            dia_str = datetime.fromtimestamp(ts).strftime("%d/%m")
+            por_dia[dia_str] = por_dia.get(dia_str, 0) + 1
+
+        # Delitos detectados
+        resultado = e.get("resultado", {}) or {}
+        satje = resultado.get("satje", {}) or {}
+        for d in (satje.get("delitos") or []):
+            clave = d.upper().strip()[:60]
+            if clave:
+                delitos_count[clave] = delitos_count.get(clave, 0) + 1
+
+        # Instituciones (de bachiller)
+        bachiller = resultado.get("bachiller", {}) or {}
+        inst = (bachiller.get("institucion") or "").strip()
+        if inst:
+            instituciones[inst] = instituciones.get(inst, 0) + 1
+
+    # Top 10 delitos
+    top_delitos = sorted(delitos_count.items(), key=lambda kv: kv[1], reverse=True)[:10]
+
+    # Top 10 instituciones
+    top_instituciones = sorted(instituciones.items(), key=lambda kv: kv[1], reverse=True)[:10]
+
+    # Ordenar por_dia por fecha real (últimos 30 días, completar gaps con 0)
+    series_dia = []
+    for i in range(29, -1, -1):
+        ts_dia = ahora - (i * UN_DIA)
+        dia_str = datetime.fromtimestamp(ts_dia).strftime("%d/%m")
+        series_dia.append({"dia": dia_str, "consultas": por_dia.get(dia_str, 0)})
+
+    # Ahorro estimado: ~15 minutos de trabajo manual por consulta
+    minutos_ahorrados = total * 15
+    horas_ahorradas   = round(minutos_ahorrados / 60, 1)
+    # Costo de un empleado: ~$5/hora (mínimo Ecuador)
+    valor_ahorrado_usd = round(horas_ahorradas * 5, 2)
+
+    return {
+        "total":          total,
+        "hoy":            hoy_count,
+        "semana":         semana_count,
+        "mes":            mes_count,
+        "niveles":        niveles,
+        "top_delitos":    top_delitos,
+        "top_instituciones": top_instituciones,
+        "series_dia":     series_dia,
+        "horas_ahorradas": horas_ahorradas,
+        "valor_ahorrado_usd": valor_ahorrado_usd,
+    }

@@ -21,7 +21,7 @@ from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje
 from src.processor import _calcular_semaforo
-from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG
+from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG, calcular_stats
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
 
@@ -37,10 +37,10 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # CSP permisiva para Tailwind CDN + Google Fonts
+    # CSP permisiva para Tailwind + Google Fonts + Chart.js
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
@@ -274,6 +274,20 @@ async def buscar_individual(
         "resultado": resultado,
         "fecha":     datetime.now().strftime("%d/%m/%Y %H:%M"),
         "desde_cache": bool(resultado.get("_cache")),
+    })
+
+
+# ── Dashboard ────────────────────────────────────────────────────────────────
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def ver_dashboard(request: Request, jr_session: str | None = Cookie(None)):
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    stats = calcular_stats()
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request,
+        "stats":   stats,
     })
 
 

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · JR Verifica EC{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex items-end justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-800">📊 Panel de control</h1>
+            <p class="text-slate-500 mt-1">Resumen de verificaciones realizadas</p>
+        </div>
+        <a href="/" class="px-5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 transition">
+            ← Nueva búsqueda
+        </a>
+    </div>
+
+    <!-- KPI cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-2xl card-shadow p-5">
+            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Total</div>
+            <div class="text-4xl font-bold text-slate-800 mt-2">{{ stats.total }}</div>
+            <div class="text-xs text-slate-400 mt-1">consultas históricas</div>
+        </div>
+        <div class="bg-white rounded-2xl card-shadow p-5">
+            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Hoy</div>
+            <div class="text-4xl font-bold text-blue-600 mt-2">{{ stats.hoy }}</div>
+            <div class="text-xs text-slate-400 mt-1">en las últimas 24h</div>
+        </div>
+        <div class="bg-white rounded-2xl card-shadow p-5">
+            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Esta semana</div>
+            <div class="text-4xl font-bold text-indigo-600 mt-2">{{ stats.semana }}</div>
+            <div class="text-xs text-slate-400 mt-1">últimos 7 días</div>
+        </div>
+        <div class="bg-white rounded-2xl card-shadow p-5">
+            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Este mes</div>
+            <div class="text-4xl font-bold text-purple-600 mt-2">{{ stats.mes }}</div>
+            <div class="text-xs text-slate-400 mt-1">últimos 30 días</div>
+        </div>
+    </div>
+
+    <!-- ROI card destacado -->
+    <div class="bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl p-6 shadow-xl">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <div class="text-emerald-100 text-sm uppercase tracking-wider font-semibold">💰 Tu ahorro estimado</div>
+                <div class="text-5xl font-bold mt-2">${{ stats.valor_ahorrado_usd }}</div>
+                <div class="text-emerald-100 text-sm mt-1">vs. verificación manual</div>
+            </div>
+            <div class="text-right">
+                <div class="text-emerald-100 text-xs">Horas ahorradas</div>
+                <div class="text-3xl font-bold">{{ stats.horas_ahorradas }}h</div>
+                <div class="text-emerald-100 text-xs mt-1">~15 min por consulta manual</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Niveles + Tendencia -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Distribución por nivel -->
+        <div class="bg-white rounded-2xl card-shadow p-6">
+            <h3 class="font-bold text-slate-800 mb-4">🎯 Distribución por nivel</h3>
+            <div class="space-y-3">
+                {% for nivel, count in stats.niveles.items() %}
+                {% if count > 0 %}
+                {% set pct = (count * 100 // (stats.total if stats.total > 0 else 1)) %}
+                <div>
+                    <div class="flex justify-between text-sm mb-1">
+                        <span class="font-medium">
+                            {% if nivel == "APTO" %}🟢{% elif nivel == "OBSERVACIÓN" %}🟡{% elif nivel == "RECHAZAR" %}🔴{% elif nivel == "CRÍTICO" %}🚨{% elif nivel == "SIN DATOS" %}⚪{% else %}❓{% endif %}
+                            {{ nivel }}
+                        </span>
+                        <span class="text-slate-500">{{ count }} ({{ pct }}%)</span>
+                    </div>
+                    <div class="w-full bg-slate-100 rounded-full h-2.5">
+                        <div class="h-2.5 rounded-full
+                            {% if nivel == 'APTO' %}bg-emerald-500
+                            {% elif nivel == 'OBSERVACIÓN' %}bg-amber-400
+                            {% elif nivel == 'RECHAZAR' %}bg-red-500
+                            {% elif nivel == 'CRÍTICO' %}bg-red-900
+                            {% else %}bg-slate-400{% endif %}"
+                            style="width: {{ pct }}%"></div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+                {% if stats.total == 0 %}
+                <div class="text-center text-slate-400 py-8 text-sm">Sin datos aún</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Gráfica de tendencia -->
+        <div class="bg-white rounded-2xl card-shadow p-6">
+            <h3 class="font-bold text-slate-800 mb-4">📈 Consultas últimos 30 días</h3>
+            <canvas id="chart-tendencia" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Top delitos + Top instituciones -->
+    <div class="grid md:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl card-shadow p-6">
+            <h3 class="font-bold text-slate-800 mb-4">🚨 Top delitos detectados</h3>
+            {% if stats.top_delitos %}
+            <ol class="space-y-2">
+                {% for delito, count in stats.top_delitos %}
+                <li class="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
+                    <div class="flex items-center gap-3">
+                        <span class="w-7 h-7 rounded-full bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center">{{ loop.index }}</span>
+                        <span class="text-slate-700">{{ delito }}</span>
+                    </div>
+                    <span class="font-bold text-red-700">{{ count }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-center text-slate-400 py-6 text-sm">Aún no se han detectado delitos en las consultas</p>
+            {% endif %}
+        </div>
+
+        <div class="bg-white rounded-2xl card-shadow p-6">
+            <h3 class="font-bold text-slate-800 mb-4">🎓 Top instituciones educativas</h3>
+            {% if stats.top_instituciones %}
+            <ol class="space-y-2">
+                {% for inst, count in stats.top_instituciones %}
+                <li class="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                        <span class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center flex-shrink-0">{{ loop.index }}</span>
+                        <span class="text-slate-700 truncate">{{ inst }}</span>
+                    </div>
+                    <span class="font-bold text-blue-700 ml-2">{{ count }}</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-center text-slate-400 py-6 text-sm">Aún no hay bachilleres registrados</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const series = {{ stats.series_dia | tojson }};
+
+const ctx = document.getElementById('chart-tendencia').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: series.map(s => s.dia),
+        datasets: [{
+            label: 'Consultas',
+            data: series.map(s => s.consultas),
+            borderColor: '#2980B9',
+            backgroundColor: 'rgba(41, 128, 185, 0.1)',
+            fill: true,
+            tension: 0.35,
+            pointBackgroundColor: '#1A3A5C',
+            pointBorderColor: '#fff',
+            pointBorderWidth: 2,
+            pointRadius: 3,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#1A3A5C', padding: 10 }
+        },
+        scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 9 } } },
+            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } }, grid: { color: '#F1F5F9' } }
+        }
+    }
+});
+</script>
+{% endblock %}
