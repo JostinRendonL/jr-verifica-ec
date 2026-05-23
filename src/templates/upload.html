@@ -1,220 +1,253 @@
 {% extends "base.html" %}
-{% block title %}Inicio · JR Verifica EC{% endblock %}
+{% block title %}Buscar · JR Verifica EC{% endblock %}
 
 {% block content %}
-<div class="grid md:grid-cols-3 gap-8">
-    <!-- Columna izquierda: form con tabs -->
-    <div class="md:col-span-2 bg-white rounded-2xl card-shadow p-8">
-        <h1 class="text-3xl font-bold text-slate-800 mb-2">Verificación oficial</h1>
-        <p class="text-slate-500 mb-6">Bachiller (Min. Educación) + Procesos Judiciales (SATJE).</p>
+<div class="grid lg:grid-cols-3 gap-6">
+    <!-- Form principal -->
+    <div class="lg:col-span-2 space-y-6">
+        <div>
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Verificación oficial</h1>
+            <p class="text-slate-500 mt-1.5">Consulta antecedentes en el Ministerio de Educación y Función Judicial</p>
+        </div>
 
         {% set error = request.query_params.get('error') %}
         {% if error %}
-        <div class="mb-6 p-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg">
-            {% if error == "sin_seleccion" %}
-                ⚠️ Marca al menos una opción (Bachiller o Procesos Judiciales).
-            {% elif error == "excel" %}
-                ⚠️ Error al leer el Excel. Verifica que el archivo sea válido.
-            {% elif error == "vacio" %}
-                ⚠️ El Excel no contiene cédulas. Asegúrate de tener una columna llamada "cedula".
-            {% elif error == "job_no_encontrado" %}
-                ⚠️ El trabajo ya no existe (el servidor pudo haberse reiniciado).
-            {% elif error == "no_disponible" %}
-                ⚠️ Los resultados aún no están disponibles.
-            {% elif error == "cedula_invalida" %}
-                ⚠️ Cédula inválida. No pasa la verificación oficial del Registro Civil ecuatoriano (dígito verificador incorrecto).
-            {% else %}
-                ⚠️ Error: {{ error }}
-            {% endif %}
+        <div class="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
+            <i data-lucide="alert-triangle" class="icon-md text-amber-600 flex-shrink-0 mt-0.5"></i>
+            <div class="text-sm text-amber-900">
+                {% if error == "sin_seleccion" %}
+                    Marca al menos una opción de verificación.
+                {% elif error == "excel" %}
+                    Error al leer el archivo Excel. Verifica el formato.
+                {% elif error == "vacio" %}
+                    El Excel no contiene cédulas. Asegúrate de tener una columna llamada <code class="bg-amber-100 px-1 rounded">cedula</code>.
+                {% elif error == "job_no_encontrado" %}
+                    El trabajo ya no existe (el servidor pudo haberse reiniciado).
+                {% elif error == "no_disponible" %}
+                    Los resultados aún no están disponibles.
+                {% elif error == "cedula_invalida" %}
+                    Cédula inválida. No pasa la verificación oficial del Registro Civil.
+                {% elif error == "pdf_error" %}
+                    No se pudo generar el PDF. Intenta de nuevo.
+                {% else %}
+                    Error: {{ error }}
+                {% endif %}
+            </div>
         </div>
         {% endif %}
 
         <!-- Tabs -->
-        <div class="flex gap-2 mb-6 border-b border-slate-200">
-            <button onclick="mostrarTab('individual')" id="tab-individual"
-                class="px-5 py-3 font-semibold text-blue-600 border-b-2 border-blue-600 -mb-px transition">
-                🔍 Individual
-            </button>
-            <button onclick="mostrarTab('lote')" id="tab-lote"
-                class="px-5 py-3 font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 transition">
-                📊 Por lote (Excel)
-            </button>
-        </div>
-
-        <!-- ── TAB INDIVIDUAL ──────────────────────────────────────────── -->
-        <div id="contenido-individual">
-            <form method="POST" action="/buscar" class="space-y-6" onsubmit="mostrarLoader(event)">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">
-                        🆔 Número de cédula
-                    </label>
-                    <input
-                        type="text" name="cedula" required autofocus
-                        pattern="[0-9]{10}" maxlength="10" inputmode="numeric"
-                        placeholder="0954008272"
-                        class="w-full px-5 py-4 text-lg font-mono border-2 border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition tracking-wider"
-                    >
-                    <p class="mt-2 text-xs text-slate-500">10 dígitos sin espacios ni guiones.</p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-3">
-                        ✅ Verificaciones
-                    </label>
-                    <div class="space-y-3">
-                        <label class="flex items-start gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition">
-                            <input type="checkbox" name="bachiller" value="1" checked
-                                   class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
-                            <div>
-                                <div class="font-semibold text-slate-800">🎓 Bachiller — Ministerio de Educación</div>
-                                <p class="text-xs text-slate-500 mt-1">Título oficial, institución y año.</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition">
-                            <input type="checkbox" name="satje" value="1" checked
-                                   class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
-                            <div>
-                                <div class="font-semibold text-slate-800">⚖️ Procesos Judiciales — SATJE</div>
-                                <p class="text-xs text-slate-500 mt-1">Causas como demandado o actor.</p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <button type="submit"
-                    class="w-full py-4 gradient-bg text-white font-bold text-lg rounded-xl hover:opacity-90 transition shadow-lg">
-                    🔎 Buscar
+        <div class="card overflow-hidden">
+            <div class="flex border-b border-slate-200">
+                <button onclick="mostrarTab('individual')" id="tab-individual"
+                    class="flex items-center gap-2 px-6 py-4 text-sm font-semibold text-brand-600 border-b-2 border-brand-600 -mb-px transition">
+                    <i data-lucide="user-search" class="icon-sm"></i>
+                    Individual
                 </button>
-            </form>
-        </div>
-
-        <!-- ── TAB POR LOTE ────────────────────────────────────────────── -->
-        <div id="contenido-lote" class="hidden">
-            <form method="POST" action="/procesar" enctype="multipart/form-data" class="space-y-6" onsubmit="mostrarLoaderLote(event)">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">
-                        📄 Archivo Excel (.xlsx)
-                    </label>
-                    <input
-                        type="file" name="archivo" accept=".xlsx" required
-                        class="block w-full text-sm text-slate-600 file:mr-4 file:py-3 file:px-6 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition"
-                    >
-                    <p class="mt-2 text-xs text-slate-500">
-                        Columna <code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">cedula</code> + opcionalmente <code class="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">nombre</code>.
-                        <a href="/plantilla" class="text-blue-600 hover:underline ml-1">Descargar plantilla</a>
-                    </p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-3">
-                        ✅ Verificaciones
-                    </label>
-                    <div class="space-y-3">
-                        <label class="flex items-start gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition">
-                            <input type="checkbox" name="bachiller" value="1" checked
-                                   class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
-                            <div>
-                                <div class="font-semibold text-slate-800">🎓 Bachiller — Ministerio de Educación</div>
-                                <p class="text-xs text-slate-500 mt-1">Título oficial, institución y año.</p>
-                            </div>
-                        </label>
-
-                        <label class="flex items-start gap-3 p-4 border-2 border-slate-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition">
-                            <input type="checkbox" name="satje" value="1" checked
-                                   class="mt-1 w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
-                            <div>
-                                <div class="font-semibold text-slate-800">⚖️ Procesos Judiciales — SATJE</div>
-                                <p class="text-xs text-slate-500 mt-1">Causas como demandado o actor, delitos asociados.</p>
-                            </div>
-                        </label>
-                    </div>
-                    <p class="mt-3 text-xs text-slate-400">
-                        💡 Si marcas ambas, el Excel incluirá semáforo (🟢/🟡/🔴) y stats por color.
-                    </p>
-                </div>
-
-                <button type="submit"
-                    class="w-full py-4 gradient-bg text-white font-bold text-lg rounded-xl hover:opacity-90 transition shadow-lg">
-                    🚀 Iniciar verificación por lote
+                <button onclick="mostrarTab('lote')" id="tab-lote"
+                    class="flex items-center gap-2 px-6 py-4 text-sm font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 transition">
+                    <i data-lucide="file-spreadsheet" class="icon-sm"></i>
+                    Por lote (Excel)
                 </button>
-            </form>
+            </div>
+
+            <!-- Individual -->
+            <div id="contenido-individual" class="p-6 sm:p-8">
+                <form method="POST" action="/buscar" class="space-y-6" onsubmit="mostrarLoader(event)">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Número de cédula</label>
+                        <div class="relative">
+                            <i data-lucide="credit-card" class="icon-sm absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="text" name="cedula" required autofocus
+                                pattern="[0-9]{10}" maxlength="10" inputmode="numeric"
+                                placeholder="0954008272"
+                                class="input pl-10 font-mono text-base tracking-wider"
+                            >
+                        </div>
+                        <p class="mt-1.5 text-xs text-slate-500">10 dígitos · Validamos con el dígito verificador del Registro Civil</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-3">Verificaciones</label>
+                        <div class="grid sm:grid-cols-2 gap-3">
+                            <label class="check-card">
+                                <input type="checkbox" name="bachiller" value="1" checked class="check-input">
+                                <div class="check-icon"><i data-lucide="graduation-cap" class="icon-md"></i></div>
+                                <div class="check-text">
+                                    <div class="check-title">Bachiller</div>
+                                    <div class="check-sub">Ministerio de Educación</div>
+                                </div>
+                                <i data-lucide="check" class="check-mark icon-sm"></i>
+                            </label>
+
+                            <label class="check-card">
+                                <input type="checkbox" name="satje" value="1" checked class="check-input">
+                                <div class="check-icon"><i data-lucide="gavel" class="icon-md"></i></div>
+                                <div class="check-text">
+                                    <div class="check-title">Procesos Judiciales</div>
+                                    <div class="check-sub">SATJE Función Judicial</div>
+                                </div>
+                                <i data-lucide="check" class="check-mark icon-sm"></i>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full !py-3 text-base">
+                        <i data-lucide="search" class="icon-sm"></i>
+                        Buscar antecedentes
+                    </button>
+                </form>
+            </div>
+
+            <!-- Lote -->
+            <div id="contenido-lote" class="p-6 sm:p-8 hidden">
+                <form method="POST" action="/procesar" enctype="multipart/form-data" class="space-y-6" onsubmit="mostrarLoaderLote(event)">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Archivo Excel</label>
+                        <label class="block border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition group">
+                            <input type="file" name="archivo" accept=".xlsx" required class="sr-only" onchange="updateFileName(this)">
+                            <i data-lucide="upload-cloud" class="icon-lg mx-auto text-slate-400 group-hover:text-brand-500 transition mb-2"></i>
+                            <div class="text-sm font-semibold text-slate-700">Click para seleccionar archivo</div>
+                            <div id="file-name" class="text-xs text-slate-500 mt-1">Formatos: .xlsx</div>
+                        </label>
+                        <p class="mt-2.5 text-xs text-slate-500 flex items-center gap-2">
+                            <i data-lucide="info" class="icon-xs"></i>
+                            Una columna <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-700">cedula</code> obligatoria + <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-700">nombre</code> opcional.
+                            <a href="/plantilla" class="text-brand-600 hover:underline font-semibold inline-flex items-center gap-1">
+                                <i data-lucide="download" class="icon-xs"></i> Descargar plantilla
+                            </a>
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-3">Verificaciones</label>
+                        <div class="grid sm:grid-cols-2 gap-3">
+                            <label class="check-card">
+                                <input type="checkbox" name="bachiller" value="1" checked class="check-input">
+                                <div class="check-icon"><i data-lucide="graduation-cap" class="icon-md"></i></div>
+                                <div class="check-text">
+                                    <div class="check-title">Bachiller</div>
+                                    <div class="check-sub">Ministerio de Educación</div>
+                                </div>
+                                <i data-lucide="check" class="check-mark icon-sm"></i>
+                            </label>
+
+                            <label class="check-card">
+                                <input type="checkbox" name="satje" value="1" checked class="check-input">
+                                <div class="check-icon"><i data-lucide="gavel" class="icon-md"></i></div>
+                                <div class="check-text">
+                                    <div class="check-title">Procesos Judiciales</div>
+                                    <div class="check-sub">SATJE Función Judicial</div>
+                                </div>
+                                <i data-lucide="check" class="check-mark icon-sm"></i>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-primary w-full !py-3 text-base">
+                        <i data-lucide="rocket" class="icon-sm"></i>
+                        Iniciar verificación
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
-    <!-- Columna derecha: info -->
+    <!-- Sidebar -->
     <div class="space-y-4">
-        <div class="bg-white rounded-2xl card-shadow p-6">
-            <h3 class="font-bold text-slate-800 mb-3">⚡ ¿Cuál uso?</h3>
-            <div class="space-y-3 text-sm">
-                <div class="p-3 bg-blue-50 rounded-lg">
-                    <div class="font-semibold text-blue-900 mb-1">🔍 Individual</div>
-                    <p class="text-blue-800 text-xs">Una persona, resultado en pantalla. Ideal para consulta rápida.</p>
+        <div class="card p-5">
+            <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="zap" class="icon-sm text-brand-600"></i>
+                <h3 class="font-semibold text-slate-900 text-sm">¿Cuál uso?</h3>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="flex gap-2.5">
+                    <i data-lucide="user-search" class="icon-sm text-brand-600 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <div class="font-semibold text-slate-900">Individual</div>
+                        <div class="text-slate-500 mt-0.5">Una persona, resultado inmediato en pantalla + PDF descargable.</div>
+                    </div>
                 </div>
-                <div class="p-3 bg-indigo-50 rounded-lg">
-                    <div class="font-semibold text-indigo-900 mb-1">📊 Por lote</div>
-                    <p class="text-indigo-800 text-xs">Subes Excel, descargas Excel con resultados. Ideal para 5+ personas.</p>
+                <div class="flex gap-2.5">
+                    <i data-lucide="file-spreadsheet" class="icon-sm text-indigo-600 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <div class="font-semibold text-slate-900">Por lote</div>
+                        <div class="text-slate-500 mt-0.5">Excel con cédulas, descargas Excel con resultados. Ideal para 5+ personas.</div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-2xl card-shadow p-6">
-            <h3 class="font-bold text-slate-800 mb-3">📊 Niveles de riesgo</h3>
+        <div class="card p-5">
+            <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="shield-check" class="icon-sm text-emerald-600"></i>
+                <h3 class="font-semibold text-slate-900 text-sm">Niveles de riesgo</h3>
+            </div>
             <div class="space-y-2 text-xs">
-                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-emerald-500"></span> <strong>APTO</strong> — Bachiller + sin procesos</div>
-                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-amber-400"></span> <strong>OBSERVACIÓN</strong> — Sin título o procesos como actor</div>
-                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-red-500"></span> <strong>RECHAZAR</strong> — Procesos como demandado</div>
-                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-red-900"></span> <strong>CRÍTICO</strong> — Delitos graves</div>
-                <div class="flex items-center gap-2"><span class="w-4 h-4 rounded bg-slate-300"></span> <strong>SIN DATOS</strong> — Error de consulta</div>
+                <div class="flex items-center justify-between">
+                    <span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
+                    <span class="text-slate-500">Bachiller + sin procesos</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
+                    <span class="text-slate-500">Sin título o actor</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
+                    <span class="text-slate-500">Demandado</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>
+                    <span class="text-slate-500">Delitos graves</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="badge badge-sin"><span class="badge-dot"></span>SIN DATOS</span>
+                    <span class="text-slate-500">Error de consulta</span>
+                </div>
             </div>
         </div>
 
-        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-            <h3 class="font-bold text-slate-800 mb-2">🔐 100% Oficial</h3>
-            <p class="text-xs text-slate-600 leading-relaxed">
-                Consultamos directamente las fuentes oficiales del gobierno ecuatoriano. Sin intermediarios.
+        <div class="rounded-xl bg-gradient-to-br from-brand-600 to-indigo-700 text-white p-5">
+            <div class="flex items-center gap-2 mb-2">
+                <i data-lucide="badge-check" class="icon-sm"></i>
+                <h3 class="font-semibold text-sm">100% Oficial</h3>
+            </div>
+            <p class="text-xs text-indigo-100 leading-relaxed">
+                Consultamos directamente las fuentes oficiales del gobierno ecuatoriano. Sin intermediarios ni bases privadas.
             </p>
         </div>
     </div>
 </div>
 
-<!-- ── Overlay de carga (spinner full screen) ─────────────────────────────── -->
-<div id="loader-overlay" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center">
-    <div class="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
-        <div class="flex flex-col items-center">
-            <!-- Spinner -->
-            <div class="relative w-20 h-20 mb-6">
-                <div class="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                <div class="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+<!-- Loader overlay -->
+<div id="loader-overlay" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="card max-w-md w-full p-8">
+        <div class="flex flex-col items-center text-center">
+            <div class="relative w-16 h-16 mb-5">
+                <div class="absolute inset-0 border-4 border-brand-100 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
             </div>
-
-            <h3 id="loader-titulo" class="text-xl font-bold text-slate-800 mb-2">Consultando fuentes oficiales</h3>
-            <p id="loader-subtitle" class="text-sm text-slate-500 text-center">
-                Esto puede tardar entre 20 y 60 segundos.<br>
-                No cierres esta pestaña.
+            <h3 id="loader-titulo" class="text-lg font-bold text-slate-900 mb-1">Consultando fuentes oficiales</h3>
+            <p id="loader-subtitle" class="text-sm text-slate-500 mb-6">
+                Esto puede tardar entre 20 y 60 segundos. No cierres esta pestaña.
             </p>
 
-            <!-- Pasos -->
-            <div class="mt-6 w-full space-y-2 text-sm">
-                <div id="paso-1" class="flex items-center gap-3 text-slate-600">
-                    <span class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-                        <svg class="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
-                            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
-                        </svg>
-                    </span>
-                    <span>Conectando al Ministerio de Educación...</span>
+            <div class="w-full space-y-2 text-left text-sm">
+                <div id="paso-1" class="loader-step active">
+                    <span class="loader-dot"></span>
+                    <span>Conectando al Ministerio de Educación</span>
                 </div>
-                <div id="paso-2" class="flex items-center gap-3 text-slate-400">
-                    <span class="w-5 h-5 rounded-full border-2 border-slate-300"></span>
-                    <span>Resolviendo captcha</span>
+                <div id="paso-2" class="loader-step">
+                    <span class="loader-dot"></span>
+                    <span>Resolviendo verificación</span>
                 </div>
-                <div id="paso-3" class="flex items-center gap-3 text-slate-400">
-                    <span class="w-5 h-5 rounded-full border-2 border-slate-300"></span>
-                    <span>Consultando Función Judicial (SATJE)</span>
+                <div id="paso-3" class="loader-step">
+                    <span class="loader-dot"></span>
+                    <span>Consultando Función Judicial</span>
                 </div>
-                <div id="paso-4" class="flex items-center gap-3 text-slate-400">
-                    <span class="w-5 h-5 rounded-full border-2 border-slate-300"></span>
+                <div id="paso-4" class="loader-step">
+                    <span class="loader-dot"></span>
                     <span>Generando reporte</span>
                 </div>
             </div>
@@ -222,10 +255,79 @@
     </div>
 </div>
 
+<style>
+/* Check cards */
+.check-card {
+    position: relative;
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 1rem;
+    border: 1.5px solid #e2e8f0; border-radius: 0.875rem;
+    cursor: pointer; transition: all 150ms;
+    background-color: white;
+}
+.check-card:hover { border-color: #c7d2fe; background-color: #f5f7ff; }
+.check-input { position: absolute; opacity: 0; }
+.check-icon {
+    flex-shrink: 0;
+    width: 2.5rem; height: 2.5rem; border-radius: 0.625rem;
+    background-color: #f1f5f9; color: #475569;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 150ms;
+}
+.check-text { flex: 1; }
+.check-title { font-weight: 600; font-size: 0.875rem; color: #0f172a; }
+.check-sub { font-size: 0.7rem; color: #64748b; margin-top: 0.1rem; }
+.check-mark {
+    color: white; background: #4f46e5; border-radius: 9999px;
+    width: 1.25rem; height: 1.25rem; padding: 2px;
+    opacity: 0; transform: scale(0.5); transition: all 150ms;
+}
+.check-card:has(.check-input:checked) {
+    border-color: #4f46e5; background-color: #f5f7ff;
+}
+.check-card:has(.check-input:checked) .check-icon { background-color: #e0e7ff; color: #4338ca; }
+.check-card:has(.check-input:checked) .check-mark { opacity: 1; transform: scale(1); }
+
+/* Loader steps */
+.loader-step { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; color: #94a3b8; }
+.loader-step.active { color: #4f46e5; }
+.loader-step.done { color: #10b981; }
+.loader-dot {
+    width: 0.625rem; height: 0.625rem; border-radius: 9999px;
+    background-color: #e2e8f0;
+}
+.loader-step.active .loader-dot { background-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15); animation: pulse 1.4s ease-in-out infinite; }
+.loader-step.done .loader-dot   { background-color: #10b981; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+
 <script>
+function mostrarTab(tab) {
+    document.getElementById('contenido-individual').classList.toggle('hidden', tab !== 'individual');
+    document.getElementById('contenido-lote').classList.toggle('hidden', tab !== 'lote');
+
+    const tIndiv = document.getElementById('tab-individual');
+    const tLote  = document.getElementById('tab-lote');
+    if (tab === 'individual') {
+        tIndiv.className = "flex items-center gap-2 px-6 py-4 text-sm font-semibold text-brand-600 border-b-2 border-brand-600 -mb-px transition";
+        tLote.className  = "flex items-center gap-2 px-6 py-4 text-sm font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 transition";
+    } else {
+        tLote.className  = "flex items-center gap-2 px-6 py-4 text-sm font-semibold text-brand-600 border-b-2 border-brand-600 -mb-px transition";
+        tIndiv.className = "flex items-center gap-2 px-6 py-4 text-sm font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 transition";
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+function updateFileName(input) {
+    const lbl = document.getElementById('file-name');
+    if (input.files.length > 0) {
+        lbl.textContent = input.files[0].name;
+        lbl.classList.add('text-brand-600', 'font-semibold');
+    }
+}
+
 function mostrarLoader(e) {
     document.getElementById('loader-overlay').classList.remove('hidden');
-    // Simular avance de pasos
     setTimeout(() => marcarPaso(2), 6000);
     setTimeout(() => marcarPaso(3), 16000);
     setTimeout(() => marcarPaso(4), 28000);
@@ -233,47 +335,19 @@ function mostrarLoader(e) {
 
 function mostrarLoaderLote(e) {
     document.getElementById('loader-titulo').textContent = "Procesando lote";
-    document.getElementById('loader-subtitle').innerHTML = "Estamos procesando todas las cédulas.<br>Esto puede tardar varios minutos.";
+    document.getElementById('loader-subtitle').innerHTML = "Estamos verificando todas las cédulas en paralelo.<br>Puede tardar varios minutos.";
     document.getElementById('loader-overlay').classList.remove('hidden');
 }
 
 function marcarPaso(n) {
     const paso = document.getElementById('paso-' + n);
     if (!paso) return;
-    paso.classList.remove('text-slate-400');
-    paso.classList.add('text-slate-600');
-    paso.querySelector('span').outerHTML = `
-        <span class="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
-            <svg class="w-3 h-3 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" class="opacity-25"></circle>
-                <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" class="opacity-75"></path>
-            </svg>
-        </span>
-    `;
-    // Marcar el anterior como completo
+    paso.classList.remove('active');
+    paso.classList.add('active');
     const anterior = document.getElementById('paso-' + (n - 1));
     if (anterior) {
-        anterior.querySelector('span').outerHTML = `
-            <span class="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
-                <svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
-            </span>
-        `;
-    }
-}
-
-function mostrarTab(tab) {
-    document.getElementById('contenido-individual').classList.toggle('hidden', tab !== 'individual');
-    document.getElementById('contenido-lote').classList.toggle('hidden', tab !== 'lote');
-
-    const tabIndiv = document.getElementById('tab-individual');
-    const tabLote  = document.getElementById('tab-lote');
-
-    if (tab === 'individual') {
-        tabIndiv.className = "px-5 py-3 font-semibold text-blue-600 border-b-2 border-blue-600 -mb-px transition";
-        tabLote.className  = "px-5 py-3 font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 transition";
-    } else {
-        tabLote.className  = "px-5 py-3 font-semibold text-blue-600 border-b-2 border-blue-600 -mb-px transition";
-        tabIndiv.className = "px-5 py-3 font-semibold text-slate-500 border-b-2 border-transparent hover:text-slate-700 transition";
+        anterior.classList.remove('active');
+        anterior.classList.add('done');
     }
 }
 </script>

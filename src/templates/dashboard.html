@@ -3,75 +3,115 @@
 
 {% block content %}
 <div class="space-y-6">
-    <div class="flex items-end justify-between">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-slate-800">📊 Panel de control</h1>
-            <p class="text-slate-500 mt-1">Resumen de verificaciones realizadas</p>
+            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Panel de control</h1>
+            <p class="text-slate-500 mt-1.5 text-sm">Resumen de actividad y métricas de uso</p>
         </div>
-        <a href="/" class="px-5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 transition">
-            ← Nueva búsqueda
+        <a href="/" class="btn-secondary">
+            <i data-lucide="plus" class="icon-sm"></i>
+            Nueva búsqueda
         </a>
     </div>
 
     <!-- KPI cards -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="bg-white rounded-2xl card-shadow p-5">
-            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Total</div>
-            <div class="text-4xl font-bold text-slate-800 mt-2">{{ stats.total }}</div>
-            <div class="text-xs text-slate-400 mt-1">consultas históricas</div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="card p-5">
+            <div class="flex items-start justify-between mb-3">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total</span>
+                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                    <i data-lucide="database" class="icon-sm"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-slate-900 tracking-tight">{{ stats.total }}</div>
+            <div class="text-xs text-slate-500 mt-1">consultas históricas</div>
         </div>
-        <div class="bg-white rounded-2xl card-shadow p-5">
-            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Hoy</div>
-            <div class="text-4xl font-bold text-blue-600 mt-2">{{ stats.hoy }}</div>
-            <div class="text-xs text-slate-400 mt-1">en las últimas 24h</div>
+
+        <div class="card p-5">
+            <div class="flex items-start justify-between mb-3">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Hoy</span>
+                <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                    <i data-lucide="zap" class="icon-sm"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-brand-600 tracking-tight">{{ stats.hoy }}</div>
+            <div class="text-xs text-slate-500 mt-1">últimas 24 horas</div>
         </div>
-        <div class="bg-white rounded-2xl card-shadow p-5">
-            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Esta semana</div>
-            <div class="text-4xl font-bold text-indigo-600 mt-2">{{ stats.semana }}</div>
-            <div class="text-xs text-slate-400 mt-1">últimos 7 días</div>
+
+        <div class="card p-5">
+            <div class="flex items-start justify-between mb-3">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Semana</span>
+                <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                    <i data-lucide="calendar" class="icon-sm"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-indigo-600 tracking-tight">{{ stats.semana }}</div>
+            <div class="text-xs text-slate-500 mt-1">últimos 7 días</div>
         </div>
-        <div class="bg-white rounded-2xl card-shadow p-5">
-            <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Este mes</div>
-            <div class="text-4xl font-bold text-purple-600 mt-2">{{ stats.mes }}</div>
-            <div class="text-xs text-slate-400 mt-1">últimos 30 días</div>
+
+        <div class="card p-5">
+            <div class="flex items-start justify-between mb-3">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Mes</span>
+                <div class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
+                    <i data-lucide="calendar-days" class="icon-sm"></i>
+                </div>
+            </div>
+            <div class="text-3xl font-bold text-violet-600 tracking-tight">{{ stats.mes }}</div>
+            <div class="text-xs text-slate-500 mt-1">últimos 30 días</div>
         </div>
     </div>
 
-    <!-- ROI card destacado -->
-    <div class="bg-gradient-to-r from-emerald-500 to-emerald-700 text-white rounded-2xl p-6 shadow-xl">
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <!-- ROI hero -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white p-7 shadow-elevate">
+        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+        <div class="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div>
-                <div class="text-emerald-100 text-sm uppercase tracking-wider font-semibold">💰 Tu ahorro estimado</div>
-                <div class="text-5xl font-bold mt-2">${{ stats.valor_ahorrado_usd }}</div>
-                <div class="text-emerald-100 text-sm mt-1">vs. verificación manual</div>
+                <div class="flex items-center gap-2 text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-2">
+                    <i data-lucide="trending-up" class="icon-sm"></i>
+                    Tu ahorro acumulado
+                </div>
+                <div class="text-5xl font-bold tracking-tight">${{ stats.valor_ahorrado_usd }}</div>
+                <div class="text-emerald-100 text-sm mt-1.5">comparado con verificación manual</div>
             </div>
-            <div class="text-right">
-                <div class="text-emerald-100 text-xs">Horas ahorradas</div>
-                <div class="text-3xl font-bold">{{ stats.horas_ahorradas }}h</div>
-                <div class="text-emerald-100 text-xs mt-1">~15 min por consulta manual</div>
+            <div class="flex flex-col sm:flex-row gap-6">
+                <div class="md:text-right">
+                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold">Horas</div>
+                    <div class="text-3xl font-bold mt-1">{{ stats.horas_ahorradas }}h</div>
+                </div>
+                <div class="md:text-right">
+                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold">Tasa</div>
+                    <div class="text-3xl font-bold mt-1">~15 min</div>
+                    <div class="text-emerald-100 text-[10px] mt-0.5">por consulta manual</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Niveles + Tendencia -->
-    <div class="grid md:grid-cols-2 gap-6">
-        <!-- Distribución por nivel -->
-        <div class="bg-white rounded-2xl card-shadow p-6">
-            <h3 class="font-bold text-slate-800 mb-4">🎯 Distribución por nivel</h3>
-            <div class="space-y-3">
+    <!-- Distribución + Tendencia -->
+    <div class="grid lg:grid-cols-2 gap-4">
+        <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5">
+                <i data-lucide="pie-chart" class="icon-sm text-slate-700"></i>
+                <h3 class="font-bold text-slate-900 text-base">Distribución por nivel</h3>
+            </div>
+            <div class="space-y-3.5">
                 {% for nivel, count in stats.niveles.items() %}
                 {% if count > 0 %}
                 {% set pct = (count * 100 // (stats.total if stats.total > 0 else 1)) %}
                 <div>
-                    <div class="flex justify-between text-sm mb-1">
-                        <span class="font-medium">
-                            {% if nivel == "APTO" %}🟢{% elif nivel == "OBSERVACIÓN" %}🟡{% elif nivel == "RECHAZAR" %}🔴{% elif nivel == "CRÍTICO" %}🚨{% elif nivel == "SIN DATOS" %}⚪{% else %}❓{% endif %}
-                            {{ nivel }}
+                    <div class="flex justify-between items-center text-sm mb-1.5">
+                        <span class="flex items-center gap-2 font-medium text-slate-700">
+                            {% if nivel == "APTO" %}<span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
+                            {% elif nivel == "OBSERVACIÓN" %}<span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
+                            {% elif nivel == "RECHAZAR" %}<span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
+                            {% elif nivel == "CRÍTICO" %}<span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>
+                            {% elif nivel == "SIN DATOS" %}<span class="badge badge-sin"><span class="badge-dot"></span>SIN DATOS</span>
+                            {% else %}<span class="badge badge-sin"><span class="badge-dot"></span>{{ nivel }}</span>{% endif %}
                         </span>
-                        <span class="text-slate-500">{{ count }} ({{ pct }}%)</span>
+                        <span class="text-sm font-mono font-semibold text-slate-600">{{ count }} <span class="text-slate-400">({{ pct }}%)</span></span>
                     </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2.5">
-                        <div class="h-2.5 rounded-full
+                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                        <div class="h-2 rounded-full transition-all
                             {% if nivel == 'APTO' %}bg-emerald-500
                             {% elif nivel == 'OBSERVACIÓN' %}bg-amber-400
                             {% elif nivel == 'RECHAZAR' %}bg-red-500
@@ -83,55 +123,72 @@
                 {% endif %}
                 {% endfor %}
                 {% if stats.total == 0 %}
-                <div class="text-center text-slate-400 py-8 text-sm">Sin datos aún</div>
+                <div class="text-center text-slate-400 py-10 text-sm flex flex-col items-center gap-2">
+                    <i data-lucide="pie-chart" class="icon-lg opacity-30"></i>
+                    Sin datos aún
+                </div>
                 {% endif %}
             </div>
         </div>
 
-        <!-- Gráfica de tendencia -->
-        <div class="bg-white rounded-2xl card-shadow p-6">
-            <h3 class="font-bold text-slate-800 mb-4">📈 Consultas últimos 30 días</h3>
+        <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5">
+                <i data-lucide="trending-up" class="icon-sm text-slate-700"></i>
+                <h3 class="font-bold text-slate-900 text-base">Consultas últimos 30 días</h3>
+            </div>
             <canvas id="chart-tendencia" height="200"></canvas>
         </div>
     </div>
 
     <!-- Top delitos + Top instituciones -->
-    <div class="grid md:grid-cols-2 gap-6">
-        <div class="bg-white rounded-2xl card-shadow p-6">
-            <h3 class="font-bold text-slate-800 mb-4">🚨 Top delitos detectados</h3>
+    <div class="grid lg:grid-cols-2 gap-4">
+        <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5">
+                <i data-lucide="alert-octagon" class="icon-sm text-red-600"></i>
+                <h3 class="font-bold text-slate-900 text-base">Top delitos detectados</h3>
+            </div>
             {% if stats.top_delitos %}
-            <ol class="space-y-2">
+            <ol class="space-y-1">
                 {% for delito, count in stats.top_delitos %}
-                <li class="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
-                    <div class="flex items-center gap-3">
-                        <span class="w-7 h-7 rounded-full bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center">{{ loop.index }}</span>
-                        <span class="text-slate-700">{{ delito }}</span>
+                <li class="flex items-center justify-between gap-3 text-sm py-2 border-b border-slate-100 last:border-0">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-red-50 text-red-700 font-bold text-xs flex items-center justify-center">{{ loop.index }}</span>
+                        <span class="text-slate-700 truncate">{{ delito }}</span>
                     </div>
-                    <span class="font-bold text-red-700">{{ count }}</span>
+                    <span class="font-mono font-bold text-red-700">{{ count }}</span>
                 </li>
                 {% endfor %}
             </ol>
             {% else %}
-            <p class="text-center text-slate-400 py-6 text-sm">Aún no se han detectado delitos en las consultas</p>
+            <div class="text-center text-slate-400 py-10 text-sm flex flex-col items-center gap-2">
+                <i data-lucide="shield-check" class="icon-lg opacity-30"></i>
+                Sin delitos detectados aún
+            </div>
             {% endif %}
         </div>
 
-        <div class="bg-white rounded-2xl card-shadow p-6">
-            <h3 class="font-bold text-slate-800 mb-4">🎓 Top instituciones educativas</h3>
+        <div class="card p-6">
+            <div class="flex items-center gap-2 mb-5">
+                <i data-lucide="graduation-cap" class="icon-sm text-brand-600"></i>
+                <h3 class="font-bold text-slate-900 text-base">Top instituciones</h3>
+            </div>
             {% if stats.top_instituciones %}
-            <ol class="space-y-2">
+            <ol class="space-y-1">
                 {% for inst, count in stats.top_instituciones %}
-                <li class="flex items-center justify-between text-sm py-2 border-b border-slate-100 last:border-0">
-                    <div class="flex items-center gap-3 flex-1 min-w-0">
-                        <span class="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center flex-shrink-0">{{ loop.index }}</span>
+                <li class="flex items-center justify-between gap-3 text-sm py-2 border-b border-slate-100 last:border-0">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-brand-50 text-brand-700 font-bold text-xs flex items-center justify-center">{{ loop.index }}</span>
                         <span class="text-slate-700 truncate">{{ inst }}</span>
                     </div>
-                    <span class="font-bold text-blue-700 ml-2">{{ count }}</span>
+                    <span class="font-mono font-bold text-brand-700">{{ count }}</span>
                 </li>
                 {% endfor %}
             </ol>
             {% else %}
-            <p class="text-center text-slate-400 py-6 text-sm">Aún no hay bachilleres registrados</p>
+            <div class="text-center text-slate-400 py-10 text-sm flex flex-col items-center gap-2">
+                <i data-lucide="building-2" class="icon-lg opacity-30"></i>
+                Sin instituciones registradas
+            </div>
             {% endif %}
         </div>
     </div>
@@ -140,8 +197,12 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
 const series = {{ stats.series_dia | tojson }};
-
 const ctx = document.getElementById('chart-tendencia').getContext('2d');
+
+const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+gradient.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
 new Chart(ctx, {
     type: 'line',
     data: {
@@ -149,14 +210,16 @@ new Chart(ctx, {
         datasets: [{
             label: 'Consultas',
             data: series.map(s => s.consultas),
-            borderColor: '#2980B9',
-            backgroundColor: 'rgba(41, 128, 185, 0.1)',
+            borderColor: '#4f46e5',
+            backgroundColor: gradient,
             fill: true,
-            tension: 0.35,
-            pointBackgroundColor: '#1A3A5C',
+            tension: 0.4,
+            pointBackgroundColor: '#4f46e5',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
             pointRadius: 3,
+            pointHoverRadius: 5,
+            borderWidth: 2.5,
         }]
     },
     options: {
@@ -164,11 +227,16 @@ new Chart(ctx, {
         maintainAspectRatio: false,
         plugins: {
             legend: { display: false },
-            tooltip: { backgroundColor: '#1A3A5C', padding: 10 }
+            tooltip: {
+                backgroundColor: '#0f172a', padding: 10,
+                titleFont: { size: 12, weight: 'bold' },
+                bodyFont: { size: 12 },
+                displayColors: false, cornerRadius: 8,
+            }
         },
         scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 9 } } },
-            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } }, grid: { color: '#F1F5F9' } }
+            x: { grid: { display: false }, ticks: { font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8' }, border: { display: false } },
+            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8' }, grid: { color: '#f1f5f9' }, border: { display: false } }
         }
     }
 });

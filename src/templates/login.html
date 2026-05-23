@@ -1,75 +1,85 @@
 {% extends "base.html" %}
-{% block title %}Iniciar sesión · JR Verifica EC{% endblock %}
+{% block title %}Acceso · JR Verifica EC{% endblock %}
 
 {% block navbar %}
-<nav class="gradient-bg text-white">
-    <div class="max-w-6xl mx-auto px-6 py-4">
-        <div class="flex items-center gap-3">
-            <img src="/static/logo.png" alt="JR Automata" class="h-10 w-auto bg-white rounded-lg p-1" onerror="this.style.display='none'">
-            <div class="text-2xl font-extrabold tracking-tight">JR Verifica EC</div>
+<nav class="bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center">
+        <div class="flex items-center gap-2.5">
+            <img src="/static/logo.png" alt="JR Automata" class="h-9 w-9" onerror="this.style.display='none'">
+            <div class="flex flex-col leading-tight">
+                <span class="text-[15px] font-bold text-slate-900 tracking-tight">JR Verifica EC</span>
+                <span class="text-[10px] text-slate-500 font-medium">by JR Automata</span>
+            </div>
         </div>
     </div>
 </nav>
 {% endblock %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-20">
-    <div class="bg-white rounded-2xl card-shadow p-8">
-        <h1 class="text-2xl font-bold text-slate-800 mb-2">Acceso restringido</h1>
-        <p class="text-sm text-slate-500 mb-6">Ingresa la contraseña para acceder.</p>
-
-        {% if bloqueado_segundos and bloqueado_segundos > 0 %}
-        <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
-            🚫 <strong>Demasiados intentos fallidos.</strong><br>
-            Espera <span id="contador">{{ bloqueado_segundos }}</span> segundos para volver a intentar.
+<div class="min-h-[70vh] flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 mb-4">
+                <i data-lucide="shield-check" class="icon-lg"></i>
+            </div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Bienvenido</h1>
+            <p class="text-sm text-slate-500 mt-1">Ingresa tu contraseña para acceder al panel</p>
         </div>
-        <script>
-            let restantes = {{ bloqueado_segundos }};
-            const tick = setInterval(() => {
-                restantes--;
-                document.getElementById('contador').textContent = restantes;
-                if (restantes <= 0) { clearInterval(tick); window.location.href = '/login'; }
-            }, 1000);
-        </script>
-        {% elif error %}
-        <div class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
-            ❌ Contraseña incorrecta
-        </div>
-        {% endif %}
 
-        <form method="POST" action="/login" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Contraseña</label>
-                <div class="relative">
-                    <input
-                        type="password" name="password" id="password-input" required autofocus
-                        class="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                        placeholder="••••••••"
-                        {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}
-                    >
-                    <button type="button" onclick="togglePassword()"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition"
-                            tabindex="-1">
-                        <svg id="icon-eye" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
-                        <svg id="icon-eye-off" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                        </svg>
-                    </button>
+        <div class="card p-7">
+            {% if bloqueado_segundos and bloqueado_segundos > 0 %}
+            <div class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <i data-lucide="lock" class="icon-md text-red-600 flex-shrink-0 mt-0.5"></i>
+                <div class="text-sm text-red-800">
+                    <strong>Acceso bloqueado.</strong> Demasiados intentos fallidos.<br>
+                    Reintenta en <span id="contador" class="font-mono font-bold">{{ bloqueado_segundos }}</span>s
                 </div>
             </div>
-            <button type="submit"
-                class="w-full py-3 gradient-bg text-white font-semibold rounded-lg hover:opacity-90 transition"
-                {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}>
-                Entrar
-            </button>
-        </form>
+            <script>
+                let restantes = {{ bloqueado_segundos }};
+                const tick = setInterval(() => {
+                    restantes--;
+                    document.getElementById('contador').textContent = restantes;
+                    if (restantes <= 0) { clearInterval(tick); window.location.href = '/login'; }
+                }, 1000);
+            </script>
+            {% elif error %}
+            <div class="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
+                <i data-lucide="x-circle" class="icon-sm text-red-600"></i>
+                <span class="text-sm text-red-700 font-medium">Contraseña incorrecta</span>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="/login" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label>
+                    <div class="relative">
+                        <input
+                            type="password" name="password" id="password-input" required autofocus
+                            class="input pr-11"
+                            placeholder="••••••••"
+                            {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}
+                        >
+                        <button type="button" onclick="togglePassword()" tabindex="-1"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+                            <i data-lucide="eye" id="icon-eye" class="icon-sm"></i>
+                            <i data-lucide="eye-off" id="icon-eye-off" class="icon-sm hidden"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary w-full"
+                        {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}>
+                    Iniciar sesión
+                    <i data-lucide="arrow-right" class="icon-sm"></i>
+                </button>
+            </form>
+        </div>
+
+        <p class="text-center text-xs text-slate-400 mt-6 flex items-center justify-center gap-1.5">
+            <i data-lucide="lock" class="icon-xs"></i>
+            Conexión cifrada · Verificación oficial Ecuador
+        </p>
     </div>
-    <p class="text-center text-xs text-slate-400 mt-6">
-        Verificación oficial · Ministerio de Educación + SATJE Función Judicial
-    </p>
 </div>
 
 <script>
