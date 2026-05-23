@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Procesando · JR Verifica EC{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-white rounded-2xl card-shadow p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-2xl font-bold text-slate-800">Procesando lote</h1>
+            <span class="text-xs font-mono text-slate-400">{{ job.id }}</span>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="mb-6">
+            <div class="flex justify-between text-sm font-semibold mb-2">
+                <span id="estado" class="text-slate-700">Iniciando...</span>
+                <span class="text-slate-500"><span id="procesados">0</span> / {{ job.total }}</span>
+            </div>
+            <div class="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                <div id="barra" class="gradient-bg h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <div class="text-right text-xs text-slate-400 mt-1"><span id="porcentaje">0</span>%</div>
+        </div>
+
+        <!-- Tipo de verificación -->
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-slate-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-slate-500 uppercase tracking-wider">Tipo</div>
+                <div class="font-semibold text-slate-800 mt-1">
+                    {% if job.tipo == "bachiller" %}🎓 Bachiller
+                    {% elif job.tipo == "satje" %}⚖️ Procesos Judiciales
+                    {% else %}🎓+⚖️ Completo
+                    {% endif %}
+                </div>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3 text-center">
+                <div class="text-xs text-slate-500 uppercase tracking-wider">Total cédulas</div>
+                <div class="font-semibold text-slate-800 mt-1">{{ job.total }}</div>
+            </div>
+        </div>
+
+        <!-- Acciones (visibles cuando termine) -->
+        <div id="acciones" class="hidden">
+            <a href="/job/{{ job.id }}/descargar"
+               class="block w-full py-4 gradient-bg text-white font-bold text-lg text-center rounded-xl hover:opacity-90 transition shadow-lg mb-3">
+                📥 Descargar resultados (.xlsx)
+            </a>
+            <a href="/" class="block w-full py-3 text-center text-slate-600 hover:text-slate-800 transition">
+                ← Volver al inicio
+            </a>
+        </div>
+
+        <!-- Error -->
+        <div id="error-box" class="hidden mt-4 p-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+            ❌ <span id="error-msg"></span>
+        </div>
+
+        <!-- Mientras procesa -->
+        <div id="info-procesando" class="mt-4 p-4 bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-lg">
+            ⏳ Procesando en paralelo. No cierres esta pestaña — refrescamos automáticamente cada 2 segundos.
+        </div>
+    </div>
+</div>
+
+<script>
+const jobId = "{{ job.id }}";
+
+async function actualizar() {
+    try {
+        const r = await fetch(`/job/${jobId}/status`);
+        const data = await r.json();
+
+        if (data.error === "no_auth") { window.location.href = "/login"; return; }
+        if (data.error === "not_found") { document.getElementById("estado").textContent = "Job no encontrado"; return; }
+
+        document.getElementById("procesados").textContent = data.procesados;
+        document.getElementById("porcentaje").textContent = data.progreso;
+        document.getElementById("barra").style.width = data.progreso + "%";
+
+        const labels = {
+            "pendiente":   "🕓 En cola...",
+            "procesando":  "⚙️ Procesando...",
+            "completado":  "✅ Completado",
+            "error":       "❌ Error",
+        };
+        document.getElementById("estado").textContent = labels[data.estado] || data.estado;
+
+        if (data.estado === "completado") {
+            document.getElementById("acciones").classList.remove("hidden");
+            document.getElementById("info-procesando").classList.add("hidden");
+            return;  // stop polling
+        }
+        if (data.estado === "error") {
+            document.getElementById("error-box").classList.remove("hidden");
+            document.getElementById("error-msg").textContent = data.error || "Error desconocido";
+            document.getElementById("info-procesando").classList.add("hidden");
+            return;
+        }
+
+        setTimeout(actualizar, 2000);
+    } catch (e) {
+        setTimeout(actualizar, 4000);
+    }
+}
+
+actualizar();
+</script>
+{% endblock %}
