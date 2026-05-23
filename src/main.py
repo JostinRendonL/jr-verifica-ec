@@ -19,7 +19,11 @@ app = FastAPI(title="JR Verifica EC")
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+
+# Crear carpeta static si no existe (no es crítica, todo va por CDN)
+_static_dir = BASE_DIR / "static"
+_static_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
 # ── Helper de autenticación ──────────────────────────────────────────────────
