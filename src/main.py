@@ -11,9 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 load_dotenv()
 
+from datetime import datetime
+
 from src.auth import password_correcta, crear_cookie, cookie_valida, COOKIE_NAME
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
+from src.bg_client import consultar, extraer_bachiller, extraer_satje
+from src.processor import _calcular_semaforo
 
 app = FastAPI(title="JR Verifica EC")
 
@@ -135,6 +139,63 @@ async def procesar(
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
+
+# ── Búsqueda individual ──────────────────────────────────────────────────────
+
+@app.post("/buscar", response_class=HTMLResponse)
+async def buscar_individual(
+    request: Request,
+    cedula:    str = Form(...),
+    bachiller: str = Form(""),
+    satje:     str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    cedula = (cedula or "").strip()
+    if not cedula.isdigit() or len(cedula) != 10:
+        return RedirectResponse(url="/?error=cedula_invalida", status_code=303)
+
+    quiere_b = bool(bachiller)
+    quiere_s = bool(satje)
+    if not quiere_b and not quiere_s:
+        return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
+
+    # Determinar tipo
+    if quiere_b and quiere_s:
+        tipo = "completo"
+    elif quiere_b:
+        tipo = "bachiller"
+    else:
+        tipo = "satje"
+
+    # Llamar bg-api directo (es solo 1 cédula, no necesita job)
+    raw = await consultar(cedula, tipo=tipo)
+
+    b = extraer_bachiller(raw) if quiere_b else None
+    s = extraer_satje(raw)     if quiere_s else None
+
+    sem = ""
+    if quiere_b and quiere_s:
+        sem = _calcular_semaforo(b or {}, s or {}, "completo")
+
+    resultado = {
+        "cedula":    cedula,
+        "nombre":    (b or {}).get("nombre", "") if b else "",
+        "bachiller": b,
+        "satje":     s,
+        "semaforo":  sem,
+    }
+
+    return templates.TemplateResponse("resultado.html", {
+        "request":   request,
+        "resultado": resultado,
+        "fecha":     datetime.now().strftime("%d/%m/%Y %H:%M"),
+    })
+
+
+# ── Búsqueda por lote ────────────────────────────────────────────────────────
 
 @app.get("/job/{job_id}", response_class=HTMLResponse)
 async def ver_job(request: Request, job_id: str, jr_session: str | None = Cookie(None)):

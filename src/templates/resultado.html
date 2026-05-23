@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Resultado · JR Verifica EC{% endblock %}
+
+{% block content %}
+{% set b = resultado.bachiller or {} %}
+{% set s = resultado.satje or {} %}
+{% set sem = resultado.semaforo or "" %}
+
+<div class="max-w-3xl mx-auto">
+    <!-- Header con cédula + nombre -->
+    <div class="bg-white rounded-2xl card-shadow overflow-hidden">
+        <!-- Banner del semáforo -->
+        {% if sem %}
+        <div class="
+            {% if 'VERDE' in sem %}bg-gradient-to-r from-emerald-500 to-emerald-600
+            {% elif 'AMARILLO' in sem %}bg-gradient-to-r from-amber-400 to-amber-500
+            {% elif 'ROJO' in sem %}bg-gradient-to-r from-red-500 to-red-600
+            {% else %}bg-gradient-to-r from-slate-400 to-slate-500{% endif %}
+            text-white px-8 py-5 flex items-center justify-between
+        ">
+            <div>
+                <div class="text-xs uppercase tracking-widest opacity-80 mb-1">Veredicto</div>
+                <div class="text-2xl font-bold">{{ sem }}</div>
+            </div>
+            <div class="text-right">
+                <div class="text-xs uppercase tracking-widest opacity-80 mb-1">Cédula</div>
+                <div class="text-xl font-mono font-bold">{{ resultado.cedula }}</div>
+            </div>
+        </div>
+        {% else %}
+        <div class="gradient-bg text-white px-8 py-5">
+            <div class="text-xs uppercase tracking-widest opacity-80 mb-1">Cédula consultada</div>
+            <div class="text-2xl font-mono font-bold">{{ resultado.cedula }}</div>
+        </div>
+        {% endif %}
+
+        <!-- Nombre -->
+        <div class="px-8 py-5 border-b border-slate-100 bg-slate-50">
+            <div class="text-xs uppercase tracking-widest text-slate-500 mb-1">Nombre oficial</div>
+            <div class="text-xl font-bold text-slate-800">
+                {{ resultado.nombre or "—" }}
+                {% if not resultado.nombre %}
+                <span class="text-sm font-normal text-slate-400 italic">(no se pudo extraer de la fuente oficial)</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Bachiller -->
+        {% if b %}
+        <div class="px-8 py-6 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                🎓 Bachiller — Ministerio de Educación
+            </h3>
+
+            {% if b.estado == "ENCONTRADO" %}
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-5 space-y-2">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">✅</span>
+                    <div class="flex-1">
+                        <div class="font-bold text-emerald-900">Título confirmado</div>
+                        <div class="grid sm:grid-cols-2 gap-3 mt-3 text-sm">
+                            {% if b.titulo %}
+                            <div>
+                                <div class="text-xs text-emerald-700 uppercase tracking-wide">Título</div>
+                                <div class="font-semibold text-emerald-900">{{ b.titulo }}</div>
+                            </div>
+                            {% endif %}
+                            {% if b.especialidad %}
+                            <div>
+                                <div class="text-xs text-emerald-700 uppercase tracking-wide">Especialidad</div>
+                                <div class="font-semibold text-emerald-900">{{ b.especialidad }}</div>
+                            </div>
+                            {% endif %}
+                            {% if b.institucion %}
+                            <div class="sm:col-span-2">
+                                <div class="text-xs text-emerald-700 uppercase tracking-wide">Institución</div>
+                                <div class="font-semibold text-emerald-900">{{ b.institucion }}</div>
+                            </div>
+                            {% endif %}
+                            {% if b.fecha_grado %}
+                            <div>
+                                <div class="text-xs text-emerald-700 uppercase tracking-wide">Año de grado</div>
+                                <div class="font-semibold text-emerald-900">{{ b.fecha_grado[:4] }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% elif b.estado == "NO_ENCONTRADO" %}
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <div>
+                        <div class="font-bold text-amber-900">Sin registro</div>
+                        <div class="text-sm text-amber-800 mt-1">No existe título de bachiller registrado en el Ministerio de Educación para esta cédula.</div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">❌</span>
+                    <div>
+                        <div class="font-bold text-slate-700">Error de consulta</div>
+                        <div class="text-sm text-slate-600 mt-1">{{ b.detalle or "No se pudo completar la consulta" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- SATJE -->
+        {% if s %}
+        <div class="px-8 py-6 border-b border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                ⚖️ Procesos Judiciales — SATJE
+            </h3>
+
+            {% if s.estado == "SIN_PROCESOS" %}
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">✅</span>
+                    <div>
+                        <div class="font-bold text-emerald-900">Sin procesos judiciales</div>
+                        <div class="text-sm text-emerald-800 mt-1">No tiene causas activas como demandado ni como actor en la Función Judicial.</div>
+                    </div>
+                </div>
+            </div>
+            {% elif s.estado == "TIENE_PROCESOS" %}
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="{% if s.total_demandado > 0 %}bg-red-50 border-red-200{% else %}bg-slate-50 border-slate-200{% endif %} border rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-500{% endif %}">{{ s.total_demandado }}</div>
+                        <div class="text-xs uppercase tracking-wide {% if s.total_demandado > 0 %}text-red-600{% else %}text-slate-500{% endif %} mt-1">Como demandado</div>
+                    </div>
+                    <div class="{% if s.total_actor > 0 %}bg-amber-50 border-amber-200{% else %}bg-slate-50 border-slate-200{% endif %} border rounded-xl p-4 text-center">
+                        <div class="text-3xl font-bold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-500{% endif %}">{{ s.total_actor }}</div>
+                        <div class="text-xs uppercase tracking-wide {% if s.total_actor > 0 %}text-amber-600{% else %}text-slate-500{% endif %} mt-1">Como actor</div>
+                    </div>
+                </div>
+
+                {% if s.delitos %}
+                <div class="bg-red-50 border border-red-200 rounded-xl p-5">
+                    <div class="font-bold text-red-900 mb-3 flex items-center gap-2">
+                        🚨 Delitos detectados
+                    </div>
+                    <ul class="space-y-1.5">
+                        {% for d in s.delitos %}
+                        <li class="flex items-start gap-2 text-sm text-red-900">
+                            <span class="text-red-500 mt-0.5">•</span>
+                            <span>{{ d }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
+                <div class="flex items-start gap-3">
+                    <span class="text-2xl">❌</span>
+                    <div>
+                        <div class="font-bold text-slate-700">Error de consulta</div>
+                        <div class="text-sm text-slate-600 mt-1">{{ s.detalle or "No se pudo completar la consulta" }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Acciones -->
+        <div class="px-8 py-5 bg-slate-50 flex flex-col sm:flex-row gap-3">
+            <a href="/" class="flex-1 py-3 text-center bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 transition">
+                ← Buscar otra
+            </a>
+            <button onclick="window.print()" class="flex-1 py-3 text-center gradient-bg text-white font-semibold rounded-lg hover:opacity-90 transition">
+                🖨️ Imprimir / Guardar PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer info -->
+    <p class="text-center text-xs text-slate-400 mt-6">
+        Consulta realizada el {{ fecha }} · Información oficial de fuentes públicas del Ecuador
+    </p>
+</div>
+{% endblock %}
