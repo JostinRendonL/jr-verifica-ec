@@ -63,7 +63,7 @@ async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:
             b = extraer_bachiller(raw)
             return {
                 "cedula":    cedula,
-                "nombre":    nombre_input or b.get("nombre", ""),
+                "nombre":    b.get("nombre", "") or nombre_input,
                 "bachiller": b,
             }
         if tipo == "satje":
@@ -79,7 +79,7 @@ async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:
         s = extraer_satje(raw)
         return {
             "cedula":    cedula,
-            "nombre":    nombre_input or b.get("nombre", ""),
+            "nombre":    b.get("nombre", "") or nombre_input,
             "bachiller": b,
             "satje":     s,
             "semaforo":  _calcular_semaforo(b, s, "completo"),
