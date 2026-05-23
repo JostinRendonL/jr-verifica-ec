@@ -13,13 +13,46 @@ load_dotenv()
 
 from datetime import datetime
 
-from src.auth import password_correcta, crear_cookie, cookie_valida, COOKIE_NAME
+from src.auth import (
+    password_correcta, crear_cookie, cookie_valida, COOKIE_NAME, SESSION_MAX_AGE,
+    ip_bloqueada, registrar_intento_fallido, limpiar_intentos, cedula_valida_ec,
+)
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje
 from src.processor import _calcular_semaforo
 
 app = FastAPI(title="JR Verifica EC")
+
+
+# ── Middleware: headers de seguridad ─────────────────────────────────────────
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"]        = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # CSP permisiva para Tailwind CDN + Google Fonts
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'"
+    )
+    return response
+
+
+def _ip_cliente(request: Request) -> str:
+    """Obtiene la IP real del cliente (respeta Cloudflare/proxies)."""
+    return (
+        request.headers.get("cf-connecting-ip")
+        or request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        or (request.client.host if request.client else "unknown")
+    )
 
 BASE_DIR = Path(__file__).parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
@@ -50,21 +83,35 @@ async def health():
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_form(request: Request, error: str = ""):
-    return templates.TemplateResponse("login.html", {"request": request, "error": error})
+async def login_form(request: Request, error: str = "", bloqueado: int = 0):
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "error": error,
+        "bloqueado_segundos": bloqueado,
+    })
 
 
 @app.post("/login")
-async def login_submit(password: str = Form(...)):
+async def login_submit(request: Request, password: str = Form(...)):
+    ip = _ip_cliente(request)
+
+    bloqueada, seg = ip_bloqueada(ip)
+    if bloqueada:
+        return RedirectResponse(url=f"/login?bloqueado={seg}", status_code=303)
+
     if not password_correcta(password):
+        registrar_intento_fallido(ip)
         return RedirectResponse(url="/login?error=1", status_code=303)
+
+    limpiar_intentos(ip)
     resp = RedirectResponse(url="/", status_code=303)
     resp.set_cookie(
         key=COOKIE_NAME,
         value=crear_cookie(),
         httponly=True,
-        samesite="lax",
-        max_age=60 * 60 * 24 * 7,  # 7 días
+        secure=True,            # solo HTTPS
+        samesite="strict",      # protección CSRF
+        max_age=SESSION_MAX_AGE,
     )
     return resp
 
@@ -154,7 +201,7 @@ async def buscar_individual(
         return _redirect_login()
 
     cedula = (cedula or "").strip()
-    if not cedula.isdigit() or len(cedula) != 10:
+    if not cedula_valida_ec(cedula):
         return RedirectResponse(url="/?error=cedula_invalida", status_code=303)
 
     quiere_b = bool(bachiller)

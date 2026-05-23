@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}JR Verifica EC{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="apple-touch-icon" href="/static/logo.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,20 +18,31 @@
         .card-shadow {
             box-shadow: 0 10px 40px -10px rgba(26, 58, 92, 0.25);
         }
+        @media print {
+            nav, footer, button { display: none !important; }
+        }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen">
     {% block navbar %}
     <nav class="gradient-bg text-white shadow-lg">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div>
-                <a href="/" class="flex items-center gap-3">
-                    <div class="text-2xl font-extrabold tracking-tight">⚙️ JR Verifica EC</div>
-                    <span class="text-xs bg-white/20 px-2 py-1 rounded-full">powered by JR Automata</span>
-                </a>
-            </div>
+        <div class="max-w-6xl mx-auto px-6 py-3 flex justify-between items-center">
+            <a href="/" class="flex items-center gap-3 hover:opacity-90 transition">
+                <img src="/static/logo.png" alt="JR Automata"
+                     class="h-11 w-auto bg-white rounded-lg p-1"
+                     onerror="this.style.display='none'">
+                <div>
+                    <div class="text-xl font-extrabold tracking-tight leading-tight">JR Verifica EC</div>
+                    <div class="text-[10px] text-white/70 leading-tight">powered by JR Automata</div>
+                </div>
+            </a>
             {% if request.cookies.get('jr_session') %}
-            <a href="/logout" class="text-sm text-white/80 hover:text-white transition">Cerrar sesión</a>
+            <a href="/logout" class="text-sm text-white/80 hover:text-white transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Cerrar sesión
+            </a>
             {% endif %}
         </div>
     </nav>

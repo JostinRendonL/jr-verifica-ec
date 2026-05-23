@@ -150,29 +150,36 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
     sub.alignment = Alignment(horizontal="left", vertical="center", indent=2)
     ws.row_dimensions[2].height = 22
 
-    # ── Fila 3: Stats (solo en modo completo) ────────────────────────────────
+    # ── Fila 3: Stats con celdas separadas y colores reales ──────────────────
     if tipo == "completo":
         verdes    = sum(1 for r in resultados if "VERDE"    in r.get("semaforo", ""))
         amarillos = sum(1 for r in resultados if "AMARILLO" in r.get("semaforo", ""))
         rojos     = sum(1 for r in resultados if "ROJO"     in r.get("semaforo", ""))
         gris      = sum(1 for r in resultados if "GRIS"     in r.get("semaforo", ""))
 
-        stats_text = (
-            f"📊 TOTAL: {len(resultados)}     "
-            f"🟢 VERDES: {verdes}     "
-            f"🟡 AMARILLOS: {amarillos}     "
-            f"🔴 ROJOS: {rojos}     "
-            f"⚪ GRIS: {gris}"
-        )
-        ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_cols)
-        st = ws.cell(row=3, column=1, value=stats_text)
-        st.fill      = PatternFill(start_color=NAVY_LIGHT, end_color=NAVY_LIGHT, fill_type="solid")
-        st.font      = FONT_STAT
-        st.alignment = Alignment(horizontal="center", vertical="center")
-        ws.row_dimensions[3].height = 32
+        # 5 cuadros: TOTAL | VERDES | AMARILLOS | ROJOS | GRIS — cada uno con su color
+        cuadros = [
+            (f"📊 TOTAL\n{len(resultados)}", NAVY,        "FFFFFF"),
+            (f"🟢 VERDES\n{verdes}",          VERDE_BG,    "1E6F3E"),
+            (f"🟡 AMARILLOS\n{amarillos}",    AMARILLO_BG, "7E6500"),
+            (f"🔴 ROJOS\n{rojos}",            ROJO_BG,     "8B1A0E"),
+            (f"⚪ GRIS\n{gris}",              GRIS_BG,     "424949"),
+        ]
+
+        # Distribuir las 5 celdas a lo ancho de num_cols
+        cols_por_cuadro = max(1, num_cols // len(cuadros))
+        for i, (texto, bg, fg) in enumerate(cuadros):
+            start_col = 1 + i * cols_por_cuadro
+            end_col   = num_cols if i == len(cuadros) - 1 else start_col + cols_por_cuadro - 1
+            ws.merge_cells(start_row=3, start_column=start_col, end_row=3, end_column=end_col)
+            c = ws.cell(row=3, column=start_col, value=texto)
+            c.fill = PatternFill(start_color=bg, end_color=bg, fill_type="solid")
+            c.font = Font(name="Calibri", size=12, bold=True, color=fg)
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        ws.row_dimensions[3].height = 46
         header_row_num = 4
     else:
-        # Banner adicional con conteo simple
         ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=num_cols)
         st = ws.cell(row=3, column=1, value=f"📊 TOTAL CONSULTADOS: {len(resultados)}")
         st.fill      = PatternFill(start_color=NAVY_LIGHT, end_color=NAVY_LIGHT, fill_type="solid")

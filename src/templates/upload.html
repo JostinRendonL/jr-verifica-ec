@@ -22,7 +22,7 @@
             {% elif error == "no_disponible" %}
                 ⚠️ Los resultados aún no están disponibles.
             {% elif error == "cedula_invalida" %}
-                ⚠️ Cédula inválida. Debe tener exactamente 10 dígitos.
+                ⚠️ Cédula inválida. No pasa la verificación oficial del Registro Civil ecuatoriano (dígito verificador incorrecto).
             {% else %}
                 ⚠️ Error: {{ error }}
             {% endif %}
