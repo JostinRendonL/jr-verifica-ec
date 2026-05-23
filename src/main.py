@@ -315,8 +315,10 @@ async def descargar_pdf_consulta(
     try:
         pdf_bytes = generar_pdf(cached)
     except Exception as e:
-        print(f"[pdf] error generando: {e}")
-        return RedirectResponse(url="/?error=pdf_error", status_code=303)
+        import traceback
+        print(f"[pdf] error generando: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return RedirectResponse(url=f"/?error=pdf_error&detalle={type(e).__name__}", status_code=303)
 
     nombre_seguro = (cached.get("nombre", "") or cedula).replace(" ", "_")[:40]
     filename = f"JR_Verifica_{cedula}_{nombre_seguro}.pdf"
@@ -352,8 +354,10 @@ async def pdf_desde_historial(
     try:
         pdf_bytes = generar_pdf(resultado)
     except Exception as e:
-        print(f"[pdf] error: {e}")
-        return RedirectResponse(url=f"/historial/{entrada_id}?error=pdf", status_code=303)
+        import traceback
+        print(f"[pdf] error: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        return RedirectResponse(url=f"/historial/{entrada_id}?error=pdf_error&detalle={type(e).__name__}", status_code=303)
 
     cedula = resultado.get("cedula", "consulta")
     nombre_seguro = (resultado.get("nombre", "") or cedula).replace(" ", "_")[:40]
