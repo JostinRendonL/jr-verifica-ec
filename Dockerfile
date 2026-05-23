@@ -2,6 +2,9 @@ FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y \
     curl ca-certificates \
+    libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0 \
+    libcairo2 libgdk-pixbuf-2.0-0 shared-mime-info \
+    fonts-dejavu fonts-noto-color-emoji \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

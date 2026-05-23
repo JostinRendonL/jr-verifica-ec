@@ -22,6 +22,7 @@ from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje
 from src.processor import _calcular_semaforo
 from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG
+from src.pdf_generator import generar_pdf
 
 app = FastAPI(title="JR Verifica EC")
 
@@ -278,6 +279,91 @@ async def ver_historial(
         "filtro_semaforo": semaforo,
         "ttl_horas": CACHE_TTL_SEG // 3600,
     })
+
+
+@app.post("/pdf")
+async def descargar_pdf_consulta(
+    cedula:    str = Form(...),
+    bachiller: str = Form(""),
+    satje:     str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Genera un PDF de una consulta — siempre usa cache si existe."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    cedula = (cedula or "").strip()
+    if not cedula_valida_ec(cedula):
+        return RedirectResponse(url="/?error=cedula_invalida", status_code=303)
+
+    quiere_b = bool(bachiller)
+    quiere_s = bool(satje)
+    tipo = "completo" if quiere_b and quiere_s else ("bachiller" if quiere_b else "satje")
+
+    cached = buscar_cache(cedula, tipo)
+    if not cached:
+        return RedirectResponse(url="/?error=sin_datos_para_pdf", status_code=303)
+
+    # Recalcular semáforo
+    if quiere_b and quiere_s:
+        cached["semaforo"] = _calcular_semaforo(
+            cached.get("bachiller") or {},
+            cached.get("satje") or {},
+            "completo",
+        )
+
+    try:
+        pdf_bytes = generar_pdf(cached)
+    except Exception as e:
+        print(f"[pdf] error generando: {e}")
+        return RedirectResponse(url="/?error=pdf_error", status_code=303)
+
+    nombre_seguro = (cached.get("nombre", "") or cedula).replace(" ", "_")[:40]
+    filename = f"JR_Verifica_{cedula}_{nombre_seguro}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/historial/{entrada_id}/pdf")
+async def pdf_desde_historial(
+    entrada_id: str,
+    jr_session: str | None = Cookie(None),
+):
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    entrada = obtener_resultado(entrada_id)
+    if not entrada:
+        return RedirectResponse(url="/historial?error=no_encontrada", status_code=303)
+
+    resultado = entrada["resultado"]
+    # Recalcular semáforo con lógica actual
+    if resultado.get("bachiller") and resultado.get("satje"):
+        resultado["semaforo"] = _calcular_semaforo(
+            resultado.get("bachiller") or {},
+            resultado.get("satje") or {},
+            "completo",
+        )
+
+    try:
+        pdf_bytes = generar_pdf(resultado)
+    except Exception as e:
+        print(f"[pdf] error: {e}")
+        return RedirectResponse(url=f"/historial/{entrada_id}?error=pdf", status_code=303)
+
+    cedula = resultado.get("cedula", "consulta")
+    nombre_seguro = (resultado.get("nombre", "") or cedula).replace(" ", "_")[:40]
+    filename = f"JR_Verifica_{cedula}_{nombre_seguro}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/historial/{entrada_id}", response_class=HTMLResponse)

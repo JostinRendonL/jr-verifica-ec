@@ -192,13 +192,19 @@
         {% endif %}
 
         <!-- Acciones -->
-        <div class="px-8 py-5 bg-slate-50 flex flex-col sm:flex-row gap-3">
+        <div class="px-8 py-5 bg-slate-50 flex flex-col sm:flex-row gap-3 print:hidden">
             <a href="/" class="flex-1 py-3 text-center bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 transition">
                 ← Buscar otra
             </a>
-            <button onclick="window.print()" class="flex-1 py-3 text-center gradient-bg text-white font-semibold rounded-lg hover:opacity-90 transition">
-                🖨️ Imprimir / Guardar PDF
-            </button>
+            <form method="POST" action="/pdf" class="flex-1">
+                <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
+                <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
+                <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
+                <button type="submit"
+                    class="w-full py-3 text-center gradient-bg text-white font-semibold rounded-lg hover:opacity-90 transition flex items-center justify-center gap-2">
+                    📄 Descargar PDF oficial
+                </button>
+            </form>
         </div>
     </div>
 
