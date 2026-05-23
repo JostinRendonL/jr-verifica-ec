@@ -199,19 +199,20 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje,
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head><body>
 
-<div class="header">
-    <div class="header-left">
-        {logo_html}
-        <div class="brand-text">
+<table class="header-table">
+    <tr>
+        <td class="hdr-logo">{logo_html}</td>
+        <td class="hdr-brand">
             <div class="brand">JR Verifica EC</div>
-            <div class="brand-sub">Verificación de antecedentes oficiales<br/>Powered by JR Automata</div>
-        </div>
-    </div>
-    <div class="header-right">
-        <div class="codigo-lbl">Código de verificación</div>
-        <div class="codigo">{codigo_ver}</div>
-    </div>
-</div>
+            <div class="brand-sub">Verificación de antecedentes oficiales · Powered by JR Automata</div>
+        </td>
+        <td class="hdr-codigo">
+            <div class="codigo-lbl">Código de verificación</div>
+            <div class="codigo">{codigo_ver}</div>
+        </td>
+    </tr>
+</table>
+<div class="header-line"></div>
 
 <div class="veredicto" style="background-color: {color};">
     <div class="veredicto-lbl">VEREDICTO</div>
@@ -257,23 +258,21 @@ _CSS = """
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size: 10pt; }
 
-/* Header */
-.header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #1A3A5C;
-    margin-bottom: 16px;
+/* Header — usamos tabla porque flexbox da problemas en WeasyPrint */
+.header-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
 }
-.header-left { display: flex; align-items: center; gap: 18px; }
-.logo-img { height: 50px; width: 50px; object-fit: contain; }
-.brand-text { display: flex; flex-direction: column; }
+.hdr-logo { width: 60px; vertical-align: middle; padding-right: 16px; }
+.hdr-brand { vertical-align: middle; }
+.hdr-codigo { vertical-align: middle; text-align: right; width: 180px; }
+.logo-img { height: 50px; width: 50px; object-fit: contain; display: block; }
 .brand { font-size: 18pt; font-weight: bold; color: #1A3A5C; letter-spacing: -0.5px; line-height: 1.1; }
 .brand-sub { font-size: 8pt; color: #7B7D7D; margin-top: 4px; line-height: 1.3; }
-.header-right { text-align: right; }
 .codigo-lbl { font-size: 7pt; color: #7B7D7D; text-transform: uppercase; letter-spacing: 1px; }
 .codigo { font-family: 'Courier', monospace; font-size: 11pt; font-weight: bold; color: #1A3A5C; letter-spacing: 1px; }
+.header-line { border-bottom: 2px solid #1A3A5C; margin-bottom: 16px; padding-top: 8px; }
 
 /* Veredicto */
 .veredicto {
