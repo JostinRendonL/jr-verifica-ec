@@ -7,6 +7,25 @@
 {% set sem = resultado.semaforo or "" %}
 
 <div class="max-w-3xl mx-auto">
+    {% if desde_cache %}
+    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg flex items-center justify-between print:hidden">
+        <div>
+            💾 <strong>Resultado desde caché.</strong>
+            {% if edad_seg %}
+                Consultado hace {% if edad_seg < 3600 %}{{ (edad_seg // 60) }} min{% elif edad_seg < 86400 %}{{ (edad_seg // 3600) }}h{% else %}{{ (edad_seg // 86400) }} días{% endif %}.
+            {% endif %}
+        </div>
+        <form method="POST" action="/buscar" class="inline" onsubmit="event.target.querySelector('button').disabled=true;">
+            <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
+            <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
+            <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
+            <input type="hidden" name="forzar" value="1">
+            <button type="submit" class="px-3 py-1 bg-blue-600 text-white text-xs font-semibold rounded hover:bg-blue-700 transition">
+                🔄 Re-verificar
+            </button>
+        </form>
+    </div>
+    {% endif %}
     <!-- Header con cédula + nombre -->
     <div class="bg-white rounded-2xl card-shadow overflow-hidden">
         <!-- Banner del semáforo -->

@@ -11,6 +11,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Carpeta para historial persistente (montar volumen en Easypanel)
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \

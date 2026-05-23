@@ -6,6 +6,7 @@ import time
 from typing import Literal
 
 from src.bg_client import consultar, extraer_bachiller, extraer_satje
+from src.historial import buscar_cache, registrar
 
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
 
@@ -53,37 +54,52 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
 
 
 async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:
-    """Procesa una sola cédula con semáforo de concurrencia."""
+    """Procesa una sola cédula con semáforo de concurrencia. Usa caché si está disponible."""
     cedula = item["cedula"]
     nombre_input = item.get("nombre", "")
+
+    # ── Cache hit ────────────────────────────────────────────────────────────
+    cached = buscar_cache(cedula, tipo)
+    if cached is not None:
+        # Devolver el resultado cacheado, marcado como tal
+        return {**cached, "_cache": True}
 
     async with sem:
         if tipo == "bachiller":
             raw = await consultar(cedula, tipo="bachiller")
             b = extraer_bachiller(raw)
-            return {
+            resultado = {
                 "cedula":    cedula,
                 "nombre":    b.get("nombre", "") or nombre_input,
                 "bachiller": b,
             }
-        if tipo == "satje":
+        elif tipo == "satje":
             raw = await consultar(cedula, tipo="satje")
-            return {
+            resultado = {
                 "cedula": cedula,
                 "nombre": nombre_input,
                 "satje":  extraer_satje(raw),
             }
-        # completo: pedimos ambos en una sola llamada al endpoint /completo
-        raw = await consultar(cedula, tipo="completo")
-        b = extraer_bachiller(raw)
-        s = extraer_satje(raw)
-        return {
-            "cedula":    cedula,
-            "nombre":    b.get("nombre", "") or nombre_input,
-            "bachiller": b,
-            "satje":     s,
-            "semaforo":  _calcular_semaforo(b, s, "completo"),
-        }
+        else:
+            # completo: pedimos ambos en una sola llamada al endpoint /completo
+            raw = await consultar(cedula, tipo="completo")
+            b = extraer_bachiller(raw)
+            s = extraer_satje(raw)
+            resultado = {
+                "cedula":    cedula,
+                "nombre":    b.get("nombre", "") or nombre_input,
+                "bachiller": b,
+                "satje":     s,
+                "semaforo":  _calcular_semaforo(b, s, "completo"),
+            }
+
+    # Registrar en historial+cache
+    try:
+        registrar(resultado, tipo)
+    except Exception as e:
+        print(f"[processor] no se pudo registrar en historial: {e}")
+
+    return resultado
 
 
 async def ejecutar_job(job_id: str, items: list[dict], tipo: str) -> None:

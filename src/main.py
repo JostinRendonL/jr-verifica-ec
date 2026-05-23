@@ -21,6 +21,7 @@ from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje
 from src.processor import _calcular_semaforo
+from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG
 
 app = FastAPI(title="JR Verifica EC")
 
@@ -195,6 +196,7 @@ async def buscar_individual(
     cedula:    str = Form(...),
     bachiller: str = Form(""),
     satje:     str = Form(""),
+    forzar:    str = Form(""),         # si está presente, ignora caché
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
@@ -209,7 +211,6 @@ async def buscar_individual(
     if not quiere_b and not quiere_s:
         return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
 
-    # Determinar tipo
     if quiere_b and quiere_s:
         tipo = "completo"
     elif quiere_b:
@@ -217,28 +218,79 @@ async def buscar_individual(
     else:
         tipo = "satje"
 
-    # Llamar bg-api directo (es solo 1 cédula, no necesita job)
-    raw = await consultar(cedula, tipo=tipo)
+    # ── Cache ────────────────────────────────────────────────────────────────
+    cached = None if forzar else buscar_cache(cedula, tipo)
+    if cached:
+        resultado = {**cached, "_cache": True}
+    else:
+        raw = await consultar(cedula, tipo=tipo)
+        b = extraer_bachiller(raw) if quiere_b else None
+        s = extraer_satje(raw)     if quiere_s else None
 
-    b = extraer_bachiller(raw) if quiere_b else None
-    s = extraer_satje(raw)     if quiere_s else None
+        sem = ""
+        if quiere_b and quiere_s:
+            sem = _calcular_semaforo(b or {}, s or {}, "completo")
 
-    sem = ""
-    if quiere_b and quiere_s:
-        sem = _calcular_semaforo(b or {}, s or {}, "completo")
-
-    resultado = {
-        "cedula":    cedula,
-        "nombre":    (b or {}).get("nombre", "") if b else "",
-        "bachiller": b,
-        "satje":     s,
-        "semaforo":  sem,
-    }
+        resultado = {
+            "cedula":    cedula,
+            "nombre":    (b or {}).get("nombre", "") if b else "",
+            "bachiller": b,
+            "satje":     s,
+            "semaforo":  sem,
+        }
+        try:
+            registrar(resultado, tipo)
+        except Exception as e:
+            print(f"[main] historial: {e}")
 
     return templates.TemplateResponse("resultado.html", {
         "request":   request,
         "resultado": resultado,
         "fecha":     datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "desde_cache": bool(resultado.get("_cache")),
+    })
+
+
+# ── Historial ────────────────────────────────────────────────────────────────
+
+@app.get("/historial", response_class=HTMLResponse)
+async def ver_historial(
+    request: Request,
+    cedula: str = "", semaforo: str = "",
+    jr_session: str | None = Cookie(None),
+):
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    entradas = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo, limite=200)
+    return templates.TemplateResponse("historial.html", {
+        "request":   request,
+        "entradas":  entradas,
+        "total":     total_entradas(),
+        "filtro_cedula":   cedula,
+        "filtro_semaforo": semaforo,
+        "ttl_horas": CACHE_TTL_SEG // 3600,
+    })
+
+
+@app.get("/historial/{entrada_id}", response_class=HTMLResponse)
+async def ver_entrada_historial(
+    request: Request, entrada_id: str,
+    jr_session: str | None = Cookie(None),
+):
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    entrada = obtener_resultado(entrada_id)
+    if not entrada:
+        return RedirectResponse(url="/historial?error=no_encontrada", status_code=303)
+
+    return templates.TemplateResponse("resultado.html", {
+        "request":   request,
+        "resultado": entrada["resultado"],
+        "fecha":     datetime.fromtimestamp(entrada["timestamp"]).strftime("%d/%m/%Y %H:%M"),
+        "desde_cache": True,
+        "edad_seg":  entrada["edad_seg"],
     })
 
 
