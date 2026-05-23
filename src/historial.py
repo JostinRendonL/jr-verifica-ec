@@ -165,6 +165,14 @@ def calcular_stats() -> dict:
 
     total = len(_entradas)
 
+    # Mapeo de etiquetas viejas (VERDE/AMARILLO/ROJO/GRIS) → nuevas
+    MAPEO_VIEJO = {
+        "VERDE":    "APTO",
+        "AMARILLO": "OBSERVACIÓN",
+        "ROJO":     "RECHAZAR",
+        "GRIS":     "SIN DATOS",
+    }
+
     # Conteos por nivel
     niveles = {"APTO": 0, "OBSERVACIÓN": 0, "RECHAZAR": 0, "CRÍTICO": 0, "SIN DATOS": 0, "OTROS": 0}
     delitos_count: dict[str, int] = {}
@@ -180,6 +188,23 @@ def calcular_stats() -> dict:
     for e in _entradas:
         ts = e.get("timestamp", 0)
         sem_str = (e.get("semaforo", "") or "").upper()
+        # Normalizar etiquetas viejas → nuevas
+        for vieja, nueva in MAPEO_VIEJO.items():
+            sem_str = sem_str.replace(vieja, nueva)
+
+        # Si no tiene semaforo (consulta solo bachiller o solo satje), intentar calcularlo
+        if not sem_str:
+            resultado = e.get("resultado", {}) or {}
+            b = resultado.get("bachiller", {}) or {}
+            s = resultado.get("satje", {}) or {}
+            if b and s:
+                # Tiene ambos → podemos clasificar
+                if s.get("total_demandado", 0) > 0:
+                    sem_str = "RECHAZAR"
+                elif b.get("estado") != "ENCONTRADO" or s.get("total_actor", 0) > 0:
+                    sem_str = "OBSERVACIÓN"
+                else:
+                    sem_str = "APTO"
 
         # Nivel
         nivel = "OTROS"
