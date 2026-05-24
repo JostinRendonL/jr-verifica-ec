@@ -257,9 +257,16 @@ async def buscar_individual(
         if quiere_b and quiere_s:
             sem = _calcular_semaforo(b or {}, s or {}, "completo")
 
+        # Prioridad de nombre: Bachiller → SATJE → vacío
+        nombre = ""
+        if b and b.get("nombre"):
+            nombre = b.get("nombre")
+        elif s and s.get("nombre"):
+            nombre = s.get("nombre")
+
         resultado = {
             "cedula":    cedula,
-            "nombre":    (b or {}).get("nombre", "") if b else "",
+            "nombre":    nombre,
             "bachiller": b,
             "satje":     s,
             "semaforo":  sem,

@@ -118,19 +118,21 @@ async def _procesar_una(item: dict, tipo: str, sem: asyncio.Semaphore) -> dict:
             }
         elif tipo == "satje":
             raw = await consultar(cedula, tipo="satje")
+            s = extraer_satje(raw)
             resultado = {
                 "cedula": cedula,
-                "nombre": nombre_input,
-                "satje":  extraer_satje(raw),
+                "nombre": s.get("nombre", "") or nombre_input,
+                "satje":  s,
             }
         else:
             # completo: pedimos ambos en una sola llamada al endpoint /completo
+            # Prioridad de nombre: Bachiller (más confiable) → SATJE → Excel input
             raw = await consultar(cedula, tipo="completo")
             b = extraer_bachiller(raw)
             s = extraer_satje(raw)
             resultado = {
                 "cedula":    cedula,
-                "nombre":    b.get("nombre", "") or nombre_input,
+                "nombre":    b.get("nombre", "") or s.get("nombre", "") or nombre_input,
                 "bachiller": b,
                 "satje":     s,
                 "semaforo":  _calcular_semaforo(b, s, "completo"),

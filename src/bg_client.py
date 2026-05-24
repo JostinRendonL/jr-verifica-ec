@@ -125,13 +125,29 @@ def extraer_satje(data: dict) -> dict:
             d_corto = " ".join(partes[1:]) if partes and partes[0].isdigit() else d
             delitos.append(d_corto[:80])
 
+    # Extraer nombre desde las causas — primero demandado (sujeto consultado),
+    # luego actor. Útil como fallback cuando Bachiller no encuentra al candidato.
+    nombre = ""
+    for c in (s.get("causas_demandado") or []):
+        n = (c.get("nombreDemandado") or "").strip()
+        if n and len(n) > 3:
+            nombre = n
+            break
+    if not nombre:
+        for c in (s.get("causas_actor") or []):
+            n = (c.get("nombreActor") or "").strip()
+            if n and len(n) > 3:
+                nombre = n
+                break
+
     if td == 0 and ta == 0:
-        return {"estado": "SIN_PROCESOS", "total_demandado": 0, "total_actor": 0, "delitos": []}
+        return {"estado": "SIN_PROCESOS", "total_demandado": 0, "total_actor": 0, "delitos": [], "nombre": nombre}
 
     return {
         "estado":          "TIENE_PROCESOS",
         "total_demandado": td,
         "total_actor":     ta,
         "delitos":         delitos,
+        "nombre":          nombre,
         "detalle":         "; ".join(delitos) if delitos else f"{td} demandado, {ta} actor",
     }
