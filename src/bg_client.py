@@ -155,10 +155,19 @@ def extraer_satje(data: dict) -> dict:
 
 
 def extraer_setec(data: dict) -> dict | None:
-    """De la respuesta /completo del bg-api, extrae los datos de SETEC."""
-    raw = data.get("setec")
-    if not raw:
-        return None
+    """
+    Extrae datos de SETEC de la respuesta del bg-api.
+    Maneja dos formatos:
+      - Respuesta plana de /consultar/setec: la data ES el payload de SETEC
+      - Respuesta anidada de /completo (legacy): data["setec"] contiene el payload
+    """
+    if not data.get("ok"):
+        return {"estado": "ERROR", "detalle": data.get("error", "sin datos"), "cursos": [], "total": 0}
+
+    # Si viene de /consultar/setec: la data es plana (tiene_certificados en el top level)
+    # Si viene de /completo (legacy): está anidada en data["setec"]
+    raw = data.get("setec") or data
+
     if raw.get("error"):
         return {"estado": "ERROR", "detalle": raw["error"], "cursos": [], "total": 0}
     if raw.get("tiene_certificados"):
