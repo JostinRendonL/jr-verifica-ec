@@ -233,7 +233,7 @@ async def buscar_individual(
         return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
 
     if quiere_b and quiere_s:
-        tipo = "completo"   # SETEC viene gratis bundled en completo
+        tipo = "completo"
     elif quiere_b:
         tipo = "bachiller"
     elif quiere_s:
@@ -262,18 +262,18 @@ async def buscar_individual(
                 cached["nombre"] = s_c["nombre"]
         resultado = {**cached, "_cache": True}
     else:
-        # Si tipo != completo pero también quiere SETEC → llamadas en paralelo
-        if quiere_setec and tipo != "completo" and tipo != "setec":
+        # Si quiere SETEC y tipo no es ya "setec" → llamadas en paralelo
+        if quiere_setec and tipo != "setec":
             raw, raw_setec = await asyncio.gather(
                 consultar(cedula, tipo=tipo),
                 consultar(cedula, tipo="setec"),
             )
         elif tipo == "setec":
-            raw        = await consultar(cedula, tipo="setec")
-            raw_setec  = raw
+            raw       = await consultar(cedula, tipo="setec")
+            raw_setec = raw
         else:
             raw       = await consultar(cedula, tipo=tipo)
-            raw_setec = raw   # completo ya trae setec bundled
+            raw_setec = raw
 
         b     = extraer_bachiller(raw)      if quiere_b     else None
         s     = extraer_satje(raw)          if quiere_s     else None
