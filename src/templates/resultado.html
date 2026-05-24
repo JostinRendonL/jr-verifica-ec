@@ -43,7 +43,7 @@
                 {% endif %}
             </span>
         </div>
-        <form method="POST" action="/buscar" class="inline">
+        <form method="POST" action="/buscar" class="inline" onsubmit="mostrarLoaderReverificar()">
             <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
             <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
             <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
@@ -80,12 +80,11 @@
 
             <div class="pt-6 border-t border-white/15">
                 <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-1.5">Nombre oficial</div>
-                <div class="text-xl sm:text-2xl font-bold tracking-tight">
-                    {{ resultado.nombre or "—" }}
-                    {% if not resultado.nombre %}
-                    <span class="text-sm font-normal text-white/50 italic ml-2">(no extraído)</span>
-                    {% endif %}
-                </div>
+                {% if resultado.nombre %}
+                <div class="text-xl sm:text-2xl font-bold tracking-tight">{{ resultado.nombre }}</div>
+                {% else %}
+                <div class="text-base font-medium text-white/50 italic">No disponible — sin bachiller ni causas judiciales registradas</div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -254,4 +253,53 @@
         </form>
     </div>
 </div>
+
+<!-- Loader overlay re-verificar -->
+<div id="loader-overlay" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-8 border border-white/50">
+        <div class="flex flex-col items-center text-center">
+            <div class="relative w-16 h-16 mb-5">
+                <div class="absolute inset-0 border-4 border-brand-100 rounded-full"></div>
+                <div class="absolute inset-0 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <i data-lucide="shield-check" class="icon-md text-brand-600"></i>
+                </div>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mb-1">Re-verificando en fuentes oficiales</h3>
+            <p class="text-sm text-slate-500 mb-6">Ignorando caché y consultando de nuevo. Puede tardar entre 20 y 60 segundos.</p>
+            <div class="w-full space-y-2 text-left text-sm">
+                <div id="rv-paso-1" class="loader-step active"><span class="loader-dot"></span><span>Conectando al Ministerio de Educación</span></div>
+                <div id="rv-paso-2" class="loader-step"><span class="loader-dot"></span><span>Resolviendo verificación</span></div>
+                <div id="rv-paso-3" class="loader-step"><span class="loader-dot"></span><span>Consultando Función Judicial</span></div>
+                <div id="rv-paso-4" class="loader-step"><span class="loader-dot"></span><span>Generando reporte</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.loader-step { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; color: #94a3b8; transition: color 200ms; }
+.loader-step.active { color: #4f46e5; font-weight: 600; }
+.loader-step.done   { color: #10b981; }
+.loader-dot { width: 0.625rem; height: 0.625rem; border-radius: 9999px; background-color: #e2e8f0; flex-shrink: 0; transition: all 200ms; }
+.loader-step.active .loader-dot { background-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79,70,229,0.18); animation: pulse-dot 1.4s ease-in-out infinite; }
+.loader-step.done   .loader-dot { background-color: #10b981; }
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.5} }
+</style>
+
+<script>
+function mostrarLoaderReverificar() {
+    document.getElementById('loader-overlay').classList.remove('hidden');
+    if (window.lucide) lucide.createIcons();
+    function marcar(n) {
+        var paso = document.getElementById('rv-paso-' + n);
+        var prev = document.getElementById('rv-paso-' + (n-1));
+        if (paso) paso.classList.add('active');
+        if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
+    }
+    setTimeout(function(){ marcar(2); }, 6000);
+    setTimeout(function(){ marcar(3); }, 16000);
+    setTimeout(function(){ marcar(4); }, 28000);
+}
+</script>
 {% endblock %}
