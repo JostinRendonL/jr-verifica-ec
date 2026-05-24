@@ -19,7 +19,7 @@ from src.auth import (
 )
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
-from src.bg_client import consultar, extraer_bachiller, extraer_satje
+from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
 from src.processor import _calcular_semaforo
 from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG, calcular_stats
 from src.pdf_generator import generar_pdf
@@ -261,6 +261,8 @@ async def buscar_individual(
         raw = await consultar(cedula, tipo=tipo)
         b = extraer_bachiller(raw) if quiere_b else None
         s = extraer_satje(raw)     if quiere_s else None
+        # SETEC viene automáticamente en /completo (sin coste extra de tiempo)
+        setec = extraer_setec(raw) if (quiere_b and quiere_s) else None
 
         sem = ""
         if quiere_b and quiere_s:
@@ -278,6 +280,7 @@ async def buscar_individual(
             "nombre":    nombre,
             "bachiller": b,
             "satje":     s,
+            "setec":     setec,
             "semaforo":  sem,
         }
         try:

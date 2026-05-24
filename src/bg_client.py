@@ -151,3 +151,21 @@ def extraer_satje(data: dict) -> dict:
         "nombre":          nombre,
         "detalle":         "; ".join(delitos) if delitos else f"{td} demandado, {ta} actor",
     }
+
+
+def extraer_setec(data: dict) -> dict | None:
+    """De la respuesta /completo del bg-api, extrae los datos de SETEC."""
+    raw = data.get("setec")
+    if not raw:
+        return None
+    if raw.get("error"):
+        return {"estado": "ERROR", "detalle": raw["error"], "cursos": [], "total": 0}
+    if raw.get("tiene_certificados"):
+        cursos = [c.strip() for c in (raw.get("detalle_cursos") or "").split("|") if c.strip()]
+        return {
+            "estado":  "TIENE_CERTIFICADOS",
+            "cursos":  cursos,
+            "total":   raw.get("total_cursos", len(cursos)),
+            "detalle": raw.get("detalle_cursos", ""),
+        }
+    return {"estado": "SIN_CERTIFICADOS", "cursos": [], "total": 0, "detalle": "Sin registros"}

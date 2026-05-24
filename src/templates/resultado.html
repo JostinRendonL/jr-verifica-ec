@@ -236,6 +236,63 @@
     </div>
     {% endif %}
 
+    <!-- SETEC -->
+    {% set setec = resultado.setec or {} %}
+    {% if setec %}
+    <div class="card p-6 sm:p-7 card-hover">
+        <div class="flex items-center gap-2.5 mb-5">
+            <div class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                <i data-lucide="award" class="icon-md"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Capacitaciones Oficiales</h3>
+                <p class="text-xs text-slate-500">SETEC — Ministerio de Trabajo del Ecuador</p>
+            </div>
+        </div>
+
+        {% if setec.estado == "TIENE_CERTIFICADOS" %}
+        <div class="space-y-3">
+            <div class="flex items-center gap-2 mb-1">
+                <div class="text-2xl font-extrabold text-violet-700 font-mono">{{ setec.total }}</div>
+                <div class="text-xs font-bold text-violet-600 uppercase tracking-wider">certificación{{ "es" if setec.total != 1 else "" }} registrada{{ "s" if setec.total != 1 else "" }}</div>
+            </div>
+            <ul class="space-y-2">
+                {% for curso in setec.cursos %}
+                <li class="flex items-start gap-2.5 rounded-lg border border-violet-100 bg-violet-50/50 px-4 py-2.5">
+                    <div class="w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <i data-lucide="check" class="icon-xs"></i>
+                    </div>
+                    <span class="text-sm font-semibold text-slate-800">{{ curso }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        {% elif setec.estado == "SIN_CERTIFICADOS" %}
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="minus-circle" class="icon-sm"></i>
+            </div>
+            <div>
+                <div class="font-bold text-slate-700">Sin certificaciones registradas</div>
+                <div class="text-sm text-slate-500 mt-0.5">No tiene cursos registrados en el SETEC.</div>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-slate-300 text-slate-500 flex items-center justify-center flex-shrink-0">
+                <i data-lucide="alert-circle" class="icon-sm"></i>
+            </div>
+            <div>
+                <div class="font-bold text-slate-600">Portal no disponible</div>
+                <div class="text-sm text-slate-500 mt-0.5">{{ setec.detalle or "No se pudo consultar el SETEC en este momento." }}</div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Acciones -->
     <div class="flex flex-col sm:flex-row gap-3 pt-2 no-print">
         <a href="/" class="btn-secondary flex-1 !py-3">
