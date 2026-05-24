@@ -105,10 +105,11 @@ def _aplicar_borde(ws, rango_min_row, rango_max_row, rango_min_col, rango_max_co
             cell.border = _BORDER
 
 
-def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
+def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: bool = False) -> bytes:
     """
     Genera un Excel premium con los resultados.
     Estructura: banner + stats + tabla.
+    incluir_setec → agrega 3 columnas al final (Estado SETEC, # Cursos, Cursos)
     """
     wb = Workbook()
     ws = wb.active
@@ -121,6 +122,9 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
     elif tipo == "satje":
         headers = ["Cédula", "Nombre", "Estado", "T. Demandado", "T. Actor", "Delitos / Detalle"]
         widths  = [14, 32, 18, 14, 14, 60]
+    elif tipo == "setec":
+        headers = ["Cédula", "Nombre", "🎖️ Estado SETEC", "# Cursos", "Capacitaciones"]
+        widths  = [14, 32, 22, 12, 70]
     else:  # completo
         headers = [
             "Cédula", "Nombre", "🚦 Semáforo",
@@ -128,6 +132,11 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
             "⚖️ Estado SATJE", "Demandado", "Actor", "Delitos / Detalle",
         ]
         widths  = [14, 30, 14, 26, 32, 10, 18, 12, 12, 50]
+
+    # ── Agregar columnas SETEC al final si fue solicitado y no es tipo "setec" ──
+    if incluir_setec and tipo != "setec":
+        headers += ["🎖️ Estado SETEC", "# Cursos", "Capacitaciones"]
+        widths  += [22, 12, 70]
 
     num_cols = len(headers)
 
@@ -143,7 +152,10 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=num_cols)
     tipo_label = {"bachiller": "Bachiller (Min. Educación)",
                   "satje":     "Procesos Judiciales (SATJE)",
+                  "setec":     "Capacitaciones SETEC (Min. del Trabajo)",
                   "completo":  "Verificación completa (Bachiller + SATJE)"}[tipo]
+    if incluir_setec and tipo != "setec":
+        tipo_label += " + SETEC"
     fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
     sub = ws.cell(row=2, column=1, value=f"{tipo_label}  ·  Generado: {fecha}  ·  Powered by JR Automata")
     sub.fill      = PatternFill(start_color=BANNER_BG, end_color=BANNER_BG, fill_type="solid")
@@ -200,9 +212,28 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
 
     # ── Filas de datos ───────────────────────────────────────────────────────
     for idx, r in enumerate(resultados, start=header_row_num + 1):
-        b = r.get("bachiller", {})
-        s = r.get("satje", {})
-        nombre = r.get("nombre", "") or b.get("nombre", "") or ""
+        b  = r.get("bachiller", {}) or {}
+        s  = r.get("satje", {}) or {}
+        st = r.get("setec", {}) or {}
+        # Fallback de nombre: input → bachiller → SATJE (extraído de causas).
+        # Esto cubre el caso "cédula sin nombre + sin bachiller + con procesos
+        # judiciales" — el nombre se rescata desde nombreDemandado/nombreActor.
+        nombre = (
+            r.get("nombre", "") or
+            b.get("nombre", "") or
+            s.get("nombre", "") or
+            ""
+        )
+
+        # Helpers SETEC para columnas extra
+        st_estado_lbl = {
+            "TIENE_CERTIFICADOS": "✓ TIENE CERTIFICADOS",
+            "SIN_CERTIFICADOS":   "— Sin registros",
+            "ERROR":              "✕ Error",
+            "":                   "",
+        }.get(st.get("estado", ""), st.get("estado", ""))
+        st_total  = st.get("total", "") if st else ""
+        st_cursos = " | ".join(st.get("cursos", []) or []) if st else (st.get("detalle", "") if st else "")
 
         if tipo == "bachiller":
             fila = [
@@ -222,6 +253,13 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
                 s.get("total_actor", ""),
                 s.get("detalle", ""),
             ]
+        elif tipo == "setec":
+            fila = [
+                r.get("cedula", ""), nombre,
+                st_estado_lbl,
+                st_total,
+                st_cursos,
+            ]
         else:
             sem = r.get("semaforo", "")
             fila = [
@@ -234,6 +272,10 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
                 s.get("total_actor", ""),
                 s.get("detalle", ""),
             ]
+
+        # Anexar columnas SETEC al final si corresponde
+        if incluir_setec and tipo != "setec":
+            fila += [st_estado_lbl, st_total, st_cursos]
 
         # Banda alternada
         es_par = (idx - header_row_num) % 2 == 0
@@ -275,6 +317,22 @@ def generar_excel_resultados(resultados: list[dict], tipo: str) -> bytes:
             if "TIENE_PROCESOS" in str(estado_cell.value):
                 estado_cell.fill = PatternFill(start_color=ROJO_BG, end_color=ROJO_BG, fill_type="solid")
                 estado_cell.font = FONT_BODY_B
+
+        # Colorizar columna "Estado SETEC" según resultado
+        col_setec_estado = None
+        if tipo == "setec":
+            col_setec_estado = 3
+        elif incluir_setec:
+            col_setec_estado = num_cols - 2  # 3 columnas SETEC al final → estado es la antepenúltima
+        if col_setec_estado:
+            setec_cell = ws.cell(row=idx, column=col_setec_estado)
+            valor = str(setec_cell.value or "")
+            if "TIENE" in valor:
+                setec_cell.fill = PatternFill(start_color=VERDE_BG, end_color=VERDE_BG, fill_type="solid")
+                setec_cell.font = FONT_BODY_B
+            elif "Error" in valor or "✕" in valor:
+                setec_cell.fill = PatternFill(start_color=GRIS_BG, end_color=GRIS_BG, fill_type="solid")
+                setec_cell.font = FONT_BODY_B
 
         ws.row_dimensions[idx].height = 32
 

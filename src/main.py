@@ -170,26 +170,30 @@ async def descargar_plantilla(jr_session: str | None = Cookie(None)):
 async def procesar(
     background_tasks: BackgroundTasks,
     archivo: UploadFile = File(...),
-    bachiller: str = Form(""),
-    satje:     str = Form(""),
+    bachiller:   str = Form(""),
+    satje:       str = Form(""),
+    setec_check: str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
         return _redirect_login()
 
     # Determinar tipo según checkboxes
-    quiere_b = bool(bachiller)
-    quiere_s = bool(satje)
+    quiere_b     = bool(bachiller)
+    quiere_s     = bool(satje)
+    quiere_setec = bool(setec_check)
 
-    if not quiere_b and not quiere_s:
+    if not quiere_b and not quiere_s and not quiere_setec:
         return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
 
     if quiere_b and quiere_s:
         tipo = "completo"
     elif quiere_b:
         tipo = "bachiller"
-    else:
+    elif quiere_s:
         tipo = "satje"
+    else:
+        tipo = "setec"   # sólo SETEC
 
     # Leer Excel
     contenido = await archivo.read()
@@ -201,8 +205,8 @@ async def procesar(
         return RedirectResponse(url="/?error=vacio", status_code=303)
 
     # Crear job y disparar background task
-    job_id = crear_job(items, tipo)
-    background_tasks.add_task(ejecutar_job, job_id, items, tipo)
+    job_id = crear_job(items, tipo, incluir_setec=quiere_setec)
+    background_tasks.add_task(ejecutar_job, job_id, items, tipo, quiere_setec)
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
