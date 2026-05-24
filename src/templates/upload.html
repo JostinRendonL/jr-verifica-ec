@@ -297,24 +297,7 @@
                 Esto puede tardar entre 20 y 60 segundos. No cierres esta pestaña.
             </p>
 
-            <div class="w-full space-y-2 text-left text-sm">
-                <div id="paso-1" class="loader-step active">
-                    <span class="loader-dot"></span>
-                    <span>Conectando al Ministerio de Educación</span>
-                </div>
-                <div id="paso-2" class="loader-step">
-                    <span class="loader-dot"></span>
-                    <span>Resolviendo verificación</span>
-                </div>
-                <div id="paso-3" class="loader-step">
-                    <span class="loader-dot"></span>
-                    <span>Consultando Función Judicial</span>
-                </div>
-                <div id="paso-4" class="loader-step">
-                    <span class="loader-dot"></span>
-                    <span>Generando reporte</span>
-                </div>
-            </div>
+            <div class="w-full space-y-2 text-left text-sm" id="loader-pasos"></div>
         </div>
     </div>
 </div>
@@ -400,10 +383,41 @@ function updateFileName(input) {
 }
 
 function mostrarLoader(e) {
+    // Leer qué checkboxes están marcados en el formulario que se envía
+    const form = e.target;
+    const quiereBachiller = form.querySelector('input[name="bachiller"]')?.checked;
+    const quiereSatje     = form.querySelector('input[name="satje"]')?.checked;
+    const quiereSetec     = form.querySelector('input[name="setec_check"]')?.checked;
+
+    // Construir pasos dinámicamente según módulos seleccionados
+    const pasos = [];
+    if (quiereBachiller) {
+        pasos.push('Consultando Ministerio de Educación');
+        pasos.push('Verificando título de bachiller');
+    }
+    if (quiereSatje) {
+        pasos.push('Consultando Función Judicial SATJE');
+    }
+    if (quiereSetec) {
+        pasos.push('Consultando SETEC — Min. del Trabajo');
+    }
+    pasos.push('Generando reporte');
+
+    const container = document.getElementById('loader-pasos');
+    container.innerHTML = pasos.map((txt, i) =>
+        `<div id="paso-${i+1}" class="loader-step ${i === 0 ? 'active' : ''}">
+            <span class="loader-dot"></span><span>${txt}</span>
+         </div>`
+    ).join('');
+
     document.getElementById('loader-overlay').classList.remove('hidden');
-    setTimeout(() => marcarPaso(2), 6000);
-    setTimeout(() => marcarPaso(3), 16000);
-    setTimeout(() => marcarPaso(4), 28000);
+    if (window.lucide) lucide.createIcons();
+
+    // Avanzar pasos cada ~10 segundos
+    pasos.forEach((_, i) => {
+        if (i === 0) return;
+        setTimeout(() => marcarPaso(i + 1), i * 10000);
+    });
 }
 
 function mostrarLoaderLote(e) {
