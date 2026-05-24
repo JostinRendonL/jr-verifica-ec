@@ -34,6 +34,7 @@ async def consultar(
         "bachiller": "/consultar/bachiller",
         "satje":     "/consultar/satje",
         "completo":  "/consultar/completo",
+        "setec":     "/consultar/setec",
     }[tipo]
 
     try:

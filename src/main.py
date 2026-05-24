@@ -212,10 +212,11 @@ async def procesar(
 @app.post("/buscar", response_class=HTMLResponse)
 async def buscar_individual(
     request: Request,
-    cedula:    str = Form(...),
-    bachiller: str = Form(""),
-    satje:     str = Form(""),
-    forzar:    str = Form(""),         # si está presente, ignora caché
+    cedula:      str = Form(...),
+    bachiller:   str = Form(""),
+    satje:       str = Form(""),
+    setec_check: str = Form(""),
+    forzar:      str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
@@ -225,17 +226,20 @@ async def buscar_individual(
     if not cedula_valida_ec(cedula):
         return RedirectResponse(url="/?error=cedula_invalida", status_code=303)
 
-    quiere_b = bool(bachiller)
-    quiere_s = bool(satje)
-    if not quiere_b and not quiere_s:
+    quiere_b     = bool(bachiller)
+    quiere_s     = bool(satje)
+    quiere_setec = bool(setec_check)
+    if not quiere_b and not quiere_s and not quiere_setec:
         return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
 
     if quiere_b and quiere_s:
-        tipo = "completo"
+        tipo = "completo"   # SETEC viene gratis bundled en completo
     elif quiere_b:
         tipo = "bachiller"
-    else:
+    elif quiere_s:
         tipo = "satje"
+    else:
+        tipo = "setec"      # solo SETEC seleccionado
 
     # ── Cache ────────────────────────────────────────────────────────────────
     cached = None if forzar else buscar_cache(cedula, tipo)
@@ -258,17 +262,27 @@ async def buscar_individual(
                 cached["nombre"] = s_c["nombre"]
         resultado = {**cached, "_cache": True}
     else:
-        raw = await consultar(cedula, tipo=tipo)
-        b = extraer_bachiller(raw) if quiere_b else None
-        s = extraer_satje(raw)     if quiere_s else None
-        # SETEC viene automáticamente en /completo (sin coste extra de tiempo)
-        setec = extraer_setec(raw) if (quiere_b and quiere_s) else None
+        # Si tipo != completo pero también quiere SETEC → llamadas en paralelo
+        if quiere_setec and tipo != "completo" and tipo != "setec":
+            raw, raw_setec = await asyncio.gather(
+                consultar(cedula, tipo=tipo),
+                consultar(cedula, tipo="setec"),
+            )
+        elif tipo == "setec":
+            raw        = await consultar(cedula, tipo="setec")
+            raw_setec  = raw
+        else:
+            raw       = await consultar(cedula, tipo=tipo)
+            raw_setec = raw   # completo ya trae setec bundled
+
+        b     = extraer_bachiller(raw)      if quiere_b     else None
+        s     = extraer_satje(raw)          if quiere_s     else None
+        setec = extraer_setec(raw_setec)    if quiere_setec else None
 
         sem = ""
         if quiere_b and quiere_s:
             sem = _calcular_semaforo(b or {}, s or {}, "completo")
 
-        # Prioridad de nombre: Bachiller → SATJE → vacío
         nombre = ""
         if b and b.get("nombre"):
             nombre = b.get("nombre")
