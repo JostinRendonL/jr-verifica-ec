@@ -348,9 +348,10 @@ async def ver_historial(
 
 @app.post("/pdf")
 async def descargar_pdf_consulta(
-    cedula:    str = Form(...),
-    bachiller: str = Form(""),
-    satje:     str = Form(""),
+    cedula:      str = Form(...),
+    bachiller:   str = Form(""),
+    satje:       str = Form(""),
+    setec_check: str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     """Genera un PDF de una consulta — siempre usa cache si existe."""
@@ -361,9 +362,18 @@ async def descargar_pdf_consulta(
     if not cedula_valida_ec(cedula):
         return RedirectResponse(url="/?error=cedula_invalida", status_code=303)
 
-    quiere_b = bool(bachiller)
-    quiere_s = bool(satje)
-    tipo = "completo" if quiere_b and quiere_s else ("bachiller" if quiere_b else "satje")
+    quiere_b     = bool(bachiller)
+    quiere_s     = bool(satje)
+    quiere_setec = bool(setec_check)
+
+    if quiere_b and quiere_s:
+        tipo = "completo"
+    elif quiere_b:
+        tipo = "bachiller"
+    elif quiere_s:
+        tipo = "satje"
+    else:
+        tipo = "setec"
 
     cached = buscar_cache(cedula, tipo)
     if not cached:

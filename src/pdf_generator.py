@@ -59,6 +59,7 @@ def generar_pdf(resultado: dict) -> bytes:
     sem        = resultado.get("semaforo", "") or ""
     bachiller  = resultado.get("bachiller") or {}
     satje      = resultado.get("satje") or {}
+    setec      = resultado.get("setec") or {}
 
     timestamp  = int(time.time())
     fecha_str  = datetime.fromtimestamp(timestamp).strftime("%d de %B de %Y · %H:%M")
@@ -92,7 +93,7 @@ def generar_pdf(resultado: dict) -> bytes:
     # Generar HTML
     html = _construir_html(
         cedula=cedula, nombre=nombre, sem=sem, color=color,
-        bachiller=bachiller, satje=satje,
+        bachiller=bachiller, satje=satje, setec=setec,
         fecha_str=fecha_str, codigo_ver=codigo_ver,
         qr_b64=qr_b64, logo_b64=logo_b64,
     )
@@ -102,7 +103,7 @@ def generar_pdf(resultado: dict) -> bytes:
     return pdf_bytes
 
 
-def _construir_html(cedula, nombre, sem, color, bachiller, satje,
+def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec,
                     fecha_str, codigo_ver, qr_b64, logo_b64) -> str:
 
     # Sección bachiller
@@ -194,6 +195,41 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje,
                 </div>
             </div>"""
 
+    # Sección SETEC (Capacitaciones Oficiales — Ministerio del Trabajo)
+    setec_html = ""
+    if setec:
+        estado_st = setec.get("estado", "")
+        if estado_st == "TIENE_CERTIFICADOS":
+            cursos = setec.get("cursos", []) or []
+            total = setec.get("total", len(cursos))
+            items = "".join(f"<li>{c}</li>" for c in cursos)
+            setec_html = f"""
+            <div class="seccion">
+                <div class="seccion-titulo">🎖️ Capacitaciones Oficiales — SETEC / Ministerio del Trabajo</div>
+                <div class="caja verde">
+                    <div class="caja-titulo">✓ {total} certificación{'es' if total != 1 else ''} registrada{'s' if total != 1 else ''}</div>
+                    <ul class="cursos">{items}</ul>
+                </div>
+            </div>"""
+        elif estado_st == "SIN_CERTIFICADOS":
+            setec_html = """
+            <div class="seccion">
+                <div class="seccion-titulo">🎖️ Capacitaciones Oficiales — SETEC / Ministerio del Trabajo</div>
+                <div class="caja gris">
+                    <div class="caja-titulo">— Sin certificaciones registradas</div>
+                    <div>No tiene cursos registrados en el sistema SETEC.</div>
+                </div>
+            </div>"""
+        else:  # ERROR u otro
+            setec_html = f"""
+            <div class="seccion">
+                <div class="seccion-titulo">🎖️ Capacitaciones Oficiales — SETEC / Ministerio del Trabajo</div>
+                <div class="caja gris">
+                    <div class="caja-titulo">✕ Error de consulta</div>
+                    <div>{setec.get('detalle', 'No se pudo completar la consulta')}</div>
+                </div>
+            </div>"""
+
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="logo-img"/>' if logo_b64 else ""
 
     return f"""<!DOCTYPE html>
@@ -234,11 +270,12 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje,
 
 {bach_html}
 {satje_html}
+{setec_html}
 
 <div class="footer">
     <div class="footer-left">
         <div><strong>Fecha y hora:</strong> {fecha_str}</div>
-        <div><strong>Fuentes:</strong> Ministerio de Educación del Ecuador · Función Judicial (SATJE)</div>
+        <div><strong>Fuentes:</strong> Ministerio de Educación del Ecuador · Función Judicial (SATJE) · SETEC (Ministerio del Trabajo)</div>
         <div><strong>Validación:</strong> Documento generado automáticamente. Verifique con el código <strong>{codigo_ver}</strong>.</div>
     </div>
     <div class="footer-right">
@@ -328,6 +365,10 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
 /* Lista delitos */
 .delitos { padding-left: 18px; margin-top: 4px; }
 .delitos li { margin-bottom: 2px; font-size: 9pt; }
+
+/* Lista cursos SETEC */
+.cursos { padding-left: 18px; margin-top: 6px; }
+.cursos li { margin-bottom: 3px; font-size: 9pt; font-weight: 600; }
 
 /* Footer */
 .footer {

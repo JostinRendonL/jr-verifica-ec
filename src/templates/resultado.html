@@ -304,6 +304,7 @@
             <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
             <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
             <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
+            <input type="hidden" name="setec_check" value="{% if resultado.setec %}1{% endif %}">
             <button type="submit" class="btn-primary w-full !py-3">
                 <i data-lucide="file-down" class="icon-sm"></i>
                 Descargar PDF oficial
