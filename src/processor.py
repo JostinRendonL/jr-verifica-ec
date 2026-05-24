@@ -115,6 +115,26 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 registrar(cached, tipo)
             except Exception:
                 pass
+
+        # Auto-relleno de nombre faltante (cache viejo del schema anterior a SETEC.nombre):
+        # Si NO hay nombre cacheado Y el SETEC cacheado dice TIENE_CERTIFICADOS pero no
+        # trae nombre, re-fetch SOLO el SETEC para rescatar el nombre desde la tabla.
+        # Esto repara cache antiguo automáticamente sin que el usuario tenga que
+        # forzar consulta ni esperar el TTL de 24h.
+        if not cached.get("nombre"):
+            st_old = cached.get("setec") or {}
+            if st_old.get("estado") == "TIENE_CERTIFICADOS" and not st_old.get("nombre"):
+                async with sem:
+                    raw_st2 = await consultar(cedula, tipo="setec")
+                new_st = extraer_setec(raw_st2)
+                cached["setec"] = new_st
+                if new_st.get("nombre"):
+                    cached["nombre"] = new_st["nombre"]
+                try:
+                    registrar(cached, tipo)
+                except Exception:
+                    pass
+
         # Prioridad de nombre: si el Excel del usuario trae nombre, ese GANA.
         # Si no, mantener el del cache (que ya viene de bachiller/satje/setec).
         # Si tampoco hay en cache, intentar fallback final desde SETEC.

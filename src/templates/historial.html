@@ -14,12 +14,41 @@
             <h1 class="h-display text-4xl sm:text-5xl">Historial</h1>
             <p class="text-slate-500 mt-2.5 text-base">Todas las verificaciones realizadas por tu organización</p>
         </div>
-        <a href="/" class="btn-primary">
-            <i data-lucide="plus" class="icon-sm"></i>
-            Nueva búsqueda
-        </a>
+        <div class="flex items-center gap-2">
+            {% if entradas %}
+            <form method="POST" action="/historial/limpiar" onsubmit="return confirm('¿Borrar TODO el caché y el historial? Esta acción es irreversible. Las próximas consultas re-fetcharán desde las fuentes oficiales.')">
+                <button type="submit" class="btn-secondary !text-red-600 hover:!bg-red-50 hover:!border-red-200">
+                    <i data-lucide="trash-2" class="icon-sm"></i>
+                    Limpiar caché
+                </button>
+            </form>
+            {% endif %}
+            <a href="/" class="btn-primary">
+                <i data-lucide="plus" class="icon-sm"></i>
+                Nueva búsqueda
+            </a>
+        </div>
     </div>
 </div>
+
+{% if request.query_params.get('msg') %}
+<div class="mb-4 card p-4 flex items-center gap-3 border-emerald-200 bg-emerald-50/60">
+    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+        <i data-lucide="check-circle" class="icon-sm"></i>
+    </div>
+    <div class="text-sm text-emerald-900">
+        {% set msg = request.query_params.get('msg') %}
+        {% set n = request.query_params.get('n', '') %}
+        {% if msg == 'limpio' %}
+            Caché limpiado. Se borraron {{ n }} entradas.
+        {% elif msg == 'borrada' %}
+            Entrada eliminada del historial.
+        {% elif msg == 'borradas' %}
+            Se eliminaron {{ n }} entrada(s) de esa cédula.
+        {% endif %}
+    </div>
+</div>
+{% endif %}
 
 <div class="space-y-5">
     <!-- Stats inline -->
@@ -147,6 +176,12 @@
                             <a href="/historial/{{ e.id }}/pdf" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition opacity-70 group-hover:opacity-100">
                                 <i data-lucide="file-down" class="icon-xs"></i>PDF
                             </a>
+                            <span class="text-slate-200 mx-1.5">·</span>
+                            <form method="POST" action="/historial/{{ e.id }}/borrar" class="inline" onsubmit="return confirm('¿Borrar esta entrada del caché? La próxima consulta de esta cédula será nueva.')">
+                                <button type="submit" class="inline-flex items-center gap-1 text-red-500 hover:text-red-700 font-semibold text-sm transition opacity-60 group-hover:opacity-100" title="Borrar entrada y forzar re-consulta">
+                                    <i data-lucide="trash-2" class="icon-xs"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                     {% endfor %}

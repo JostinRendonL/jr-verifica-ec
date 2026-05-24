@@ -154,6 +154,43 @@ def total_entradas() -> int:
     return len(_entradas)
 
 
+def borrar_entrada(id_entrada: str) -> bool:
+    """Elimina una entrada específica del historial. Devuelve True si la borró."""
+    global _entradas
+    with _lock:
+        antes = len(_entradas)
+        _entradas = [e for e in _entradas if e.get("id") != id_entrada]
+        cambio = len(_entradas) < antes
+        if cambio:
+            _guardar_disco()
+        return cambio
+
+
+def borrar_por_cedula(cedula: str) -> int:
+    """Elimina TODAS las entradas para una cédula. Devuelve cuántas se borraron."""
+    global _entradas
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return 0
+    with _lock:
+        antes = len(_entradas)
+        _entradas = [e for e in _entradas if e.get("cedula") != cedula]
+        borradas = antes - len(_entradas)
+        if borradas:
+            _guardar_disco()
+        return borradas
+
+
+def limpiar_todo() -> int:
+    """Borra TODO el historial/caché. Devuelve cuántas entradas tenía."""
+    global _entradas
+    with _lock:
+        n = len(_entradas)
+        _entradas = []
+        _guardar_disco()
+        return n
+
+
 # ── Stats para dashboard ─────────────────────────────────────────────────────
 
 def calcular_stats() -> dict:

@@ -48,13 +48,26 @@ _BORDER = Border(
 def leer_cedulas(file_bytes: bytes) -> tuple[list[dict], list[str]]:
     """
     Lee un Excel y devuelve (lista de dicts {cedula, nombre}, errores).
-    Detecta columnas 'cedula' y opcionalmente 'nombre'.
+
+    Detección FLEXIBLE de columnas — pensado para que el usuario pueda
+    subir cualquier hoja Excel "improvisada" sin tener que renombrar headers:
+
+      • Cédula  → header contiene "cedula", "cédula", "identif" o es == "ci"
+      • Nombre  → header contiene "nombre" o "apellido"
+                 (cubre "Nombres", "Apellidos y Nombres", "NombreCompleto",
+                  "Nombre Apellido", "NOMBRES Y APELLIDOS", etc.)
+
+    Si no hay header reconocible, asume cédula = columna A y nombre = columna B.
+
+    Además dedupea cédulas repetidas: si una misma cédula aparece varias
+    veces, conserva la PRIMERA con nombre no-vacío (o la primera, si todas
+    vienen vacías).
     """
     try:
         wb = load_workbook(BytesIO(file_bytes), data_only=True)
         ws = wb.active
 
-        # Buscar columnas en el header
+        # Buscar columnas en el header (matching por substring)
         col_cedula = None
         col_nombre = None
         header_row = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), ())
@@ -62,18 +75,28 @@ def leer_cedulas(file_bytes: bytes) -> tuple[list[dict], list[str]]:
             if not val:
                 continue
             v = str(val).strip().lower()
-            if col_cedula is None and v in ("cedula", "cédula", "ci", "identificacion", "identificación", "nº de identifi.", "n° de identifi."):
+            # Cédula: substring match para tolerar "N° identificación", "CI", etc.
+            if col_cedula is None and (
+                "cedula" in v or "cédula" in v or "identif" in v or v == "ci"
+            ):
                 col_cedula = i
-            elif col_nombre is None and v in ("nombre", "nombres", "apellidos y nombres", "nombre completo", "nombre del titulado", "nombre del titulado"):
+            # Nombre: substring "nombre" o "apellido" — captura todas las
+            # variantes posibles que un usuario pondría intuitivamente
+            elif col_nombre is None and ("nombre" in v or "apellido" in v):
                 col_nombre = i
 
         if col_cedula is None:
+            # Sin header reconocible: asumir cédula en A, nombre en B si existe
             col_cedula = 0
+            if col_nombre is None and len(header_row) > 1:
+                col_nombre = 1
             data_start_row = 1
         else:
             data_start_row = 2
 
-        items = []
+        # Recolectar + dedupear: la primera aparición con nombre gana
+        seen: dict[str, dict] = {}
+        orden: list[str] = []
         for row in ws.iter_rows(min_row=data_start_row, values_only=True):
             if col_cedula >= len(row):
                 continue
@@ -90,8 +113,15 @@ def leer_cedulas(file_bytes: bytes) -> tuple[list[dict], list[str]]:
                 if n:
                     nombre = str(n).strip()
 
-            items.append({"cedula": cedula, "nombre": nombre})
+            if cedula not in seen:
+                seen[cedula] = {"cedula": cedula, "nombre": nombre}
+                orden.append(cedula)
+            else:
+                # Si la entrada existente está vacía de nombre pero esta nueva trae uno, upgrade
+                if not seen[cedula]["nombre"] and nombre:
+                    seen[cedula]["nombre"] = nombre
 
+        items = [seen[c] for c in orden]
         return items, []
 
     except Exception as e:

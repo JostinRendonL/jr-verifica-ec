@@ -21,7 +21,11 @@ from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
 from src.processor import _calcular_semaforo
-from src.historial import buscar_cache, registrar, listar as listar_historial, obtener_resultado, total_entradas, CACHE_TTL_SEG, calcular_stats
+from src.historial import (
+    buscar_cache, registrar, listar as listar_historial, obtener_resultado,
+    total_entradas, CACHE_TTL_SEG, calcular_stats,
+    borrar_entrada, borrar_por_cedula, limpiar_todo,
+)
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
 
@@ -454,6 +458,33 @@ async def pdf_desde_historial(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/historial/limpiar")
+async def limpiar_historial(jr_session: str | None = Cookie(None)):
+    """Borra TODO el historial/caché — útil cuando se necesita forzar re-consulta global."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    n = limpiar_todo()
+    return RedirectResponse(url=f"/historial?msg=limpio&n={n}", status_code=303)
+
+
+@app.post("/historial/{entrada_id}/borrar")
+async def borrar_entrada_historial(entrada_id: str, jr_session: str | None = Cookie(None)):
+    """Borra UNA entrada del historial."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    borrar_entrada(entrada_id)
+    return RedirectResponse(url="/historial?msg=borrada", status_code=303)
+
+
+@app.post("/historial/cedula/{cedula}/borrar")
+async def borrar_cedula_historial(cedula: str, jr_session: str | None = Cookie(None)):
+    """Borra TODAS las entradas de una cédula (re-fuerza próxima consulta)."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    n = borrar_por_cedula(cedula)
+    return RedirectResponse(url=f"/historial?msg=borradas&n={n}", status_code=303)
 
 
 @app.get("/historial/{entrada_id}", response_class=HTMLResponse)
