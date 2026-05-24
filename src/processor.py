@@ -115,6 +115,15 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 registrar(cached, tipo)
             except Exception:
                 pass
+        # Prioridad de nombre: si el Excel del usuario trae nombre, ese GANA.
+        # Si no, mantener el del cache (que ya viene de bachiller/satje/setec).
+        # Si tampoco hay en cache, intentar fallback final desde SETEC.
+        if nombre_input:
+            cached["nombre"] = nombre_input
+        elif not cached.get("nombre"):
+            st = cached.get("setec") or {}
+            if st.get("nombre"):
+                cached["nombre"] = st["nombre"]
         return {**cached, "_cache": True}
 
     async with sem:
@@ -131,42 +140,61 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             raw_main  = await consultar(cedula, tipo=tipo)
             raw_setec = None
 
+        # Extraer SETEC primero (si aplica) para usarlo en el fallback de nombre
+        setec_data = None
+        if tipo == "setec":
+            setec_data = extraer_setec(raw_main)
+        elif incluir_setec and raw_setec is not None:
+            setec_data = extraer_setec(raw_setec)
+
+        # Prioridad de nombre UNIFICADA:
+        #   1) Excel input (lo que el usuario escribió)
+        #   2) Bachiller
+        #   3) SATJE (nombreDemandado / nombreActor)
+        #   4) SETEC (Apellidos / Nombres de la tabla)
+        def _elegir_nombre(b=None, s=None, st=None):
+            if nombre_input:
+                return nombre_input
+            for src in (b, s, st):
+                if src and src.get("nombre"):
+                    return src["nombre"]
+            return ""
+
         if tipo == "bachiller":
             b = extraer_bachiller(raw_main)
             resultado = {
                 "cedula":    cedula,
-                "nombre":    b.get("nombre", "") or nombre_input,
+                "nombre":    _elegir_nombre(b=b, st=setec_data),
                 "bachiller": b,
             }
         elif tipo == "satje":
             s = extraer_satje(raw_main)
             resultado = {
                 "cedula": cedula,
-                "nombre": s.get("nombre", "") or nombre_input,
+                "nombre": _elegir_nombre(s=s, st=setec_data),
                 "satje":  s,
             }
         elif tipo == "setec":
-            setec = extraer_setec(raw_main)
             resultado = {
                 "cedula": cedula,
-                "nombre": nombre_input,
-                "setec":  setec,
+                "nombre": _elegir_nombre(st=setec_data),
+                "setec":  setec_data,
             }
         else:
-            # completo: bachiller + satje. SETEC viene aparte si fue solicitado.
+            # completo: bachiller + satje
             b = extraer_bachiller(raw_main)
             s = extraer_satje(raw_main)
             resultado = {
                 "cedula":    cedula,
-                "nombre":    b.get("nombre", "") or s.get("nombre", "") or nombre_input,
+                "nombre":    _elegir_nombre(b=b, s=s, st=setec_data),
                 "bachiller": b,
                 "satje":     s,
                 "semaforo":  _calcular_semaforo(b, s, "completo"),
             }
 
-        # Agregar SETEC al resultado si fue solicitado y el tipo no era "setec" puro
-        if incluir_setec and tipo != "setec" and raw_setec is not None:
-            resultado["setec"] = extraer_setec(raw_setec)
+        # Agregar SETEC al dict de resultado si fue solicitado y no era el tipo principal
+        if incluir_setec and tipo != "setec" and setec_data is not None:
+            resultado["setec"] = setec_data
 
     # Registrar en historial+cache
     try:

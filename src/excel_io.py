@@ -215,13 +215,16 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         b  = r.get("bachiller", {}) or {}
         s  = r.get("satje", {}) or {}
         st = r.get("setec", {}) or {}
-        # Fallback de nombre: input → bachiller → SATJE (extraído de causas).
-        # Esto cubre el caso "cédula sin nombre + sin bachiller + con procesos
-        # judiciales" — el nombre se rescata desde nombreDemandado/nombreActor.
+        # Fallback de nombre (defensa adicional al chain del processor):
+        #   1) input del Excel → 2) bachiller → 3) SATJE → 4) SETEC
+        # En lote, el processor ya aplica este chain y guarda r["nombre"], así
+        # que esto sólo entra si por alguna razón vino vacío (cache muy antiguo,
+        # registros sin SETEC, etc.).
         nombre = (
             r.get("nombre", "") or
             b.get("nombre", "") or
             s.get("nombre", "") or
+            st.get("nombre", "") or
             ""
         )
 

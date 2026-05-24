@@ -255,15 +255,18 @@ async def buscar_individual(
                 cached.get("satje") or {},
                 "completo",
             )
-        # Recalcular nombre por si el caché es anterior al fallback SATJE
-        # (caché antiguo puede tener nombre="" aunque SATJE tenga el dato)
+        # Recalcular nombre por si el caché es anterior a los fallbacks
+        # (caché antiguo puede tener nombre="" aunque SATJE o SETEC tengan el dato)
         if not cached.get("nombre"):
-            b_c = cached.get("bachiller") or {}
-            s_c = cached.get("satje") or {}
+            b_c  = cached.get("bachiller") or {}
+            s_c  = cached.get("satje") or {}
+            st_c = cached.get("setec") or {}
             if b_c.get("nombre"):
                 cached["nombre"] = b_c["nombre"]
             elif s_c.get("nombre"):
                 cached["nombre"] = s_c["nombre"]
+            elif st_c.get("nombre"):
+                cached["nombre"] = st_c["nombre"]
         resultado = {**cached, "_cache": True}
     else:
         # Si quiere SETEC y tipo no es ya "setec" → llamadas en paralelo
@@ -287,11 +290,15 @@ async def buscar_individual(
         if quiere_b and quiere_s:
             sem = _calcular_semaforo(b or {}, s or {}, "completo")
 
+        # Prioridad: Bachiller → SATJE → SETEC (la búsqueda individual no recibe
+        # nombre desde el usuario, por eso la cadena empieza en bachiller).
         nombre = ""
         if b and b.get("nombre"):
             nombre = b.get("nombre")
         elif s and s.get("nombre"):
             nombre = s.get("nombre")
+        elif setec and setec.get("nombre"):
+            nombre = setec.get("nombre")
 
         resultado = {
             "cedula":    cedula,

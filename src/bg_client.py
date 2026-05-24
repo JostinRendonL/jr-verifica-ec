@@ -169,7 +169,7 @@ def extraer_setec(data: dict) -> dict | None:
     raw = data.get("setec") or data
 
     if raw.get("error"):
-        return {"estado": "ERROR", "detalle": raw["error"], "cursos": [], "total": 0}
+        return {"estado": "ERROR", "detalle": raw["error"], "cursos": [], "total": 0, "nombre": ""}
     if raw.get("tiene_certificados"):
         cursos = [c.strip() for c in (raw.get("detalle_cursos") or "").split("|") if c.strip()]
         return {
@@ -177,5 +177,6 @@ def extraer_setec(data: dict) -> dict | None:
             "cursos":  cursos,
             "total":   raw.get("total_cursos", len(cursos)),
             "detalle": raw.get("detalle_cursos", ""),
+            "nombre":  raw.get("nombre", "") or "",
         }
-    return {"estado": "SIN_CERTIFICADOS", "cursos": [], "total": 0, "detalle": "Sin registros"}
+    return {"estado": "SIN_CERTIFICADOS", "cursos": [], "total": 0, "detalle": "Sin registros", "nombre": ""}

@@ -55,11 +55,20 @@ def generar_pdf(resultado: dict) -> bytes:
     resultado debe tener: cedula, nombre, semaforo, bachiller, satje.
     """
     cedula     = resultado.get("cedula", "")
-    nombre     = resultado.get("nombre", "") or "—"
     sem        = resultado.get("semaforo", "") or ""
     bachiller  = resultado.get("bachiller") or {}
     satje      = resultado.get("satje") or {}
     setec      = resultado.get("setec") or {}
+
+    # Cadena de fallback para el nombre, por si el cache/historial es antiguo:
+    #   resultado.nombre → bachiller → SATJE → SETEC → "—"
+    nombre = (
+        resultado.get("nombre", "") or
+        bachiller.get("nombre", "") or
+        satje.get("nombre", "") or
+        setec.get("nombre", "") or
+        "—"
+    )
 
     timestamp  = int(time.time())
     fecha_str  = datetime.fromtimestamp(timestamp).strftime("%d de %B de %Y · %H:%M")
