@@ -247,6 +247,15 @@ async def buscar_individual(
                 cached.get("satje") or {},
                 "completo",
             )
+        # Recalcular nombre por si el caché es anterior al fallback SATJE
+        # (caché antiguo puede tener nombre="" aunque SATJE tenga el dato)
+        if not cached.get("nombre"):
+            b_c = cached.get("bachiller") or {}
+            s_c = cached.get("satje") or {}
+            if b_c.get("nombre"):
+                cached["nombre"] = b_c["nombre"]
+            elif s_c.get("nombre"):
+                cached["nombre"] = s_c["nombre"]
         resultado = {**cached, "_cache": True}
     else:
         raw = await consultar(cedula, tipo=tipo)
