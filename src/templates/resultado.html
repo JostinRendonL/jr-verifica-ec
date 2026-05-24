@@ -6,39 +6,36 @@
 {% set s = resultado.satje or {} %}
 {% set sem = resultado.semaforo or "" %}
 
-{# Determinar clase del badge según veredicto #}
-{% set badge_cls = "badge-sin" %}
-{% set badge_icon = "circle-help" %}
-{% set hero_bg = "bg-slate-100" %}
-{% set hero_accent = "text-slate-700" %}
+{# Configuración visual según veredicto #}
+{% set hero_gradient = "from-slate-600 via-slate-700 to-slate-900" %}
+{% set hero_glow = "from-slate-400/30" %}
+{% set verdict_icon = "circle-help" %}
 {% if 'APTO' in sem %}
-    {% set badge_cls = "badge-apto" %}
-    {% set badge_icon = "check-circle-2" %}
-    {% set hero_bg = "bg-emerald-50 ring-1 ring-emerald-200" %}
-    {% set hero_accent = "text-emerald-700" %}
+    {% set hero_gradient = "from-emerald-500 via-emerald-600 to-teal-700" %}
+    {% set hero_glow = "from-emerald-300/40" %}
+    {% set verdict_icon = "check-circle-2" %}
 {% elif 'OBSERVACIÓN' in sem %}
-    {% set badge_cls = "badge-obs" %}
-    {% set badge_icon = "alert-circle" %}
-    {% set hero_bg = "bg-amber-50 ring-1 ring-amber-200" %}
-    {% set hero_accent = "text-amber-700" %}
+    {% set hero_gradient = "from-amber-500 via-amber-600 to-orange-700" %}
+    {% set hero_glow = "from-amber-300/40" %}
+    {% set verdict_icon = "alert-circle" %}
 {% elif 'CRÍTICO' in sem %}
-    {% set badge_cls = "badge-crit" %}
-    {% set badge_icon = "alert-octagon" %}
-    {% set hero_bg = "bg-red-950" %}
-    {% set hero_accent = "text-red-100" %}
+    {% set hero_gradient = "from-red-900 via-red-950 to-slate-950" %}
+    {% set hero_glow = "from-red-500/40" %}
+    {% set verdict_icon = "alert-octagon" %}
 {% elif 'RECHAZAR' in sem %}
-    {% set badge_cls = "badge-rech" %}
-    {% set badge_icon = "x-circle" %}
-    {% set hero_bg = "bg-red-50 ring-1 ring-red-200" %}
-    {% set hero_accent = "text-red-700" %}
+    {% set hero_gradient = "from-red-500 via-red-600 to-red-800" %}
+    {% set hero_glow = "from-red-300/40" %}
+    {% set verdict_icon = "x-circle" %}
 {% endif %}
 
 <div class="max-w-4xl mx-auto space-y-5">
 
     {% if desde_cache %}
-    <div class="card p-3 px-4 flex items-center justify-between gap-3 no-print">
-        <div class="flex items-center gap-2 text-sm">
-            <i data-lucide="database" class="icon-sm text-brand-600"></i>
+    <div class="card p-3 px-4 flex items-center justify-between gap-3 no-print bg-brand-50/40 border-brand-100">
+        <div class="flex items-center gap-2.5 text-sm">
+            <div class="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
+                <i data-lucide="database" class="icon-xs"></i>
+            </div>
             <span class="text-slate-700">
                 <strong class="text-slate-900">Resultado desde caché.</strong>
                 {% if edad_seg %}
@@ -59,99 +56,111 @@
     </div>
     {% endif %}
 
-    <!-- Hero card con veredicto -->
-    <div class="card overflow-hidden">
-        <div class="p-7 {{ hero_bg }}">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+    <!-- Hero dramático con veredicto -->
+    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br {{ hero_gradient }} text-white shadow-elevate">
+        <div class="absolute -top-32 -right-32 w-96 h-96 bg-gradient-to-br {{ hero_glow }} to-transparent rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-32 -left-32 w-96 h-96 bg-white/5 rounded-full blur-3xl"></div>
+
+        <div class="relative p-8 sm:p-10">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 mb-6">
                 <div>
-                    <div class="text-[11px] font-semibold uppercase tracking-wider {{ hero_accent }} opacity-80 mb-1">Veredicto</div>
-                    <div class="flex items-center gap-3">
-                        <i data-lucide="{{ badge_icon }}" class="w-7 h-7 {{ hero_accent }}"></i>
-                        <span class="text-3xl font-bold {{ hero_accent }} tracking-tight">{{ sem or 'Consulta individual' }}</span>
+                    <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-3">Veredicto oficial</div>
+                    <div class="flex items-center gap-4">
+                        <div class="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center flex-shrink-0 ring-1 ring-white/20">
+                            <i data-lucide="{{ verdict_icon }}" class="w-8 h-8"></i>
+                        </div>
+                        <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">{{ sem or 'Consulta' }}</span>
                     </div>
                 </div>
                 <div class="text-left sm:text-right">
-                    <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Cédula</div>
-                    <div class="font-mono text-xl font-bold text-slate-900">{{ resultado.cedula }}</div>
+                    <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-2">Cédula</div>
+                    <div class="font-mono text-2xl font-bold">{{ resultado.cedula }}</div>
                 </div>
             </div>
-        </div>
 
-        <div class="px-7 py-5 bg-white border-t border-slate-100">
-            <div class="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Nombre oficial</div>
-            <div class="text-lg font-bold text-slate-900">
-                {{ resultado.nombre or "—" }}
-                {% if not resultado.nombre %}
-                <span class="text-sm font-normal text-slate-400 italic ml-2">(no extraído)</span>
-                {% endif %}
+            <div class="pt-6 border-t border-white/15">
+                <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-1.5">Nombre oficial</div>
+                <div class="text-xl sm:text-2xl font-bold tracking-tight">
+                    {{ resultado.nombre or "—" }}
+                    {% if not resultado.nombre %}
+                    <span class="text-sm font-normal text-white/50 italic ml-2">(no extraído)</span>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Bachiller -->
     {% if b %}
-    <div class="card p-6">
-        <div class="flex items-center gap-2 mb-4">
-            <i data-lucide="graduation-cap" class="icon-md text-brand-600"></i>
-            <h3 class="text-base font-bold text-slate-900">Bachiller</h3>
-            <span class="text-xs text-slate-400">— Ministerio de Educación</span>
+    <div class="card p-6 sm:p-7 card-hover">
+        <div class="flex items-center gap-2.5 mb-5">
+            <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                <i data-lucide="graduation-cap" class="icon-md"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Bachiller</h3>
+                <p class="text-xs text-slate-500">Ministerio de Educación del Ecuador</p>
+            </div>
         </div>
 
         {% if b.estado == "ENCONTRADO" %}
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5">
-            <div class="flex items-start gap-3 mb-4">
-                <div class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
+        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-5">
+            <div class="flex items-start gap-3 mb-5">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
                     <i data-lucide="check" class="icon-sm"></i>
                 </div>
                 <div>
-                    <div class="font-semibold text-emerald-900">Título confirmado</div>
-                    <div class="text-xs text-emerald-700 mt-0.5">Registro oficial verificado</div>
+                    <div class="font-bold text-emerald-900 text-base">Título confirmado oficialmente</div>
+                    <div class="text-xs text-emerald-700 mt-0.5 flex items-center gap-1.5">
+                        <i data-lucide="badge-check" class="icon-xs"></i>
+                        Registro oficial verificado
+                    </div>
                 </div>
             </div>
-            <div class="grid sm:grid-cols-2 gap-x-6 gap-y-3 pl-11">
+            <div class="grid sm:grid-cols-2 gap-x-6 gap-y-4 pl-12">
                 {% if b.titulo %}
                 <div>
-                    <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 mb-0.5">Título</div>
-                    <div class="text-sm font-semibold text-slate-900">{{ b.titulo }}</div>
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Título</div>
+                    <div class="text-sm font-bold text-slate-900">{{ b.titulo }}</div>
                 </div>
                 {% endif %}
                 {% if b.especialidad %}
                 <div>
-                    <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 mb-0.5">Especialidad</div>
-                    <div class="text-sm font-semibold text-slate-900">{{ b.especialidad }}</div>
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Especialidad</div>
+                    <div class="text-sm font-bold text-slate-900">{{ b.especialidad }}</div>
                 </div>
                 {% endif %}
                 {% if b.institucion %}
                 <div class="sm:col-span-2">
-                    <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 mb-0.5">Institución</div>
-                    <div class="text-sm font-semibold text-slate-900">{{ b.institucion }}</div>
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Institución</div>
+                    <div class="text-sm font-bold text-slate-900">{{ b.institucion }}</div>
                 </div>
                 {% endif %}
                 {% if b.fecha_grado %}
                 <div>
-                    <div class="text-[10px] uppercase tracking-wider font-semibold text-emerald-700 mb-0.5">Año de grado</div>
-                    <div class="text-sm font-semibold text-slate-900">{{ b.fecha_grado[:4] }}</div>
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Año de grado</div>
+                    <div class="text-sm font-bold text-slate-900 font-mono">{{ b.fecha_grado[:4] }}</div>
                 </div>
                 {% endif %}
             </div>
         </div>
         {% elif b.estado == "NO_ENCONTRADO" %}
-        <div class="rounded-xl border border-amber-200 bg-amber-50/50 p-5 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">
+        <div class="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-50/30 p-5 flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30">
                 <i data-lucide="alert-triangle" class="icon-sm"></i>
             </div>
             <div>
-                <div class="font-semibold text-amber-900">Sin registro</div>
-                <div class="text-sm text-amber-800 mt-0.5">No existe título de bachiller registrado oficialmente para esta cédula.</div>
+                <div class="font-bold text-amber-900 text-base">Sin registro oficial</div>
+                <div class="text-sm text-amber-800 mt-0.5">No existe título de bachiller registrado para esta cédula en el Ministerio.</div>
             </div>
         </div>
         {% else %}
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-full bg-slate-400 text-white flex items-center justify-center flex-shrink-0">
+            <div class="w-9 h-9 rounded-xl bg-slate-400 text-white flex items-center justify-center flex-shrink-0">
                 <i data-lucide="x" class="icon-sm"></i>
             </div>
             <div>
-                <div class="font-semibold text-slate-700">Error de consulta</div>
+                <div class="font-bold text-slate-700">Error de consulta</div>
                 <div class="text-sm text-slate-600 mt-0.5">{{ b.detalle or "No se pudo completar la consulta" }}</div>
             </div>
         </div>
@@ -161,47 +170,53 @@
 
     <!-- SATJE -->
     {% if s %}
-    <div class="card p-6">
-        <div class="flex items-center gap-2 mb-4">
-            <i data-lucide="gavel" class="icon-md text-brand-600"></i>
-            <h3 class="text-base font-bold text-slate-900">Procesos Judiciales</h3>
-            <span class="text-xs text-slate-400">— SATJE Función Judicial</span>
+    <div class="card p-6 sm:p-7 card-hover">
+        <div class="flex items-center gap-2.5 mb-5">
+            <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                <i data-lucide="gavel" class="icon-md"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-bold text-slate-900">Procesos Judiciales</h3>
+                <p class="text-xs text-slate-500">SATJE — Función Judicial del Ecuador</p>
+            </div>
         </div>
 
         {% if s.estado == "SIN_PROCESOS" %}
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-5 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
-                <i data-lucide="check" class="icon-sm"></i>
+        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-5 flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
+                <i data-lucide="shield-check" class="icon-sm"></i>
             </div>
             <div>
-                <div class="font-semibold text-emerald-900">Sin procesos judiciales</div>
-                <div class="text-sm text-emerald-800 mt-0.5">No tiene causas activas como demandado ni como actor.</div>
+                <div class="font-bold text-emerald-900 text-base">Sin procesos judiciales</div>
+                <div class="text-sm text-emerald-800 mt-0.5">No tiene causas activas como demandado ni como actor en la Función Judicial.</div>
             </div>
         </div>
         {% elif s.estado == "TIENE_PROCESOS" %}
         <div class="space-y-4">
             <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-xl p-5 text-center {% if s.total_demandado > 0 %}bg-red-50 border border-red-200{% else %}bg-slate-50 border border-slate-200{% endif %}">
-                    <div class="text-3xl font-bold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-400{% endif %} tracking-tight">{{ s.total_demandado }}</div>
-                    <div class="text-[10px] uppercase tracking-wider font-semibold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-500{% endif %} mt-1">Como demandado</div>
+                <div class="rounded-xl p-5 text-center {% if s.total_demandado > 0 %}bg-gradient-to-br from-red-50 to-red-50/30 border border-red-200 shadow-sm{% else %}bg-slate-50 border border-slate-200{% endif %}">
+                    <div class="text-4xl font-extrabold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-400{% endif %} tracking-tight font-mono">{{ s.total_demandado }}</div>
+                    <div class="text-[10px] uppercase tracking-wider font-bold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-500{% endif %} mt-2">Como demandado</div>
                 </div>
-                <div class="rounded-xl p-5 text-center {% if s.total_actor > 0 %}bg-amber-50 border border-amber-200{% else %}bg-slate-50 border border-slate-200{% endif %}">
-                    <div class="text-3xl font-bold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-400{% endif %} tracking-tight">{{ s.total_actor }}</div>
-                    <div class="text-[10px] uppercase tracking-wider font-semibold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-500{% endif %} mt-1">Como actor</div>
+                <div class="rounded-xl p-5 text-center {% if s.total_actor > 0 %}bg-gradient-to-br from-amber-50 to-amber-50/30 border border-amber-200 shadow-sm{% else %}bg-slate-50 border border-slate-200{% endif %}">
+                    <div class="text-4xl font-extrabold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-400{% endif %} tracking-tight font-mono">{{ s.total_actor }}</div>
+                    <div class="text-[10px] uppercase tracking-wider font-bold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-500{% endif %} mt-2">Como actor</div>
                 </div>
             </div>
 
             {% if s.delitos %}
-            <div class="rounded-xl border border-red-200 bg-red-50/50 p-5">
-                <div class="flex items-center gap-2 mb-3">
-                    <i data-lucide="alert-octagon" class="icon-sm text-red-700"></i>
-                    <div class="font-semibold text-red-900">Delitos detectados</div>
+            <div class="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-red-50/30 p-5">
+                <div class="flex items-center gap-2.5 mb-4">
+                    <div class="w-8 h-8 rounded-lg bg-red-500 text-white flex items-center justify-center shadow-md shadow-red-500/30">
+                        <i data-lucide="alert-octagon" class="icon-sm"></i>
+                    </div>
+                    <div class="font-bold text-red-900 text-base">Delitos detectados</div>
                 </div>
-                <ul class="space-y-1.5">
+                <ul class="space-y-2 pl-11">
                     {% for d in s.delitos %}
-                    <li class="flex items-start gap-2 text-sm text-red-900">
-                        <span class="text-red-400 mt-1.5">•</span>
-                        <span>{{ d }}</span>
+                    <li class="flex items-start gap-2.5 text-sm text-red-900">
+                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></span>
+                        <span class="font-medium">{{ d }}</span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -210,11 +225,11 @@
         </div>
         {% else %}
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-8 h-8 rounded-full bg-slate-400 text-white flex items-center justify-center flex-shrink-0">
+            <div class="w-9 h-9 rounded-xl bg-slate-400 text-white flex items-center justify-center flex-shrink-0">
                 <i data-lucide="x" class="icon-sm"></i>
             </div>
             <div>
-                <div class="font-semibold text-slate-700">Error de consulta</div>
+                <div class="font-bold text-slate-700">Error de consulta</div>
                 <div class="text-sm text-slate-600 mt-0.5">{{ s.detalle or "No se pudo completar la consulta" }}</div>
             </div>
         </div>

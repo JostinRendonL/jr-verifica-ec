@@ -3,35 +3,35 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-    <div class="card overflow-hidden">
-        <div class="p-7 border-b border-slate-100">
-            <div class="flex items-center justify-between gap-4">
-                <div>
-                    <h1 class="text-xl font-bold text-slate-900 tracking-tight">Procesando lote</h1>
-                    <p class="text-sm text-slate-500 mt-0.5">Verificando todas las cédulas en paralelo</p>
-                </div>
-                <span class="font-mono text-xs text-slate-400">{{ job.id }}</span>
-            </div>
+    <!-- Hero del job -->
+    <div class="relative mb-6 text-center">
+        <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-brand-300/20 rounded-full blur-3xl -z-10"></div>
+        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white mb-4 shadow-lift">
+            <i data-lucide="loader-2" class="icon-lg animate-spin"></i>
         </div>
+        <h1 class="h-display text-3xl">Procesando lote</h1>
+        <p class="text-slate-500 mt-1.5 text-sm">Verificando todas las cédulas en paralelo</p>
+    </div>
 
-        <div class="p-7 space-y-6">
+    <div class="card overflow-hidden shadow-card">
+        <div class="p-7 space-y-7">
             <!-- Progress -->
             <div>
-                <div class="flex justify-between items-baseline mb-2">
-                    <span id="estado" class="text-sm font-semibold text-slate-700">Iniciando...</span>
-                    <span class="text-xs text-slate-500"><span id="procesados" class="font-mono font-bold text-slate-900">0</span> / <span class="font-mono">{{ job.total }}</span></span>
+                <div class="flex justify-between items-baseline mb-2.5">
+                    <span id="estado" class="text-sm font-bold text-slate-700">Iniciando...</span>
+                    <span class="text-xs text-slate-500"><span id="procesados" class="font-mono font-bold text-slate-900 text-base">0</span> <span class="text-slate-400">/</span> <span class="font-mono">{{ job.total }}</span></span>
                 </div>
-                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div id="barra" class="bg-gradient-to-r from-brand-500 to-brand-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                    <div id="barra" class="bg-gradient-to-r from-brand-500 via-brand-600 to-indigo-600 h-2.5 rounded-full transition-all duration-500 shimmer" style="width: 0%"></div>
                 </div>
-                <div class="text-right text-xs text-slate-400 mt-1.5"><span id="porcentaje" class="font-mono font-semibold">0</span>%</div>
+                <div class="text-right text-xs text-slate-400 mt-2"><span id="porcentaje" class="font-mono font-bold">0</span>%</div>
             </div>
 
             <!-- Info -->
-            <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-xl bg-slate-50 p-4 text-center">
-                    <div class="text-[10px] uppercase tracking-wider font-semibold text-slate-500">Tipo</div>
-                    <div class="font-semibold text-slate-900 mt-1 flex items-center justify-center gap-1.5 text-sm">
+            <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 p-4 text-center">
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Tipo</div>
+                    <div class="font-bold text-slate-900 flex items-center justify-center gap-1.5 text-sm">
                         {% if job.tipo == "bachiller" %}
                             <i data-lucide="graduation-cap" class="icon-sm text-brand-600"></i> Bachiller
                         {% elif job.tipo == "satje" %}
@@ -41,17 +41,22 @@
                         {% endif %}
                     </div>
                 </div>
-                <div class="rounded-xl bg-slate-50 p-4 text-center">
-                    <div class="text-[10px] uppercase tracking-wider font-semibold text-slate-500">Cédulas</div>
-                    <div class="font-mono font-bold text-slate-900 mt-1 text-base">{{ job.total }}</div>
+                <div class="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 p-4 text-center">
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Cédulas</div>
+                    <div class="font-mono font-extrabold text-slate-900 text-lg">{{ job.total }}</div>
+                </div>
+                <div class="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 p-4 text-center">
+                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Workers</div>
+                    <div class="font-mono font-extrabold text-slate-900 text-lg">3</div>
                 </div>
             </div>
 
             <!-- Acciones cuando termina -->
             <div id="acciones" class="hidden space-y-3">
-                <a href="/job/{{ job.id }}/descargar" class="btn-primary w-full !py-3 text-base">
+                <a href="/job/{{ job.id }}/descargar" class="btn-primary w-full !py-3.5 text-base">
                     <i data-lucide="file-down" class="icon-sm"></i>
                     Descargar resultados (.xlsx)
+                    <i data-lucide="arrow-right" class="icon-sm"></i>
                 </a>
                 <a href="/" class="btn-secondary w-full">
                     <i data-lucide="arrow-left" class="icon-sm"></i>
@@ -60,21 +65,33 @@
             </div>
 
             <!-- Mientras procesa -->
-            <div id="info-procesando" class="rounded-xl bg-brand-50 border border-brand-100 p-4 flex items-start gap-3">
-                <i data-lucide="loader-2" class="icon-sm text-brand-600 mt-0.5 animate-spin"></i>
-                <div class="text-xs text-brand-900">
-                    <strong>Procesando en paralelo (3 a la vez).</strong><br>
-                    No cierres esta pestaña — refrescamos automáticamente cada 2 segundos.
+            <div id="info-procesando" class="rounded-xl bg-gradient-to-br from-brand-50 to-indigo-50/50 border border-brand-100 p-4 flex items-start gap-3">
+                <div class="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="loader-2" class="icon-sm animate-spin"></i>
+                </div>
+                <div class="text-xs text-brand-900 leading-relaxed">
+                    <strong class="text-brand-900">Procesando en paralelo (3 cédulas simultáneas).</strong><br>
+                    No cierres esta pestaña — el progreso se actualiza automáticamente cada 2 segundos.
                 </div>
             </div>
 
             <!-- Error -->
             <div id="error-box" class="hidden rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-                <i data-lucide="x-circle" class="icon-sm text-red-600 mt-0.5"></i>
+                <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="x-circle" class="icon-sm"></i>
+                </div>
                 <div class="text-sm text-red-800">
                     <strong>Error:</strong> <span id="error-msg"></span>
                 </div>
             </div>
+        </div>
+
+        <div class="bg-slate-50/50 px-7 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span class="font-mono">{{ job.id }}</span>
+            <span class="flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="icon-xs text-emerald-600"></i>
+                Conexión cifrada
+            </span>
         </div>
     </div>
 </div>
@@ -97,7 +114,7 @@ async function actualizar() {
         const labels = {
             "pendiente":   "En cola...",
             "procesando":  "Procesando...",
-            "completado":  "Completado",
+            "completado":  "✓ Completado",
             "error":       "Error",
         };
         document.getElementById("estado").textContent = labels[data.estado] || data.estado;
@@ -105,6 +122,7 @@ async function actualizar() {
         if (data.estado === "completado") {
             document.getElementById("acciones").classList.remove("hidden");
             document.getElementById("info-procesando").classList.add("hidden");
+            document.getElementById("estado").classList.add("text-emerald-600");
             if (window.lucide) lucide.createIcons();
             return;
         }

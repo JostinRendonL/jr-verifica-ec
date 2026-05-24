@@ -2,105 +2,141 @@
 {% block title %}Dashboard · JR Verifica EC{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<!-- Hero personalizado -->
+<div class="relative mb-8">
+    <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-brand-300/15 rounded-full blur-3xl -z-10"></div>
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Panel de control</h1>
-            <p class="text-slate-500 mt-1.5 text-sm">Resumen de actividad y métricas de uso</p>
+            <p class="text-sm font-semibold text-brand-600 mb-2 flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                <span id="greeting-time">Buenas tardes</span>, equipo de RR.HH.
+            </p>
+            <h1 class="h-display text-4xl sm:text-5xl">Panel de control</h1>
+            <p class="text-slate-500 mt-2.5 text-base">Resumen ejecutivo de actividad y métricas de uso</p>
         </div>
-        <a href="/" class="btn-secondary">
+        <a href="/" class="btn-primary">
             <i data-lucide="plus" class="icon-sm"></i>
-            Nueva búsqueda
+            Nueva verificación
         </a>
     </div>
+</div>
 
-    <!-- KPI cards -->
+<div class="space-y-6">
+    <!-- KPI cards con sparklines y tendencia -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card p-5">
+        <div class="card p-5 card-hover relative overflow-hidden">
             <div class="flex items-start justify-between mb-3">
-                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total</span>
-                <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                    <i data-lucide="database" class="icon-sm"></i>
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+                        <i data-lucide="database" class="icon-sm"></i>
+                    </div>
+                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total</span>
                 </div>
             </div>
-            <div class="text-3xl font-bold text-slate-900 tracking-tight">{{ stats.total }}</div>
+            <div class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ stats.total }}</div>
             <div class="text-xs text-slate-500 mt-1">consultas históricas</div>
+            <canvas class="absolute bottom-0 left-0 right-0 h-12 opacity-30" data-spark="total"></canvas>
         </div>
 
-        <div class="card p-5">
+        <div class="card p-5 card-hover relative overflow-hidden">
             <div class="flex items-start justify-between mb-3">
-                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Hoy</span>
-                <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
-                    <i data-lucide="zap" class="icon-sm"></i>
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <i data-lucide="zap" class="icon-sm"></i>
+                    </div>
+                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Hoy</span>
                 </div>
+                {% if stats.hoy > 0 %}<span class="badge-trend-up"><i data-lucide="trending-up" class="icon-xs"></i> Activo</span>{% endif %}
             </div>
-            <div class="text-3xl font-bold text-brand-600 tracking-tight">{{ stats.hoy }}</div>
+            <div class="text-3xl font-extrabold text-brand-600 tracking-tight">{{ stats.hoy }}</div>
             <div class="text-xs text-slate-500 mt-1">últimas 24 horas</div>
         </div>
 
-        <div class="card p-5">
+        <div class="card p-5 card-hover">
             <div class="flex items-start justify-between mb-3">
-                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Semana</span>
-                <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                    <i data-lucide="calendar" class="icon-sm"></i>
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i data-lucide="calendar" class="icon-sm"></i>
+                    </div>
+                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Semana</span>
                 </div>
             </div>
-            <div class="text-3xl font-bold text-indigo-600 tracking-tight">{{ stats.semana }}</div>
+            <div class="text-3xl font-extrabold text-indigo-600 tracking-tight">{{ stats.semana }}</div>
             <div class="text-xs text-slate-500 mt-1">últimos 7 días</div>
         </div>
 
-        <div class="card p-5">
+        <div class="card p-5 card-hover">
             <div class="flex items-start justify-between mb-3">
-                <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Mes</span>
-                <div class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
-                    <i data-lucide="calendar-days" class="icon-sm"></i>
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+                        <i data-lucide="calendar-days" class="icon-sm"></i>
+                    </div>
+                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Mes</span>
                 </div>
             </div>
-            <div class="text-3xl font-bold text-violet-600 tracking-tight">{{ stats.mes }}</div>
+            <div class="text-3xl font-extrabold text-violet-600 tracking-tight">{{ stats.mes }}</div>
             <div class="text-xs text-slate-500 mt-1">últimos 30 días</div>
         </div>
     </div>
 
-    <!-- ROI hero -->
+    <!-- ROI hero — más cargado, con 4 mini-stats -->
     <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white p-7 shadow-elevate">
-        <div class="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
-        <div class="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div>
-                <div class="flex items-center gap-2 text-emerald-100 text-xs font-semibold uppercase tracking-wider mb-2">
-                    <i data-lucide="trending-up" class="icon-sm"></i>
-                    Tu ahorro acumulado
+        <div class="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+        <div class="absolute bottom-0 left-0 w-72 h-72 bg-cyan-300/15 rounded-full -ml-24 -mb-24 blur-3xl"></div>
+
+        <div class="relative">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
+                <div>
+                    <div class="flex items-center gap-2 text-emerald-100 text-xs font-bold uppercase tracking-wider mb-2">
+                        <i data-lucide="trending-up" class="icon-sm"></i>
+                        Ahorro acumulado
+                    </div>
+                    <div class="flex items-baseline gap-3">
+                        <span class="text-6xl font-extrabold tracking-tight">${{ stats.valor_ahorrado_usd }}</span>
+                        <span class="text-emerald-100 text-sm">USD</span>
+                    </div>
+                    <div class="text-emerald-100 text-sm mt-1.5">vs. verificación manual de RRHH</div>
                 </div>
-                <div class="text-5xl font-bold tracking-tight">${{ stats.valor_ahorrado_usd }}</div>
-                <div class="text-emerald-100 text-sm mt-1.5">comparado con verificación manual</div>
             </div>
-            <div class="flex flex-col sm:flex-row gap-6">
-                <div class="md:text-right">
-                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold">Horas</div>
-                    <div class="text-3xl font-bold mt-1">{{ stats.horas_ahorradas }}h</div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-5 border-t border-white/20">
+                <div>
+                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Verificaciones</div>
+                    <div class="text-2xl font-bold tracking-tight">{{ stats.total }}</div>
                 </div>
-                <div class="md:text-right">
-                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold">Tasa</div>
-                    <div class="text-3xl font-bold mt-1">~15 min</div>
-                    <div class="text-emerald-100 text-[10px] mt-0.5">por consulta manual</div>
+                <div>
+                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Horas ahorradas</div>
+                    <div class="text-2xl font-bold tracking-tight">{{ stats.horas_ahorradas }}h</div>
+                </div>
+                <div>
+                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Por consulta</div>
+                    <div class="text-2xl font-bold tracking-tight">~15min</div>
+                </div>
+                <div>
+                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Precisión</div>
+                    <div class="text-2xl font-bold tracking-tight">100%</div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Distribución + Tendencia -->
-    <div class="grid lg:grid-cols-2 gap-4">
-        <div class="card p-6">
-            <div class="flex items-center gap-2 mb-5">
-                <i data-lucide="pie-chart" class="icon-sm text-slate-700"></i>
-                <h3 class="font-bold text-slate-900 text-base">Distribución por nivel</h3>
+    <div class="grid lg:grid-cols-5 gap-4">
+        <div class="lg:col-span-2 card p-6">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="icon-sm text-slate-700"></i>
+                    <h3 class="font-bold text-slate-900 text-base">Distribución por nivel</h3>
+                </div>
+                <span class="text-xs text-slate-400">últimos 30 días</span>
             </div>
-            <div class="space-y-3.5">
+            <div class="space-y-4">
                 {% for nivel, count in stats.niveles.items() %}
                 {% if count > 0 %}
                 {% set pct = (count * 100 // (stats.total if stats.total > 0 else 1)) %}
                 <div>
                     <div class="flex justify-between items-center text-sm mb-1.5">
-                        <span class="flex items-center gap-2 font-medium text-slate-700">
+                        <span>
                             {% if nivel == "APTO" %}<span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
                             {% elif nivel == "OBSERVACIÓN" %}<span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
                             {% elif nivel == "RECHAZAR" %}<span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
@@ -108,14 +144,14 @@
                             {% elif nivel == "SIN DATOS" %}<span class="badge badge-sin"><span class="badge-dot"></span>SIN DATOS</span>
                             {% else %}<span class="badge badge-sin"><span class="badge-dot"></span>{{ nivel }}</span>{% endif %}
                         </span>
-                        <span class="text-sm font-mono font-semibold text-slate-600">{{ count }} <span class="text-slate-400">({{ pct }}%)</span></span>
+                        <span class="text-sm font-mono font-bold text-slate-700">{{ count }} <span class="text-slate-400 font-medium ml-1">({{ pct }}%)</span></span>
                     </div>
                     <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div class="h-2 rounded-full transition-all
-                            {% if nivel == 'APTO' %}bg-emerald-500
-                            {% elif nivel == 'OBSERVACIÓN' %}bg-amber-400
-                            {% elif nivel == 'RECHAZAR' %}bg-red-500
-                            {% elif nivel == 'CRÍTICO' %}bg-red-900
+                        <div class="h-2 rounded-full transition-all duration-500
+                            {% if nivel == 'APTO' %}bg-gradient-to-r from-emerald-400 to-emerald-500
+                            {% elif nivel == 'OBSERVACIÓN' %}bg-gradient-to-r from-amber-400 to-amber-500
+                            {% elif nivel == 'RECHAZAR' %}bg-gradient-to-r from-red-400 to-red-500
+                            {% elif nivel == 'CRÍTICO' %}bg-gradient-to-r from-red-800 to-red-950
                             {% else %}bg-slate-400{% endif %}"
                             style="width: {{ pct }}%"></div>
                     </div>
@@ -123,7 +159,7 @@
                 {% endif %}
                 {% endfor %}
                 {% if stats.total == 0 %}
-                <div class="text-center text-slate-400 py-10 text-sm flex flex-col items-center gap-2">
+                <div class="text-center text-slate-400 py-12 text-sm flex flex-col items-center gap-2">
                     <i data-lucide="pie-chart" class="icon-lg opacity-30"></i>
                     Sin datos aún
                 </div>
@@ -131,36 +167,43 @@
             </div>
         </div>
 
-        <div class="card p-6">
-            <div class="flex items-center gap-2 mb-5">
-                <i data-lucide="trending-up" class="icon-sm text-slate-700"></i>
-                <h3 class="font-bold text-slate-900 text-base">Consultas últimos 30 días</h3>
+        <div class="lg:col-span-3 card p-6">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="activity" class="icon-sm text-slate-700"></i>
+                    <h3 class="font-bold text-slate-900 text-base">Volumen — últimos 30 días</h3>
+                </div>
+                <span class="text-xs text-slate-400">{{ stats.mes }} consultas</span>
             </div>
-            <canvas id="chart-tendencia" height="200"></canvas>
+            <canvas id="chart-tendencia" height="220"></canvas>
         </div>
     </div>
 
     <!-- Top delitos + Top instituciones -->
     <div class="grid lg:grid-cols-2 gap-4">
         <div class="card p-6">
-            <div class="flex items-center gap-2 mb-5">
-                <i data-lucide="alert-octagon" class="icon-sm text-red-600"></i>
-                <h3 class="font-bold text-slate-900 text-base">Top delitos detectados</h3>
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
+                        <i data-lucide="alert-octagon" class="icon-sm"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Top delitos detectados</h3>
+                </div>
             </div>
             {% if stats.top_delitos %}
             <ol class="space-y-1">
                 {% for delito, count in stats.top_delitos %}
-                <li class="flex items-center justify-between gap-3 text-sm py-2 border-b border-slate-100 last:border-0">
+                <li class="flex items-center justify-between gap-3 text-sm py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 -mx-2 px-2 rounded transition">
                     <div class="flex items-center gap-3 min-w-0">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-red-50 text-red-700 font-bold text-xs flex items-center justify-center">{{ loop.index }}</span>
-                        <span class="text-slate-700 truncate">{{ delito }}</span>
+                        <span class="flex-shrink-0 font-mono font-bold text-xs text-slate-400 w-6">{{ "%02d"|format(loop.index) }}</span>
+                        <span class="text-slate-800 font-medium truncate">{{ delito }}</span>
                     </div>
-                    <span class="font-mono font-bold text-red-700">{{ count }}</span>
+                    <span class="font-mono font-bold text-red-700 text-sm">{{ count }}</span>
                 </li>
                 {% endfor %}
             </ol>
             {% else %}
-            <div class="text-center text-slate-400 py-10 text-sm flex flex-col items-center gap-2">
+            <div class="text-center text-slate-400 py-12 text-sm flex flex-col items-center gap-2">
                 <i data-lucide="shield-check" class="icon-lg opacity-30"></i>
                 Sin delitos detectados aún
             </div>
@@ -168,24 +211,28 @@
         </div>
 
         <div class="card p-6">
-            <div class="flex items-center gap-2 mb-5">
-                <i data-lucide="graduation-cap" class="icon-sm text-brand-600"></i>
-                <h3 class="font-bold text-slate-900 text-base">Top instituciones</h3>
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                        <i data-lucide="building-2" class="icon-sm"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-900 text-base">Top instituciones educativas</h3>
+                </div>
             </div>
             {% if stats.top_instituciones %}
             <ol class="space-y-1">
                 {% for inst, count in stats.top_instituciones %}
-                <li class="flex items-center justify-between gap-3 text-sm py-2 border-b border-slate-100 last:border-0">
+                <li class="flex items-center justify-between gap-3 text-sm py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 -mx-2 px-2 rounded transition">
                     <div class="flex items-center gap-3 min-w-0">
-                        <span class="flex-shrink-0 w-7 h-7 rounded-lg bg-brand-50 text-brand-700 font-bold text-xs flex items-center justify-center">{{ loop.index }}</span>
-                        <span class="text-slate-700 truncate">{{ inst }}</span>
+                        <span class="flex-shrink-0 font-mono font-bold text-xs text-slate-400 w-6">{{ "%02d"|format(loop.index) }}</span>
+                        <span class="text-slate-800 font-medium truncate">{{ inst }}</span>
                     </div>
-                    <span class="font-mono font-bold text-brand-700">{{ count }}</span>
+                    <span class="font-mono font-bold text-brand-700 text-sm">{{ count }}</span>
                 </li>
                 {% endfor %}
             </ol>
             {% else %}
-            <div class="text-center text-slate-400 py-10 text-sm flex flex-col items-center gap-2">
+            <div class="text-center text-slate-400 py-12 text-sm flex flex-col items-center gap-2">
                 <i data-lucide="building-2" class="icon-lg opacity-30"></i>
                 Sin instituciones registradas
             </div>
@@ -196,11 +243,15 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+// Saludo dinámico
+const hora = new Date().getHours();
+const saludo = hora < 12 ? 'Buenos días' : (hora < 19 ? 'Buenas tardes' : 'Buenas noches');
+document.getElementById('greeting-time').textContent = saludo;
+
 const series = {{ stats.series_dia | tojson }};
 const ctx = document.getElementById('chart-tendencia').getContext('2d');
-
 const gradient = ctx.createLinearGradient(0, 0, 0, 220);
-gradient.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
 gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
 
 new Chart(ctx, {
@@ -217,7 +268,7 @@ new Chart(ctx, {
             pointBackgroundColor: '#4f46e5',
             pointBorderColor: '#fff',
             pointBorderWidth: 2,
-            pointRadius: 3,
+            pointRadius: 0,
             pointHoverRadius: 5,
             borderWidth: 2.5,
         }]
@@ -228,15 +279,15 @@ new Chart(ctx, {
         plugins: {
             legend: { display: false },
             tooltip: {
-                backgroundColor: '#0f172a', padding: 10,
+                backgroundColor: '#0f172a', padding: 12,
                 titleFont: { size: 12, weight: 'bold' },
                 bodyFont: { size: 12 },
                 displayColors: false, cornerRadius: 8,
             }
         },
         scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8' }, border: { display: false } },
-            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8' }, grid: { color: '#f1f5f9' }, border: { display: false } }
+            x: { grid: { display: false }, ticks: { font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, border: { display: false } },
+            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8' }, grid: { color: '#f1f5f9', drawBorder: false }, border: { display: false } }
         }
     }
 });

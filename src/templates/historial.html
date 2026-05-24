@@ -2,28 +2,51 @@
 {% block title %}Historial · JR Verifica EC{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<!-- Hero -->
+<div class="relative mb-8">
+    <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[280px] bg-brand-300/15 rounded-full blur-3xl -z-10"></div>
     <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-            <h1 class="text-3xl font-bold text-slate-900 tracking-tight">Historial</h1>
-            <p class="text-slate-500 mt-1.5 text-sm flex items-center gap-3 flex-wrap">
-                <span class="flex items-center gap-1.5">
-                    <i data-lucide="database" class="icon-xs"></i>
-                    Total: <strong class="text-slate-900">{{ total }}</strong>
-                </span>
-                <span class="text-slate-300">·</span>
-                <span class="flex items-center gap-1.5">
-                    <i data-lucide="clock" class="icon-xs"></i>
-                    Caché <strong class="text-slate-900">{{ ttl_horas }}h</strong>
-                </span>
-                <span class="text-slate-300">·</span>
-                <span>Mostrando últimas {{ entradas|length }}</span>
+            <p class="text-sm font-semibold text-brand-600 mb-2 flex items-center gap-2">
+                <i data-lucide="history" class="icon-sm"></i>
+                Auditoría
             </p>
+            <h1 class="h-display text-4xl sm:text-5xl">Historial</h1>
+            <p class="text-slate-500 mt-2.5 text-base">Todas las verificaciones realizadas por tu organización</p>
         </div>
-        <a href="/" class="btn-secondary">
+        <a href="/" class="btn-primary">
             <i data-lucide="plus" class="icon-sm"></i>
             Nueva búsqueda
         </a>
+    </div>
+</div>
+
+<div class="space-y-5">
+    <!-- Stats inline -->
+    <div class="card p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
+                <i data-lucide="database" class="icon-xs"></i>
+            </div>
+            <span class="text-slate-600">Total:</span>
+            <strong class="text-slate-900 font-mono">{{ total }}</strong>
+        </div>
+        <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+        <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                <i data-lucide="clock" class="icon-xs"></i>
+            </div>
+            <span class="text-slate-600">Caché:</span>
+            <strong class="text-slate-900 font-mono">{{ ttl_horas }}h</strong>
+        </div>
+        <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+        <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+                <i data-lucide="eye" class="icon-xs"></i>
+            </div>
+            <span class="text-slate-600">Mostrando:</span>
+            <strong class="text-slate-900 font-mono">{{ entradas|length }}</strong>
+        </div>
     </div>
 
     <!-- Filtros -->
@@ -33,7 +56,7 @@
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Cédula</label>
                 <div class="relative">
                     <i data-lucide="search" class="icon-sm absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" name="cedula" value="{{ filtro_cedula }}" placeholder="Buscar por cédula..." class="input pl-9">
+                    <input type="text" name="cedula" value="{{ filtro_cedula }}" placeholder="Buscar por cédula..." class="input pl-9 font-mono">
                 </div>
             </div>
             <div class="flex-1">
@@ -62,35 +85,35 @@
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-slate-50 border-b border-slate-200">
+                <thead class="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200">
                     <tr>
-                        <th class="px-5 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Fecha</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Cédula</th>
-                        <th class="px-5 py-3 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nombre</th>
-                        <th class="px-5 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Tipo</th>
-                        <th class="px-5 py-3 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nivel</th>
-                        <th class="px-5 py-3 text-right text-[11px] font-bold text-slate-600 uppercase tracking-wider">Acciones</th>
+                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Fecha</th>
+                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Cédula</th>
+                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nombre</th>
+                        <th class="px-5 py-3.5 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Tipo</th>
+                        <th class="px-5 py-3.5 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nivel</th>
+                        <th class="px-5 py-3.5 text-right text-[11px] font-bold text-slate-600 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     {% for e in entradas %}
-                    <tr class="hover:bg-slate-50/70 transition">
-                        <td class="px-5 py-3.5 text-sm text-slate-600 whitespace-nowrap">
-                            {% set s = e.edad_seg %}
-                            {% if s < 60 %}
-                                <span class="text-emerald-600 font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> hace {{ s }}s</span>
-                            {% elif s < 3600 %}
-                                <span class="text-slate-700">hace {{ (s // 60) }} min</span>
-                            {% elif s < 86400 %}
-                                <span class="text-slate-600">hace {{ (s // 3600) }}h</span>
+                    <tr class="hover:bg-slate-50/70 transition group">
+                        <td class="px-5 py-4 text-sm whitespace-nowrap">
+                            {% set sg = e.edad_seg %}
+                            {% if sg < 60 %}
+                                <span class="text-emerald-600 font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> hace {{ sg }}s</span>
+                            {% elif sg < 3600 %}
+                                <span class="text-slate-700">hace {{ (sg // 60) }} min</span>
+                            {% elif sg < 86400 %}
+                                <span class="text-slate-600">hace {{ (sg // 3600) }}h</span>
                             {% else %}
-                                <span class="text-slate-400">hace {{ (s // 86400) }}d</span>
+                                <span class="text-slate-400">hace {{ (sg // 86400) }}d</span>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-3.5 font-mono text-sm font-semibold text-slate-900 whitespace-nowrap">{{ e.cedula }}</td>
-                        <td class="px-5 py-3.5 text-sm text-slate-700">{{ e.nombre or "—" }}</td>
-                        <td class="px-5 py-3.5 text-center">
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 text-xs font-semibold rounded">
+                        <td class="px-5 py-4 font-mono text-sm font-bold text-slate-900 whitespace-nowrap">{{ e.cedula }}</td>
+                        <td class="px-5 py-4 text-sm text-slate-700 font-medium">{{ e.nombre or "—" }}</td>
+                        <td class="px-5 py-4 text-center">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider rounded">
                                 {% if e.tipo == "completo" %}
                                     <i data-lucide="layers" class="icon-xs"></i>Completo
                                 {% elif e.tipo == "bachiller" %}
@@ -100,7 +123,7 @@
                                 {% endif %}
                             </span>
                         </td>
-                        <td class="px-5 py-3.5 text-center">
+                        <td class="px-5 py-4 text-center">
                             {% set sem = e.semaforo %}
                             {% if 'APTO' in sem %}
                                 <span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
@@ -116,12 +139,12 @@
                                 <span class="text-slate-300 text-xs">—</span>
                             {% endif %}
                         </td>
-                        <td class="px-5 py-3.5 text-right whitespace-nowrap">
-                            <a href="/historial/{{ e.id }}" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition">
+                        <td class="px-5 py-4 text-right whitespace-nowrap">
+                            <a href="/historial/{{ e.id }}" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition opacity-70 group-hover:opacity-100">
                                 <i data-lucide="eye" class="icon-xs"></i>Ver
                             </a>
                             <span class="text-slate-200 mx-1.5">·</span>
-                            <a href="/historial/{{ e.id }}/pdf" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition">
+                            <a href="/historial/{{ e.id }}/pdf" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition opacity-70 group-hover:opacity-100">
                                 <i data-lucide="file-down" class="icon-xs"></i>PDF
                             </a>
                         </td>
@@ -133,17 +156,23 @@
     </div>
     {% else %}
     <div class="card p-16 text-center">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 mb-4">
-            <i data-lucide="inbox" class="icon-lg"></i>
+        <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 mb-5">
+            <i data-lucide="inbox" class="icon-xl"></i>
         </div>
-        <h3 class="text-lg font-bold text-slate-700 mb-1.5">Sin resultados</h3>
-        <p class="text-sm text-slate-500">
+        <h3 class="text-xl font-bold text-slate-700 mb-2">Sin resultados</h3>
+        <p class="text-sm text-slate-500 max-w-sm mx-auto">
             {% if filtro_cedula or filtro_semaforo %}
-            Ninguna búsqueda coincide con los filtros aplicados.
+            Ninguna búsqueda coincide con los filtros aplicados. Limpia los filtros para ver todo.
             {% else %}
-            Aún no has hecho ninguna búsqueda.
+            Aún no hay verificaciones registradas. Haz tu primera búsqueda para empezar.
             {% endif %}
         </p>
+        {% if not filtro_cedula and not filtro_semaforo %}
+        <a href="/" class="btn-primary mt-5">
+            <i data-lucide="search" class="icon-sm"></i>
+            Hacer primera búsqueda
+        </a>
+        {% endif %}
     </div>
     {% endif %}
 </div>
