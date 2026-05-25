@@ -36,11 +36,15 @@ from src.compliance import (
     RETENCION_MESES,
 )
 from src.scheduler import iniciar_scheduler, detener_scheduler
+from src.metrics import setup_metrics
 
 # Inicializar Sentry (opt-in con SENTRY_DSN). Debe ir ANTES de crear FastAPI.
 init_sentry(servicio="verifica")
 
 app = FastAPI(title="JR Verifica EC")
+
+# Métricas Prometheus opt-in (si METRICS_ENABLED=1)
+setup_metrics(app)
 
 
 # ── Lifecycle: arrancar/parar el scheduler de tareas periódicas ──────────────
