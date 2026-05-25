@@ -195,11 +195,12 @@ def buscar_cache(cedula: str, tipo: str) -> Optional[dict]:
         return None
 
 
-def registrar(resultado: dict, tipo: str) -> None:
-    """Agrega una entrada al historial y la persiste."""
-    # ID = timestamp ms + sufijo random para evitar colisiones en concurrencia
-    # (antes solo timestamp ms → 2 registros en el mismo ms colisionaban
-    # con INSERT OR REPLACE y se perdía uno).
+def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None) -> None:
+    """Agrega una entrada al historial y la persiste.
+
+    `usuario_id` es opcional para retrocompatibilidad — si se omite o la
+    columna no existe (DB legacy), la fila queda con NULL en usuario_id.
+    """
     entrada_id = f"{int(time.time() * 1000):x}{uuid.uuid4().hex[:8]}"
     cedula     = resultado.get("cedula", "")
     timestamp  = int(time.time())
@@ -212,13 +213,26 @@ def registrar(resultado: dict, tipo: str) -> None:
     resultado_json = json.dumps(resultado, ensure_ascii=False)
 
     conn = _get_conn()
+    # Detectar si la columna usuario_id existe (DB pre-migración → SI NO)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(historial)")}
+    tiene_usuario_id = "usuario_id" in cols
+
     with _write_lock:
-        conn.execute(
-            "INSERT OR REPLACE INTO historial "
-            "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (entrada_id, cedula, tipo, timestamp, semaforo, nombre, resultado_json),
-        )
+        if tiene_usuario_id:
+            conn.execute(
+                "INSERT OR REPLACE INTO historial "
+                "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json, usuario_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (entrada_id, cedula, tipo, timestamp, semaforo, nombre,
+                 resultado_json, usuario_id),
+            )
+        else:
+            conn.execute(
+                "INSERT OR REPLACE INTO historial "
+                "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (entrada_id, cedula, tipo, timestamp, semaforo, nombre, resultado_json),
+            )
 
 
 def listar(filtro_cedula: str = "", filtro_semaforo: str = "", limite: int = 200) -> list[dict]:

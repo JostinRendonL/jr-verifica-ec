@@ -14,9 +14,10 @@ load_dotenv()
 from datetime import datetime
 
 from src.auth import (
-    password_correcta, crear_cookie, cookie_valida, COOKIE_NAME, SESSION_MAX_AGE,
+    crear_cookie, decodificar_cookie, COOKIE_NAME, SESSION_MAX_AGE,
     ip_bloqueada, registrar_intento_fallido, limpiar_intentos, cedula_valida_ec,
 )
+from src import usuarios
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
@@ -55,12 +56,46 @@ async def _startup_scheduler():
     iniciar_scheduler()
 
 
+@app.on_event("startup")
+async def _startup_bootstrap_admin():
+    """Migra la DB multi-usuario y crea el admin inicial si no existe."""
+    try:
+        u = usuarios.bootstrap_admin_si_falta()
+        if u:
+            print(f"[startup] admin bootstrap creado: {u.email}")
+    except Exception as e:
+        print(f"[startup] WARN bootstrap admin fallo: {e}")
+        capture_exception("startup.bootstrap_admin", e)
+
+
 @app.on_event("shutdown")
 async def _shutdown_scheduler():
     detener_scheduler()
 
 
 # ── Middleware: headers de seguridad ─────────────────────────────────────────
+
+@app.middleware("http")
+async def contexto_usuario(request: Request, call_next):
+    """
+    Pone request.state.usuario (Usuario | None) para que templates lo usen
+    en el navbar. Y si el usuario tiene debe_cambiar_pass=1, redirige a
+    /perfil (excepto en rutas exentas para evitar loop).
+    """
+    cookie = request.cookies.get(COOKIE_NAME)
+    u = _usuario_actual(cookie)
+    request.state.usuario = u
+
+    path = request.url.path
+    rutas_exentas = (
+        path.startswith("/perfil") or path.startswith("/logout")
+        or path.startswith("/static") or path.startswith("/login")
+        or path == "/health" or path.startswith("/verificar/")
+    )
+    if u and u.debe_cambiar_pass and not rutas_exentas:
+        return RedirectResponse(url="/perfil?debe_cambiar=1", status_code=303)
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -99,14 +134,43 @@ _static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
-# ── Helper de autenticación ──────────────────────────────────────────────────
+# ── Helpers de autenticación multi-usuario ──────────────────────────────────
+
+def _usuario_actual(jr_session: str | None) -> usuarios.Usuario | None:
+    """Devuelve el Usuario logueado o None. Valida cookie + que siga activo."""
+    payload = decodificar_cookie(jr_session)
+    if not payload:
+        return None
+    u = usuarios.obtener_por_id(payload.get("uid", ""))
+    if not u or not u.activo:
+        return None
+    return u
+
 
 def _autenticado(jr_session: str | None) -> bool:
-    return cookie_valida(jr_session)
+    """[LEGACY] Sigue funcionando: True si hay usuario válido en la cookie."""
+    return _usuario_actual(jr_session) is not None
+
+
+def _es_admin(jr_session: str | None) -> bool:
+    u = _usuario_actual(jr_session)
+    return u is not None and u.rol == "admin"
 
 
 def _redirect_login() -> RedirectResponse:
     return RedirectResponse(url="/login", status_code=303)
+
+
+def _redirect_perfil_si_debe_cambiar(u: usuarios.Usuario, path_actual: str) -> RedirectResponse | None:
+    """
+    Si el usuario tiene debe_cambiar_pass=1, redirigir a /perfil
+    salvo que ya esté en /perfil o /logout (para no crear loop).
+    """
+    if not u.debe_cambiar_pass:
+        return None
+    if path_actual.startswith("/perfil") or path_actual.startswith("/logout") or path_actual.startswith("/static"):
+        return None
+    return RedirectResponse(url="/perfil?debe_cambiar=1", status_code=303)
 
 
 # ── Health ───────────────────────────────────────────────────────────────────
@@ -202,25 +266,33 @@ async def login_form(request: Request, error: str = "", bloqueado: int = 0):
 
 
 @app.post("/login")
-async def login_submit(request: Request, password: str = Form(...)):
+async def login_submit(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+):
     ip = _ip_cliente(request)
 
     bloqueada, seg = ip_bloqueada(ip)
     if bloqueada:
         return RedirectResponse(url=f"/login?bloqueado={seg}", status_code=303)
 
-    if not password_correcta(password):
+    u = usuarios.autenticar(email, password)
+    if not u:
         registrar_intento_fallido(ip)
         return RedirectResponse(url="/login?error=1", status_code=303)
 
     limpiar_intentos(ip)
-    resp = RedirectResponse(url="/", status_code=303)
+
+    # Si el admin lo creó con flag debe_cambiar_pass=1, lo mandamos a /perfil
+    destino = "/perfil?debe_cambiar=1" if u.debe_cambiar_pass else "/"
+    resp = RedirectResponse(url=destino, status_code=303)
     resp.set_cookie(
         key=COOKIE_NAME,
-        value=crear_cookie(),
+        value=crear_cookie(uid=u.id, rol=u.rol),
         httponly=True,
-        secure=True,            # solo HTTPS
-        samesite="strict",      # protección CSRF
+        secure=True,
+        samesite="strict",
         max_age=SESSION_MAX_AGE,
     )
     return resp
@@ -265,7 +337,8 @@ async def procesar(
     setec_check: str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
-    if not _autenticado(jr_session):
+    u = _usuario_actual(jr_session)
+    if not u:
         return _redirect_login()
 
     # Determinar tipo según checkboxes
@@ -294,9 +367,9 @@ async def procesar(
     if not items:
         return RedirectResponse(url="/?error=vacio", status_code=303)
 
-    # Crear job y disparar background task
-    job_id = crear_job(items, tipo, incluir_setec=quiere_setec)
-    background_tasks.add_task(ejecutar_job, job_id, items, tipo, quiere_setec)
+    # Crear job y disparar background task (con auditoria por usuario)
+    job_id = crear_job(items, tipo, incluir_setec=quiere_setec, usuario_id=u.id)
+    background_tasks.add_task(ejecutar_job, job_id, items, tipo, quiere_setec, u.id)
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
@@ -313,7 +386,8 @@ async def buscar_individual(
     forzar:      str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
-    if not _autenticado(jr_session):
+    u = _usuario_actual(jr_session)
+    if not u:
         return _redirect_login()
 
     cedula = (cedula or "").strip()
@@ -399,7 +473,7 @@ async def buscar_individual(
             "semaforo":  sem,
         }
         try:
-            registrar(resultado, tipo)
+            registrar(resultado, tipo, usuario_id=u.id)
         except Exception as e:
             capture_exception("buscar.registrar_historial", e,
                               extra={"cedula": cedula, "tipo": tipo})
@@ -710,6 +784,159 @@ async def descargar_resultado(job_id: str, jr_session: str | None = Cookie(None)
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
     )
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Multi-usuario: /perfil y /admin/usuarios
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/perfil", response_class=HTMLResponse)
+async def perfil_form(
+    request: Request,
+    debe_cambiar: int = 0,
+    ok: int = 0,
+    error: str = "",
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u:
+        return _redirect_login()
+    return templates.TemplateResponse("perfil.html", {
+        "request":      request,
+        "usuario":      u,
+        "debe_cambiar": bool(debe_cambiar) or u.debe_cambiar_pass,
+        "ok":           bool(ok),
+        "error":        error,
+    })
+
+
+@app.post("/perfil/password")
+async def perfil_cambiar_password(
+    request: Request,
+    nueva_password: str = Form(...),
+    confirmar_password: str = Form(...),
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u:
+        return _redirect_login()
+    if nueva_password != confirmar_password:
+        return RedirectResponse(url="/perfil?error=no_coinciden", status_code=303)
+    try:
+        usuarios.cambiar_password(u.id, nueva_password)
+    except usuarios.UsuarioError as e:
+        return RedirectResponse(url=f"/perfil?error={str(e)[:60]}", status_code=303)
+    return RedirectResponse(url="/perfil?ok=1", status_code=303)
+
+
+@app.get("/admin/usuarios", response_class=HTMLResponse)
+async def admin_usuarios_lista(
+    request: Request,
+    ok: str = "",
+    error: str = "",
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u:
+        return _redirect_login()
+    if u.rol != "admin":
+        return RedirectResponse(url="/", status_code=303)
+    lista = usuarios.listar(solo_activos=False)
+    return templates.TemplateResponse("admin_usuarios.html", {
+        "request":  request,
+        "usuario":  u,
+        "lista":    lista,
+        "ok":       ok,
+        "error":    error,
+    })
+
+
+@app.post("/admin/usuarios/crear")
+async def admin_usuarios_crear(
+    request: Request,
+    email: str = Form(...),
+    nombre: str = Form(...),
+    password: str = Form(...),
+    rol: str = Form("operador"),
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return _redirect_login()
+    try:
+        nuevo = usuarios.crear_usuario(
+            email=email, nombre=nombre, password=password, rol=rol,
+            creado_por=u.id, debe_cambiar_pass=True,
+        )
+        return RedirectResponse(url=f"/admin/usuarios?ok=Creado+{nuevo.email}", status_code=303)
+    except usuarios.UsuarioError as e:
+        return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
+
+
+@app.post("/admin/usuarios/{user_id}/desactivar")
+async def admin_usuarios_desactivar(
+    user_id: str,
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return _redirect_login()
+    try:
+        usuarios.desactivar(user_id, ejecutor_id=u.id)
+        return RedirectResponse(url="/admin/usuarios?ok=Desactivado", status_code=303)
+    except usuarios.UsuarioError as e:
+        return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
+
+
+@app.post("/admin/usuarios/{user_id}/reactivar")
+async def admin_usuarios_reactivar(
+    user_id: str,
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return _redirect_login()
+    usuarios.reactivar(user_id)
+    return RedirectResponse(url="/admin/usuarios?ok=Reactivado", status_code=303)
+
+
+@app.post("/admin/usuarios/{user_id}/reset-password")
+async def admin_usuarios_reset_password(
+    user_id: str,
+    nueva_password: str = Form(...),
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return _redirect_login()
+    try:
+        usuarios.cambiar_password(user_id, nueva_password)
+        # Forzar al usuario a cambiarla en su próximo login
+        conn = usuarios._get_conn()
+        with usuarios._write_lock:
+            conn.execute(
+                "UPDATE usuarios SET debe_cambiar_pass = 1 WHERE id = ?",
+                (user_id,),
+            )
+        return RedirectResponse(url="/admin/usuarios?ok=Password+reseteada", status_code=303)
+    except usuarios.UsuarioError as e:
+        return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
+
+
+@app.post("/admin/usuarios/{user_id}/cambiar-rol")
+async def admin_usuarios_cambiar_rol(
+    user_id: str,
+    nuevo_rol: str = Form(...),
+    jr_session: str | None = Cookie(None),
+):
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return _redirect_login()
+    try:
+        usuarios.cambiar_rol(user_id, nuevo_rol)
+        return RedirectResponse(url="/admin/usuarios?ok=Rol+actualizado", status_code=303)
+    except usuarios.UsuarioError as e:
+        return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
 
 
 # ── Startup ──────────────────────────────────────────────────────────────────

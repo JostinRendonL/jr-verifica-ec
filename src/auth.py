@@ -1,8 +1,21 @@
-"""Autenticación con bcrypt + cookie firmada + rate limiting básico."""
+"""
+Autenticación multi-usuario con cookie firmada + rate limiting básico.
+
+Cambios v6 (multi-usuario):
+- La cookie ahora guarda {v, uid, rol, ts} en vez de {auth, ts}.
+- password_correcta() queda para compatibilidad pero ya NO se usa en el login
+  principal (se usa src.usuarios.autenticar()). Se mantiene para tests legacy.
+- decodificar_cookie() devuelve el payload o None (en vez de bool).
+- cookie_valida() queda como alias compatible: True si el payload es válido.
+- Cookies con schema viejo (sin "v" o v < 2) → inválidas. Esto fuerza
+  re-login una vez al deployar la migración multi-usuario.
+"""
 import os
 import time
 import secrets
 import bcrypt
+from typing import Optional
+
 from itsdangerous import URLSafeSerializer, BadSignature
 
 APP_PASSWORD      = os.getenv("APP_PASSWORD", "cambiar")
@@ -11,19 +24,21 @@ SESSION_SECRET    = os.getenv("SESSION_SECRET") or secrets.token_urlsafe(32)
 COOKIE_NAME       = "jr_session"
 SESSION_MAX_AGE   = 60 * 60 * 24  # 24h
 
-# Rate limit
+COOKIE_VERSION    = 2   # bump para invalidar cookies viejas globalmente
+
+# Rate limit (por IP, igual que antes)
 _RATE_LIMIT_MAX_INTENTOS  = 5
 _RATE_LIMIT_VENTANA_SEG   = 600   # 10 min
 _intentos_fallidos: dict[str, list[float]] = {}
 
 _serializer = URLSafeSerializer(SESSION_SECRET, salt="jr-verifica")
 
-# Generar hash al inicio si solo nos dieron password plano (lazy)
+# ── Hash legacy del APP_PASSWORD (usado solo por bootstrap y tests) ──────────
 _hash_cacheado: bytes | None = None
 
 
 def _obtener_hash() -> bytes | None:
-    """Devuelve el hash bcrypt a usar para validar."""
+    """[LEGACY] Devuelve el hash bcrypt del APP_PASSWORD global."""
     global _hash_cacheado
     if _hash_cacheado is not None:
         return _hash_cacheado
@@ -33,7 +48,6 @@ def _obtener_hash() -> bytes | None:
         return _hash_cacheado
 
     if APP_PASSWORD and APP_PASSWORD != "cambiar":
-        # Hashear en memoria (cada restart genera salt nuevo, pero hash es válido)
         _hash_cacheado = bcrypt.hashpw(APP_PASSWORD.encode("utf-8"), bcrypt.gensalt())
         return _hash_cacheado
 
@@ -41,7 +55,7 @@ def _obtener_hash() -> bytes | None:
 
 
 def password_correcta(password: str) -> bool:
-    """Verifica con bcrypt (constant-time)."""
+    """[LEGACY] Verifica contra APP_PASSWORD global. Solo compatibilidad."""
     if not password:
         return False
     h = _obtener_hash()
@@ -56,7 +70,6 @@ def password_correcta(password: str) -> bool:
 # ── Rate limiting ─────────────────────────────────────────────────────────────
 
 def _limpiar_intentos_viejos(ip: str, ahora: float) -> None:
-    """Quita intentos fuera de la ventana de tiempo."""
     if ip not in _intentos_fallidos:
         return
     _intentos_fallidos[ip] = [
@@ -85,30 +98,49 @@ def registrar_intento_fallido(ip: str) -> None:
 
 
 def limpiar_intentos(ip: str) -> None:
-    """Al login exitoso, limpiamos los intentos del IP."""
     _intentos_fallidos.pop(ip, None)
 
 
-# ── Cookie ─────────────────────────────────────────────────────────────────────
+# ── Cookie firmada (v2 multi-usuario) ────────────────────────────────────────
 
-def crear_cookie() -> str:
-    return _serializer.dumps({"auth": True, "ts": int(time.time())})
+def crear_cookie(uid: str, rol: str = "operador") -> str:
+    """Crea la cookie con uid + rol del usuario logueado."""
+    return _serializer.dumps({
+        "v":   COOKIE_VERSION,
+        "uid": uid,
+        "rol": rol,
+        "ts":  int(time.time()),
+    })
 
 
-def cookie_valida(cookie_value: str | None) -> bool:
+def decodificar_cookie(cookie_value: Optional[str]) -> Optional[dict]:
+    """
+    Devuelve el payload de la cookie si es válida y no expirada,
+    o None si está mal firmada, expirada, o de un schema viejo.
+    """
     if not cookie_value:
-        return False
+        return None
     try:
         data = _serializer.loads(cookie_value)
-        if data.get("auth") is not True:
-            return False
-        ts = data.get("ts", 0)
-        # Validar que la cookie no haya expirado (defensa en profundidad además del max_age)
-        if time.time() - ts > SESSION_MAX_AGE:
-            return False
-        return True
     except BadSignature:
-        return False
+        return None
+
+    # Rechazar cookies de schema viejo (sin "v" o v inferior)
+    if data.get("v") != COOKIE_VERSION:
+        return None
+    uid = data.get("uid")
+    if not uid:
+        return None
+    # Validar expiración (defensa en profundidad además del max_age del browser)
+    ts = data.get("ts", 0)
+    if time.time() - ts > SESSION_MAX_AGE:
+        return None
+    return data
+
+
+def cookie_valida(cookie_value: Optional[str]) -> bool:
+    """Alias compatible: True si la cookie es válida (multi-user v2)."""
+    return decodificar_cookie(cookie_value) is not None
 
 
 # ── Validación de cédula ecuatoriana ──────────────────────────────────────────

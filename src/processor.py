@@ -15,13 +15,15 @@ MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
 _jobs: dict[str, dict] = {}
 
 
-def crear_job(items: list[dict], tipo: str, incluir_setec: bool = False) -> str:
+def crear_job(items: list[dict], tipo: str, incluir_setec: bool = False,
+              usuario_id: str | None = None) -> str:
     """Crea un job nuevo y retorna su ID. items = [{'cedula': '...', 'nombre': '...'}]"""
     job_id = uuid.uuid4().hex[:12]
     _jobs[job_id] = {
         "id":            job_id,
         "tipo":          tipo,
         "incluir_setec": incluir_setec,
+        "usuario_id":    usuario_id,
         "total":         len(items),
         "procesados":    0,
         "estado":        "pendiente",
@@ -121,7 +123,8 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
     return "🟢 APTO"
 
 
-async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio.Semaphore) -> dict:
+async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio.Semaphore,
+                        usuario_id: str | None = None) -> dict:
     """Procesa una sola cédula con semáforo de concurrencia. Usa caché si está disponible."""
     cedula = item["cedula"]
     nombre_input = item.get("nombre", "")
@@ -142,7 +145,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 raw_st = await consultar(cedula, tipo="setec")
             cached["setec"] = extraer_setec(raw_st)
             try:
-                registrar(cached, tipo)
+                registrar(cached, tipo, usuario_id=usuario_id)
             except Exception:
                 pass
 
@@ -161,7 +164,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 if new_st.get("nombre"):
                     cached["nombre"] = new_st["nombre"]
                 try:
-                    registrar(cached, tipo)
+                    registrar(cached, tipo, usuario_id=usuario_id)
                 except Exception:
                     pass
 
@@ -248,7 +251,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
 
     # Registrar en historial+cache
     try:
-        registrar(resultado, tipo)
+        registrar(resultado, tipo, usuario_id=usuario_id)
     except Exception as e:
         capture_exception("processor.registrar", e,
                           extra={"cedula": cedula, "tipo": tipo})
@@ -256,7 +259,9 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
     return resultado
 
 
-async def ejecutar_job(job_id: str, items: list[dict], tipo: str, incluir_setec: bool = False) -> None:
+async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
+                       incluir_setec: bool = False,
+                       usuario_id: str | None = None) -> None:
     """
     Ejecuta el job en background, actualizando _jobs[job_id]['procesados']
     en cada cédula completada.
@@ -265,11 +270,14 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str, incluir_setec:
 
     job = _jobs[job_id]
     job["estado"] = "procesando"
+    # Si no se pasó explicito, intentar tomarlo del job creado
+    if usuario_id is None:
+        usuario_id = job.get("usuario_id")
 
     sem = asyncio.Semaphore(MAX_WORKERS)
 
     async def _task(it: dict):
-        r = await _procesar_una(it, tipo, incluir_setec, sem)
+        r = await _procesar_una(it, tipo, incluir_setec, sem, usuario_id=usuario_id)
         job["resultados"].append(r)
         job["procesados"] = len(job["resultados"])
         return r
