@@ -19,6 +19,41 @@ from src.auth import (
 )
 from src import usuarios, password_reset
 from src.mailer import enviar_email
+
+
+def _notificar_password_cambiada(usuario: "usuarios.Usuario", metodo: str,
+                                  ip: str) -> None:
+    """
+    Envía un email de seguridad al usuario notificándole que su pass
+    fue cambiada. Best-effort: nunca lanza excepciones.
+
+    `metodo` es una descripción legible: 'Cambio desde el perfil',
+    'Reset por email', 'Reset por admin', etc.
+    """
+    try:
+        html = templates.get_template("email_password_cambiada.html").render(
+            nombre=usuario.nombre,
+            fecha=datetime.now().strftime("%d/%m/%Y %H:%M"),
+            metodo=metodo,
+            ip=ip or "desconocida",
+        )
+        texto = (
+            f"Hola {usuario.nombre},\n\n"
+            f"Te confirmamos que tu contraseña en JR Verifica EC fue cambiada.\n\n"
+            f"Cuándo: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+            f"Método: {metodo}\n"
+            f"IP:     {ip or 'desconocida'}\n\n"
+            f"Si no fuiste vos, cambiá tu contraseña inmediatamente y contactá al administrador."
+        )
+        enviar_email(
+            to=usuario.email,
+            subject="🔐 Tu contraseña fue cambiada — JR Verifica EC",
+            html=html,
+            text=texto,
+        )
+    except Exception as e:
+        capture_exception("notificar_password_cambiada", e,
+                          extra={"usuario_id": usuario.id})
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
@@ -415,6 +450,13 @@ async def reset_pass_submit(
 
     password_reset.marcar_usado(token)
     password_reset.invalidar_tokens_de_usuario(info.usuario_id)
+
+    # Notificación de seguridad al usuario afectado
+    afectado = usuarios.obtener_por_id(info.usuario_id)
+    if afectado:
+        _notificar_password_cambiada(afectado, "Reset por email (link de recuperación)",
+                                     _ip_cliente(request))
+
     return RedirectResponse(url="/login?reseteada=1", status_code=303)
 
 
@@ -939,6 +981,7 @@ async def perfil_cambiar_password(
         usuarios.cambiar_password(u.id, nueva_password)
     except usuarios.UsuarioError as e:
         return RedirectResponse(url=f"/perfil?error={str(e)[:60]}", status_code=303)
+    _notificar_password_cambiada(u, "Cambio desde el perfil", _ip_cliente(request))
     return RedirectResponse(url="/perfil?ok=1", status_code=303)
 
 
@@ -1049,6 +1092,7 @@ async def admin_usuarios_reactivar(
 
 @app.post("/admin/usuarios/{user_id}/reset-password")
 async def admin_usuarios_reset_password(
+    request: Request,
     user_id: str,
     nueva_password: str = Form(...),
     jr_session: str | None = Cookie(None),
@@ -1065,9 +1109,18 @@ async def admin_usuarios_reset_password(
                 "UPDATE usuarios SET debe_cambiar_pass = 1 WHERE id = ?",
                 (user_id,),
             )
-        return RedirectResponse(url="/admin/usuarios?ok=Password+reseteada", status_code=303)
     except usuarios.UsuarioError as e:
         return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
+
+    # Notificación de seguridad al usuario afectado (no al admin que la reseteó)
+    afectado = usuarios.obtener_por_id(user_id)
+    if afectado:
+        _notificar_password_cambiada(
+            afectado,
+            f"Reset por administrador ({u.nombre})",
+            _ip_cliente(request),
+        )
+    return RedirectResponse(url="/admin/usuarios?ok=Password+reseteada", status_code=303)
 
 
 @app.post("/admin/usuarios/{user_id}/cambiar-rol")
