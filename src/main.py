@@ -52,13 +52,14 @@ async def security_headers(request: Request, call_next):
     response.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # CSP permisiva para Tailwind + Google Fonts + Chart.js + Lucide icons
+    # connect-src incluye unpkg/cdn para que sourcemaps de Lucide carguen sin warnings
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
-        "connect-src 'self'"
+        "connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com"
     )
     return response
 
