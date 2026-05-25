@@ -35,11 +35,25 @@ from src.compliance import (
     estadisticas_compliance,
     RETENCION_MESES,
 )
+from src.scheduler import iniciar_scheduler, detener_scheduler
 
 # Inicializar Sentry (opt-in con SENTRY_DSN). Debe ir ANTES de crear FastAPI.
 init_sentry(servicio="verifica")
 
 app = FastAPI(title="JR Verifica EC")
+
+
+# ── Lifecycle: arrancar/parar el scheduler de tareas periódicas ──────────────
+
+@app.on_event("startup")
+async def _startup_scheduler():
+    """Lanza tareas programadas (limpieza LOPDP semanal)."""
+    iniciar_scheduler()
+
+
+@app.on_event("shutdown")
+async def _shutdown_scheduler():
+    detener_scheduler()
 
 
 # ── Middleware: headers de seguridad ─────────────────────────────────────────

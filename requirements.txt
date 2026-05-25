@@ -13,4 +13,5 @@ pydyf==0.10.0
 qrcode==7.4.2
 pillow>=10.0.0
 sentry-sdk[fastapi]>=2.0.0
+apscheduler>=3.10.0
 

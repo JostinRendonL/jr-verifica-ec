@@ -139,9 +139,24 @@ def ejecutar_limpieza(meses: int | None = None) -> dict[str, Any]:
 
 def estadisticas_compliance() -> dict[str, Any]:
     """Resumen del estado actual para el panel de admin."""
+    # Estado del scheduler — import diferido para evitar ciclo
+    scheduler_info: dict[str, Any] = {"activo": False, "proxima_limpieza": None}
+    try:
+        from src import scheduler as _sch
+        if _sch._scheduler is not None and _sch._scheduler.running:
+            scheduler_info["activo"] = True
+            job = _sch._scheduler.get_job("limpieza_lopdp_semanal")
+            if job and job.next_run_time:
+                scheduler_info["proxima_limpieza"] = job.next_run_time.isoformat()
+                scheduler_info["job_id"]           = job.id
+                scheduler_info["job_name"]         = job.name
+    except Exception as e:
+        scheduler_info["error"] = str(e)[:120]
+
     return {
         "retencion_meses":        RETENCION_MESES,
         "total_historial":        total_entradas(),
         "total_verificaciones":   _ver_total(),
         "timestamp":              int(time.time()),
+        "scheduler":              scheduler_info,
     }
