@@ -214,6 +214,7 @@ function confirmarOlvido(e) {
                         <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nombre</th>
                         <th class="px-5 py-3.5 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Tipo</th>
                         <th class="px-5 py-3.5 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nivel</th>
+                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Operador</th>
                         <th class="px-5 py-3.5 text-right text-[11px] font-bold text-slate-600 uppercase tracking-wider">Acciones</th>
                     </tr>
                 </thead>
@@ -259,6 +260,18 @@ function confirmarOlvido(e) {
                                 <span class="badge badge-sin"><span class="badge-dot"></span>{{ sem }}</span>
                             {% else %}
                                 <span class="text-slate-300 text-xs">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 text-sm">
+                            {% if e.operador_nombre and e.operador_nombre != '—' %}
+                              <div class="flex items-center gap-2">
+                                <div class="h-6 w-6 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                                  {{ e.operador_nombre[:1] | upper }}
+                                </div>
+                                <span class="text-xs font-medium text-slate-700 truncate" title="{{ e.operador_email }}">{{ e.operador_nombre }}</span>
+                              </div>
+                            {% else %}
+                              <span class="text-[10px] text-slate-400 italic">sistema (pre-migración)</span>
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 text-right whitespace-nowrap">

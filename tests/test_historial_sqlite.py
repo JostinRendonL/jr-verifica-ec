@@ -82,6 +82,47 @@ class TestListar:
         assert "APTO" in aptos[0]["semaforo"]
 
 
+class TestListarConAuditoria:
+    """Tests del JOIN con usuarios cuando se registra con usuario_id."""
+
+    def test_listar_incluye_operador_si_existe_usuario(self):
+        from src import usuarios
+        usuarios.init_db()
+        # Limpiar usuarios primero
+        conn = usuarios._get_conn()
+        with usuarios._write_lock:
+            conn.execute("DELETE FROM usuarios")
+        u = usuarios.crear_usuario("op@ex.com", "Operador Test", "password123")
+        h.registrar(_resultado_apto("1234567893"), "completo", usuario_id=u.id)
+        entradas = h.listar()
+        assert len(entradas) == 1
+        assert entradas[0]["operador_nombre"] == "Operador Test"
+        assert entradas[0]["operador_email"]  == "op@ex.com"
+        assert entradas[0]["usuario_id"]      == u.id
+
+    def test_listar_sin_usuario_id_muestra_dash(self):
+        # Registrar sin usuario_id (caso legacy)
+        h.registrar(_resultado_apto("1234567893"), "completo")
+        entradas = h.listar()
+        assert entradas[0]["operador_nombre"] == "—"
+        assert entradas[0]["usuario_id"] is None
+
+    def test_filtro_por_usuario_id(self):
+        from src import usuarios
+        usuarios.init_db()
+        conn = usuarios._get_conn()
+        with usuarios._write_lock:
+            conn.execute("DELETE FROM usuarios")
+        u1 = usuarios.crear_usuario("a@ex.com", "Alice", "password123")
+        u2 = usuarios.crear_usuario("b@ex.com", "Bob",   "password123")
+        h.registrar(_resultado_apto("1234567893"), "completo", usuario_id=u1.id)
+        h.registrar(_resultado_apto("1310009999"), "completo", usuario_id=u2.id)
+        h.registrar(_resultado_apto("0954008272"), "completo", usuario_id=u1.id)
+        solo_alice = h.listar(filtro_usuario_id=u1.id)
+        assert len(solo_alice) == 2
+        assert all(e["usuario_id"] == u1.id for e in solo_alice)
+
+
 class TestBorrar:
     def test_borrar_entrada(self):
         h.registrar(_resultado_apto(), "completo")

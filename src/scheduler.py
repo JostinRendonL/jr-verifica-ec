@@ -21,6 +21,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from src.compliance import ejecutar_limpieza
 from src.obs import capture_exception, capture_message
+from src import password_reset
 
 
 _scheduler: BackgroundScheduler | None = None
@@ -50,6 +51,24 @@ def _tarea_limpieza_lopdp() -> None:
         capture_exception("scheduler.limpieza_lopdp", e)
 
 
+def _tarea_limpieza_tokens_reset() -> None:
+    """Borra tokens de reset de password expirados o usados hace > 7 días.
+
+    Corre diariamente para mantener la tabla password_resets pequeña.
+    """
+    try:
+        n = password_reset.limpiar_expirados()
+        if n > 0:
+            print(f"[scheduler] limpieza tokens reset: {n} borrados")
+            capture_message(
+                "scheduler.limpieza_tokens.ok",
+                extra={"borrados": n},
+                level="info",
+            )
+    except Exception as e:
+        capture_exception("scheduler.limpieza_tokens", e)
+
+
 def iniciar_scheduler() -> None:
     """Lanza el scheduler en background. Idempotente."""
     global _scheduler
@@ -75,8 +94,19 @@ def iniciar_scheduler() -> None:
         misfire_grace_time=3600,  # tolera 1h de retraso si el server estaba caído
     )
 
+    # Limpieza diaria de tokens de reset de password (housekeeping)
+    _scheduler.add_job(
+        _tarea_limpieza_tokens_reset,
+        trigger=CronTrigger(hour=4, minute=15),   # diario 04:15
+        id="limpieza_tokens_reset_diaria",
+        name="Limpia tokens de reset password expirados / usados",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
     _scheduler.start()
     print(f"[scheduler] ✅ iniciado — limpieza LOPDP cada semana día={dia} hora={hora}:00")
+    print(f"[scheduler] ✅ iniciado — limpieza tokens reset diario hora=04:15")
 
 
 def detener_scheduler() -> None:

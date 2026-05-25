@@ -93,8 +93,15 @@ def _get_conn() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Forzar creación de tablas. Llamable en startup."""
+    """Forzar creación de tablas + migración de historial. Llamable en startup."""
     _get_conn()
+    # Asegurar que la tabla historial existe ANTES de intentar agregar la columna
+    try:
+        from src import historial_sqlite as _h
+        _h._get_conn()
+    except Exception:
+        pass
+    _migrar_historial_si_falta_columna()
 
 
 def _migrar_historial_si_falta_columna() -> None:

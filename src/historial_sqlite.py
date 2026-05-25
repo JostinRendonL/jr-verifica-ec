@@ -235,37 +235,67 @@ def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None) -> N
             )
 
 
-def listar(filtro_cedula: str = "", filtro_semaforo: str = "", limite: int = 200) -> list[dict]:
-    """Devuelve las entradas más recientes (sin resultado completo)."""
+def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
+           filtro_usuario_id: str = "", limite: int = 200) -> list[dict]:
+    """Devuelve las entradas más recientes (sin resultado completo).
+
+    Incluye el nombre del operador (LEFT JOIN con usuarios) si la columna
+    `usuario_id` existe en la tabla historial. Filas pre-migración tienen
+    `usuario_id = NULL` → se devuelven como operador_nombre = '—'.
+    """
     cedula_f   = (filtro_cedula or "").strip()
     semaforo_f = (filtro_semaforo or "").strip().upper()
+    usuario_f  = (filtro_usuario_id or "").strip()
 
-    sql = "SELECT id, cedula, tipo, timestamp, semaforo, nombre FROM historial WHERE 1=1"
+    conn = _get_conn()
+    # Detectar si la columna usuario_id existe (compatibilidad pre-migración)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(historial)")}
+    tiene_usuario_id = "usuario_id" in cols
+    # Detectar si existe la tabla usuarios (para el JOIN)
+    tiene_usuarios = bool(conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='usuarios'"
+    ).fetchone())
+
+    if tiene_usuario_id and tiene_usuarios:
+        sql = ("SELECT h.id, h.cedula, h.tipo, h.timestamp, h.semaforo, h.nombre, "
+               "       h.usuario_id, u.nombre AS operador_nombre, u.email AS operador_email "
+               "FROM historial h LEFT JOIN usuarios u ON u.id = h.usuario_id "
+               "WHERE 1=1")
+    else:
+        sql = ("SELECT id, cedula, tipo, timestamp, semaforo, nombre, "
+               "       NULL AS usuario_id, NULL AS operador_nombre, NULL AS operador_email "
+               "FROM historial WHERE 1=1")
+
     params: list = []
 
     if cedula_f:
-        sql += " AND cedula LIKE ?"
+        sql += " AND " + ("h.cedula" if tiene_usuario_id and tiene_usuarios else "cedula") + " LIKE ?"
         params.append(f"%{cedula_f}%")
     if semaforo_f:
-        sql += " AND UPPER(semaforo) LIKE ?"
+        sql += " AND UPPER(" + ("h.semaforo" if tiene_usuario_id and tiene_usuarios else "semaforo") + ") LIKE ?"
         params.append(f"%{semaforo_f}%")
+    if usuario_f and tiene_usuario_id:
+        sql += " AND h.usuario_id = ?"
+        params.append(usuario_f)
 
-    sql += " ORDER BY timestamp DESC LIMIT ?"
+    sql += " ORDER BY " + ("h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp") + " DESC LIMIT ?"
     params.append(limite)
 
     ahora = int(time.time())
-    conn = _get_conn()
     cur = conn.execute(sql, params)
     rows = []
     for r in cur.fetchall():
         rows.append({
-            "id":        r["id"],
-            "cedula":    r["cedula"],
-            "tipo":      r["tipo"],
-            "timestamp": r["timestamp"],
-            "semaforo":  r["semaforo"],
-            "nombre":    r["nombre"],
-            "edad_seg":  ahora - r["timestamp"],
+            "id":              r["id"],
+            "cedula":          r["cedula"],
+            "tipo":            r["tipo"],
+            "timestamp":       r["timestamp"],
+            "semaforo":        r["semaforo"],
+            "nombre":          r["nombre"],
+            "edad_seg":        ahora - r["timestamp"],
+            "usuario_id":      r["usuario_id"],
+            "operador_nombre": r["operador_nombre"] or "—",
+            "operador_email":  r["operador_email"]  or "",
         })
     return rows
 

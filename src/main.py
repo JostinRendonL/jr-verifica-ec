@@ -971,6 +971,7 @@ async def admin_usuarios_crear(
     nombre: str = Form(...),
     password: str = Form(...),
     rol: str = Form("operador"),
+    enviar_invitacion: str = Form(""),   # checkbox: "1" para enviar email
     jr_session: str | None = Cookie(None),
 ):
     u = _usuario_actual(jr_session)
@@ -981,9 +982,42 @@ async def admin_usuarios_crear(
             email=email, nombre=nombre, password=password, rol=rol,
             creado_por=u.id, debe_cambiar_pass=True,
         )
-        return RedirectResponse(url=f"/admin/usuarios?ok=Creado+{nuevo.email}", status_code=303)
     except usuarios.UsuarioError as e:
         return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
+
+    # Enviar email de onboarding con credenciales temporales si se pidió
+    msg_ok = f"Creado+{nuevo.email}"
+    if enviar_invitacion == "1":
+        try:
+            html = templates.get_template("email_bienvenida.html").render(
+                nombre=nuevo.nombre,
+                email=nuevo.email,
+                password=password,
+                rol=nuevo.rol,
+                creador=u.nombre,
+                link=f"{_base_url(request)}/login",
+            )
+            texto = (
+                f"Hola {nuevo.nombre},\n\n"
+                f"{u.nombre} te creó una cuenta en JR Verifica EC.\n\n"
+                f"Email:      {nuevo.email}\n"
+                f"Contraseña: {password}\n"
+                f"Rol:        {nuevo.rol}\n\n"
+                f"Ingresá a: {_base_url(request)}/login\n\n"
+                f"Por seguridad, deberás cambiar la contraseña al ingresar."
+            )
+            enviado = enviar_email(
+                to=nuevo.email,
+                subject=f"Bienvenido a JR Verifica EC, {nuevo.nombre.split()[0]}",
+                html=html,
+                text=texto,
+            )
+            msg_ok = f"Creado+{nuevo.email}+(email+{'enviado' if enviado else 'fallo'})"
+        except Exception as e:
+            capture_exception("crear_usuario.email", e, extra={"email": nuevo.email})
+            msg_ok = f"Creado+{nuevo.email}+(email+fallo)"
+
+    return RedirectResponse(url=f"/admin/usuarios?ok={msg_ok}", status_code=303)
 
 
 @app.post("/admin/usuarios/{user_id}/desactivar")
@@ -1050,6 +1084,42 @@ async def admin_usuarios_cambiar_rol(
         return RedirectResponse(url="/admin/usuarios?ok=Rol+actualizado", status_code=303)
     except usuarios.UsuarioError as e:
         return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
+
+
+@app.post("/admin/test-email")
+async def admin_test_email(
+    request: Request,
+    jr_session: str | None = Cookie(None),
+):
+    """
+    Envía un email de prueba al admin logueado para validar que Resend
+    (u otro driver) esté correctamente configurado.
+    """
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return _redirect_login()
+
+    from src.mailer import driver_activo_nombre
+    driver = driver_activo_nombre()
+    html = (
+        f"<h2>Test de Email — JR Verifica EC</h2>"
+        f"<p>Este email confirma que la configuración del mailer funciona correctamente.</p>"
+        f"<ul>"
+        f"<li><b>Driver activo:</b> {driver}</li>"
+        f"<li><b>Enviado a:</b> {u.email}</li>"
+        f"<li><b>Dominio:</b> {os.getenv('MAIL_FROM', '(no config)')}</li>"
+        f"</ul>"
+        f"<p style='color:#64748b;font-size:12px;'>Si recibís esto, podés crear operadores con email "
+        f"de bienvenida y los usuarios pueden resetear su pass por email.</p>"
+    )
+    enviado = enviar_email(
+        to=u.email,
+        subject=f"[Test] JR Verifica EC — driver={driver}",
+        html=html,
+        text=f"Test email. Driver activo: {driver}. Enviado a: {u.email}",
+    )
+    msg = f"Email+enviado+via+{driver}+a+{u.email}" if enviado else "Fallo+envio+email"
+    return RedirectResponse(url=f"/admin/usuarios?ok={msg}", status_code=303)
 
 
 # ── Startup ──────────────────────────────────────────────────────────────────
