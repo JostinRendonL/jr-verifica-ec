@@ -12,3 +12,13 @@ venv/
 logs/
 uploads/
 results/
+# pytest
+.pytest_cache/
+test_data/
+test_compliance/
+# local backups
+*.json.migrated
+historial.db
+historial.db-wal
+historial.db-shm
+

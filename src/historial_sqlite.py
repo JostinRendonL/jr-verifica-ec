@@ -24,6 +24,7 @@ from __future__ import annotations
 import os
 import json
 import time
+import uuid
 import sqlite3
 import threading
 from datetime import datetime
@@ -196,7 +197,10 @@ def buscar_cache(cedula: str, tipo: str) -> Optional[dict]:
 
 def registrar(resultado: dict, tipo: str) -> None:
     """Agrega una entrada al historial y la persiste."""
-    entrada_id = f"{int(time.time() * 1000):x}"
+    # ID = timestamp ms + sufijo random para evitar colisiones en concurrencia
+    # (antes solo timestamp ms → 2 registros en el mismo ms colisionaban
+    # con INSERT OR REPLACE y se perdía uno).
+    entrada_id = f"{int(time.time() * 1000):x}{uuid.uuid4().hex[:8]}"
     cedula     = resultado.get("cedula", "")
     timestamp  = int(time.time())
     semaforo   = resultado.get("semaforo", "")

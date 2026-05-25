@@ -34,7 +34,7 @@ def _qr_base64(texto: str) -> str:
     qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=4, border=1)
     qr.add_data(texto)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="#1A3A5C", back_color="white")
+    img = qr.make_image(fill_color="#0F2C5C", back_color="white")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     return base64.b64encode(buf.getvalue()).decode()
@@ -93,7 +93,7 @@ def generar_pdf(resultado: dict) -> bytes:
         "CRÍTICO":      "#7f1d1d",
         "SIN DATOS":    "#94a3b8",
     }
-    color = "#1A3A5C"
+    color = "#0F2C5C"
     for k, v in nivel_color.items():
         if k in sem:
             color = v
@@ -314,11 +314,11 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
 .hdr-brand { vertical-align: middle; }
 .hdr-codigo { vertical-align: middle; text-align: right; width: 180px; }
 .logo-img { height: 50px; width: 50px; object-fit: contain; display: block; }
-.brand { font-size: 18pt; font-weight: bold; color: #1A3A5C; letter-spacing: -0.5px; line-height: 1.1; }
+.brand { font-size: 18pt; font-weight: bold; color: #0F2C5C; letter-spacing: -0.5px; line-height: 1.1; }
 .brand-sub { font-size: 8pt; color: #7B7D7D; margin-top: 4px; line-height: 1.3; }
 .codigo-lbl { font-size: 7pt; color: #7B7D7D; text-transform: uppercase; letter-spacing: 1px; }
-.codigo { font-family: 'Courier', monospace; font-size: 11pt; font-weight: bold; color: #1A3A5C; letter-spacing: 1px; }
-.header-line { border-bottom: 2px solid #1A3A5C; margin-bottom: 16px; padding-top: 8px; }
+.codigo { font-family: 'Courier', monospace; font-size: 11pt; font-weight: bold; color: #0F2C5C; letter-spacing: 1px; }
+.header-line { border-bottom: 2px solid #0F2C5C; margin-bottom: 16px; padding-top: 8px; }
 
 /* Veredicto */
 .veredicto {
@@ -341,12 +341,12 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
 .datos-grid { display: flex; gap: 30px; }
 .datos-grid > div { flex: 1; }
 .lbl { font-size: 7pt; color: #7B7D7D; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-.cedula-val { font-family: 'Courier', monospace; font-size: 13pt; font-weight: bold; color: #1A3A5C; letter-spacing: 1px; }
+.cedula-val { font-family: 'Courier', monospace; font-size: 13pt; font-weight: bold; color: #0F2C5C; letter-spacing: 1px; }
 .nombre-val { font-size: 12pt; font-weight: bold; color: #1C2833; }
 
 /* Secciones */
 .seccion { margin-bottom: 14px; }
-.seccion-titulo { font-size: 11pt; font-weight: bold; color: #1A3A5C; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #D5D8DC; }
+.seccion-titulo { font-size: 11pt; font-weight: bold; color: #0F2C5C; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #D5D8DC; }
 
 /* Cajas */
 .caja { padding: 12px 14px; border-radius: 6px; border: 1px solid; }
@@ -365,7 +365,7 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
 .stat-box.rojo     { background: #FEE2E2; border-color: #FCA5A5; }
 .stat-box.amarillo { background: #FEF3C7; border-color: #FCD34D; }
 .stat-box.gris     { background: #F1F5F9; border-color: #CBD5E1; }
-.stat-num { font-size: 24pt; font-weight: bold; color: #1A3A5C; }
+.stat-num { font-size: 24pt; font-weight: bold; color: #0F2C5C; }
 .stat-box.rojo .stat-num { color: #991B1B; }
 .stat-box.amarillo .stat-num { color: #92400E; }
 .stat-box.gris .stat-num { color: #64748B; }

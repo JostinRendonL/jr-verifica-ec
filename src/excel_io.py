@@ -6,10 +6,11 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
 
-# ── Paleta de colores premium ─────────────────────────────────────────────────
-NAVY        = "1A3A5C"
-NAVY_LIGHT  = "2980B9"
-ACCENT      = "3498DB"
+# ── Paleta de colores premium (branding RUBASA Facility Services) ────────────
+# Colores oficiales tomados del logo + sitio web rubasa.com.ec
+NAVY        = "0F2C5C"   # Azul navy oscuro — texto "RUBASA" del logo
+NAVY_LIGHT  = "1E5BFA"   # Azul vibrante — ícono "R" del logo
+ACCENT      = "3B7BFF"   # Azul claro — tono medio para acentos
 
 VERDE_BG    = "D4EFDF"  # APTO
 AMARILLO_BG = "FCF3CF"  # OBSERVACIÓN

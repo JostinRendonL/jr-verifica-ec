@@ -108,8 +108,65 @@ def _redirect_login() -> RedirectResponse:
 # ── Health ───────────────────────────────────────────────────────────────────
 
 @app.get("/health")
-async def health():
-    return {"status": "ok", "app": "jr-verifica-ec", "version": "1.0.0"}
+async def health(deep: bool = False):
+    """
+    Healthcheck.
+      /health         — liveness rápido (Docker HEALTHCHECK lo usa)
+      /health?deep=1  — valida dependencias externas (bg-api, SQLite, scheduler)
+    """
+    import os as _os
+    base = {
+        "status":   "ok",
+        "app":      "jr-verifica-ec",
+        "version":  "2.0.0",
+        "sentry":   "enabled" if _os.getenv("SENTRY_DSN") else "disabled",
+    }
+    if not deep:
+        return base
+
+    deps = {}
+
+    # 1) SQLite — try a cheap query
+    try:
+        n = total_entradas()
+        deps["sqlite"] = {"status": "ok", "total_entradas": n}
+    except Exception as e:
+        deps["sqlite"] = {"status": "down", "error": str(e)[:120]}
+
+    # 2) bg-api
+    try:
+        import httpx as _httpx
+        bg_url = _os.getenv("BG_API_URL", "http://dentaklin_bg-api:8000")
+        async with _httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.get(f"{bg_url}/health")
+            deps["bg_api"] = {
+                "status":    "ok" if r.status_code == 200 else "degraded",
+                "http_code": r.status_code,
+                "url":       bg_url,
+            }
+    except Exception as e:
+        deps["bg_api"] = {"status": "down", "error": str(e)[:120]}
+
+    # 3) Scheduler (compliance)
+    try:
+        stats = estadisticas_compliance()
+        deps["scheduler"] = {
+            "status":           "ok" if stats["scheduler"]["activo"] else "down",
+            "proxima_limpieza": stats["scheduler"].get("proxima_limpieza"),
+        }
+    except Exception as e:
+        deps["scheduler"] = {"status": "unknown", "error": str(e)[:120]}
+
+    # Estado global
+    overall = "ok"
+    for v in deps.values():
+        if v.get("status") == "down":
+            overall = "down"
+            break
+        if v.get("status") == "degraded" and overall == "ok":
+            overall = "degraded"
+
+    return {**base, "status": overall, "deps": deps}
 
 
 # ── Verificación pública de PDFs (NO requiere login) ─────────────────────────
