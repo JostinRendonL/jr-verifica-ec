@@ -51,7 +51,12 @@
             {% elif error %}
             <div class="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
                 <i data-lucide="x-circle" class="icon-sm text-red-600"></i>
-                <span class="text-sm text-red-700 font-medium">Contraseña incorrecta</span>
+                <span class="text-sm text-red-700 font-medium">Email o contraseña incorrectos</span>
+            </div>
+            {% elif reseteada %}
+            <div class="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5">
+                <i data-lucide="check-circle" class="icon-sm text-emerald-600"></i>
+                <span class="text-sm text-emerald-700 font-medium">Contraseña actualizada. Inicia sesión con la nueva.</span>
             </div>
             {% endif %}
 
@@ -92,6 +97,11 @@
                     Iniciar sesión
                     <i data-lucide="arrow-right" class="icon-sm"></i>
                 </button>
+                <div class="text-center pt-1">
+                    <a href="/olvide-pass" class="text-xs text-slate-500 hover:text-brand-600 font-medium">
+                        ¿Olvidaste tu contraseña?
+                    </a>
+                </div>
             </form>
 
             <div class="mt-6 pt-5 border-t border-slate-100 text-center">

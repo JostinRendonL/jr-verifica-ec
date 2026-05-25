@@ -254,3 +254,42 @@ class TestBootstrap:
         monkeypatch.delenv("ADMIN_EMAIL", raising=False)
         u = bootstrap_admin_si_falta()
         assert u.email == usuarios.DEFAULT_ADMIN_EMAIL
+
+
+class TestBootstrapResetAdmin:
+    def test_resetea_admin_existente(self, monkeypatch):
+        # Setup: hay un admin con pass conocida
+        monkeypatch.setenv("APP_PASSWORD", "pass-original-99999")
+        monkeypatch.setenv("ADMIN_EMAIL", "boss@empresa.com")
+        u_inicial = bootstrap_admin_si_falta()
+        assert autenticar("boss@empresa.com", "pass-original-99999") is not None
+
+        # Admin olvidó pass → operador setea ADMIN_RESET en Easypanel y reinicia
+        monkeypatch.setenv("ADMIN_RESET", "nueva-pass-recuperacion")
+        u_reset = usuarios.bootstrap_reset_admin_si_pedido()
+        assert u_reset is not None
+        assert u_reset.id == u_inicial.id
+        assert u_reset.debe_cambiar_pass is True   # forzar cambio en proximo login
+
+        # La nueva pass funciona, la vieja ya no
+        assert autenticar("boss@empresa.com", "pass-original-99999") is None
+        assert autenticar("boss@empresa.com", "nueva-pass-recuperacion") is not None
+
+    def test_crea_admin_si_no_existe(self, monkeypatch):
+        # No hay ningun usuario
+        monkeypatch.delenv("APP_PASSWORD", raising=False)
+        monkeypatch.setenv("ADMIN_RESET", "pass-emergencia-1234")
+        monkeypatch.setenv("ADMIN_EMAIL", "rescate@empresa.com")
+        u = usuarios.bootstrap_reset_admin_si_pedido()
+        assert u is not None
+        assert u.email == "rescate@empresa.com"
+        assert u.rol == "admin"
+        assert u.debe_cambiar_pass is True
+
+    def test_no_hace_nada_sin_env_var(self, monkeypatch):
+        monkeypatch.delenv("ADMIN_RESET", raising=False)
+        assert usuarios.bootstrap_reset_admin_si_pedido() is None
+
+    def test_ignora_pass_corta(self, monkeypatch):
+        monkeypatch.setenv("ADMIN_RESET", "short")
+        assert usuarios.bootstrap_reset_admin_si_pedido() is None

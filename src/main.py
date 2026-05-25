@@ -17,7 +17,8 @@ from src.auth import (
     crear_cookie, decodificar_cookie, COOKIE_NAME, SESSION_MAX_AGE,
     ip_bloqueada, registrar_intento_fallido, limpiar_intentos, cedula_valida_ec,
 )
-from src import usuarios
+from src import usuarios, password_reset
+from src.mailer import enviar_email
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
@@ -66,6 +67,18 @@ async def _startup_bootstrap_admin():
     except Exception as e:
         print(f"[startup] WARN bootstrap admin fallo: {e}")
         capture_exception("startup.bootstrap_admin", e)
+
+
+@app.on_event("startup")
+async def _startup_reset_admin_si_pedido():
+    """Fallback: si ADMIN_RESET env var existe, resetea la pass del admin."""
+    try:
+        u = usuarios.bootstrap_reset_admin_si_pedido()
+        if u:
+            print(f"[startup] admin reseteado vía ADMIN_RESET: {u.email}")
+    except Exception as e:
+        print(f"[startup] WARN reset admin fallo: {e}")
+        capture_exception("startup.reset_admin", e)
 
 
 @app.on_event("shutdown")
@@ -257,11 +270,13 @@ async def verificar_codigo(request: Request, codigo: str):
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
-async def login_form(request: Request, error: str = "", bloqueado: int = 0):
+async def login_form(request: Request, error: str = "", bloqueado: int = 0,
+                     reseteada: int = 0):
     return templates.TemplateResponse("login.html", {
         "request": request,
         "error": error,
         "bloqueado_segundos": bloqueado,
+        "reseteada": bool(reseteada),
     })
 
 
@@ -303,6 +318,104 @@ async def logout():
     resp = RedirectResponse(url="/login", status_code=303)
     resp.delete_cookie(COOKIE_NAME)
     return resp
+
+
+# ── Olvido de contraseña ─────────────────────────────────────────────────────
+
+def _base_url(request: Request) -> str:
+    """URL base de la app (https://verifica.dentaklin.shop). Respeta APP_BASE_URL si está definida."""
+    base = os.getenv("APP_BASE_URL", "").rstrip("/")
+    if base:
+        return base
+    # Fallback: reconstruir desde el request
+    scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host   = request.headers.get("host") or "localhost"
+    return f"{scheme}://{host}"
+
+
+@app.get("/olvide-pass", response_class=HTMLResponse)
+async def olvide_pass_form(request: Request, ok: int = 0):
+    return templates.TemplateResponse("olvide_pass.html", {
+        "request": request,
+        "ok":      bool(ok),
+    })
+
+
+@app.post("/olvide-pass")
+async def olvide_pass_submit(request: Request, email: str = Form(...)):
+    """
+    Genera token + envía email. Responde igual exista o no el email
+    (anti-enumeración: no revelar qué emails están registrados).
+    """
+    ip = _ip_cliente(request)
+    bloqueada, _ = ip_bloqueada(ip)
+    if bloqueada:
+        return RedirectResponse(url="/olvide-pass?ok=1", status_code=303)
+
+    u = usuarios.obtener_por_email(email)
+    if u and u.activo:
+        try:
+            token = password_reset.generar_token(u.id, ip_origen=ip)
+            link = f"{_base_url(request)}/reset-pass/{token}"
+            html = templates.get_template("email_reset.html").render(
+                nombre=u.nombre, link=link, ttl_min=60,
+            )
+            texto = (
+                f"Hola {u.nombre},\n\n"
+                f"Recibimos una solicitud para resetear tu contraseña en JR Verifica EC.\n"
+                f"Si fuiste tú, abre este enlace (válido 1 hora):\n\n"
+                f"{link}\n\n"
+                f"Si no fuiste tú, ignora este email."
+            )
+            enviar_email(
+                to=u.email,
+                subject="Recupera tu contraseña — JR Verifica EC",
+                html=html,
+                text=texto,
+            )
+        except Exception as e:
+            capture_exception("olvide_pass.enviar", e, extra={"email": email})
+    else:
+        # Pequeño rate-limit anti-flood aunque sea por IP
+        registrar_intento_fallido(ip)
+
+    return RedirectResponse(url="/olvide-pass?ok=1", status_code=303)
+
+
+@app.get("/reset-pass/{token}", response_class=HTMLResponse)
+async def reset_pass_form(request: Request, token: str, error: str = ""):
+    info = password_reset.validar_token(token)
+    if not info:
+        return templates.TemplateResponse("reset_pass.html", {
+            "request": request, "token": token, "valido": False, "error": error,
+        })
+    return templates.TemplateResponse("reset_pass.html", {
+        "request": request, "token": token, "valido": True, "error": error,
+    })
+
+
+@app.post("/reset-pass/{token}")
+async def reset_pass_submit(
+    request: Request,
+    token: str,
+    nueva_password: str = Form(...),
+    confirmar_password: str = Form(...),
+):
+    info = password_reset.validar_token(token)
+    if not info:
+        return RedirectResponse(url=f"/reset-pass/{token}?error=expirado", status_code=303)
+
+    if nueva_password != confirmar_password:
+        return RedirectResponse(url=f"/reset-pass/{token}?error=no_coinciden", status_code=303)
+
+    try:
+        usuarios.cambiar_password(info.usuario_id, nueva_password)
+    except usuarios.UsuarioError as e:
+        return RedirectResponse(url=f"/reset-pass/{token}?error={str(e)[:60]}", status_code=303)
+
+    password_reset.marcar_usado(token)
+    password_reset.invalidar_tokens_de_usuario(info.usuario_id)
+    return RedirectResponse(url="/login?reseteada=1", status_code=303)
 
 
 # ── Home / Upload ─────────────────────────────────────────────────────────────

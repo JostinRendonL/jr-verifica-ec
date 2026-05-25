@@ -375,3 +375,58 @@ def bootstrap_admin_si_falta() -> Optional[Usuario]:
     )
     print(f"[usuarios.bootstrap] ✅ admin creado: {admin_email}")
     return u
+
+
+def bootstrap_reset_admin_si_pedido() -> Optional[Usuario]:
+    """
+    Fallback de último recurso si el admin olvidó su pass y no hay otro admin.
+    Si la env var ADMIN_RESET está definida, busca el admin por ADMIN_EMAIL
+    (o crea uno nuevo si no existe) y le aplica ADMIN_RESET como password
+    con debe_cambiar_pass=1.
+
+    IMPORTANTE: para evitar que se use en cada reinicio, después de aplicarlo
+    se imprime un aviso para que el operador limpie la env var en Easypanel.
+    """
+    reset_pass = os.getenv("ADMIN_RESET", "").strip()
+    if not reset_pass:
+        return None
+    if len(reset_pass) < MIN_PASSWORD_LEN:
+        print(f"[usuarios.reset] ADMIN_RESET < {MIN_PASSWORD_LEN} chars — saltando")
+        return None
+
+    init_db()
+    admin_email = _normalizar_email(os.getenv("ADMIN_EMAIL", "") or DEFAULT_ADMIN_EMAIL)
+    admin_nombre = (os.getenv("ADMIN_NOMBRE", "") or "Administrador").strip()
+
+    u = obtener_por_email(admin_email)
+    if u:
+        conn = _get_conn()
+        with _write_lock:
+            conn.execute(
+                "UPDATE usuarios SET activo = 1, rol = 'admin', debe_cambiar_pass = 1 "
+                "WHERE id = ?",
+                (u.id,),
+            )
+        # Setear nueva password manualmente sin limpiar debe_cambiar_pass
+        nuevo_hash = _hash_password(reset_pass)
+        with _write_lock:
+            conn.execute(
+                "UPDATE usuarios SET password_hash = ? WHERE id = ?",
+                (nuevo_hash, u.id),
+            )
+        print(f"[usuarios.reset] ⚠️  Pass de {admin_email} RESETEADA via ADMIN_RESET. "
+              f"BORRA esa env var en Easypanel ahora.")
+        return obtener_por_id(u.id)
+
+    # Si no existe, crearlo como admin con debe_cambiar_pass=1
+    u = crear_usuario(
+        email=admin_email,
+        nombre=admin_nombre,
+        password=reset_pass,
+        rol="admin",
+        creado_por=None,
+        debe_cambiar_pass=True,
+    )
+    print(f"[usuarios.reset] ⚠️  Admin {admin_email} CREADO via ADMIN_RESET. "
+          f"Loguéate y cambia la pass; luego BORRA la env var en Easypanel.")
+    return u
