@@ -37,6 +37,31 @@ def obtener_job(job_id: str) -> dict | None:
     return _jobs.get(job_id)
 
 
+# Palabras clave para identificar causas de pensión alimenticia.
+# Estas causas NO descalifican laboralmente (regla de negocio):
+# se degradan de RECHAZAR → OBSERVACIÓN cuando son las únicas presentes.
+PALABRAS_ALIMENTOS = (
+    "ALIMENTOS",
+    "PENSION ALIMENTICIA",
+    "PENSIÓN ALIMENTICIA",
+    "FIJACION DE PENSION",
+    "FIJACIÓN DE PENSIÓN",
+)
+
+
+def _es_causa_de_alimentos(causa: dict) -> bool:
+    """True si la causa es por pensión alimenticia."""
+    delito  = (causa.get("delito") or "").upper()
+    materia = (causa.get("materia") or "").upper()
+    return any(p in delito or p in materia for p in PALABRAS_ALIMENTOS)
+
+
+def _solo_alimentos(satje: dict) -> bool:
+    """True si TODAS las causas (demandado + actor) son por alimentos."""
+    todas = (satje.get("causas_demandado") or []) + (satje.get("causas_actor") or [])
+    return bool(todas) and all(_es_causa_de_alimentos(c) for c in todas)
+
+
 # Delitos que disparan el nivel CRÍTICO (escala de gravedad alta)
 DELITOS_GRAVES = [
     "ASESINATO", "HOMICIDIO", "FEMICIDIO", "PARRICIDIO", "SICARIATO",
@@ -79,9 +104,13 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
         return "⚪ SIN DATOS"
 
     # 🚨 CRÍTICO o 🔴 RECHAZAR — procesos como demandado
+    # Excepción: si TODAS las causas son por pensión alimenticia → OBSERVACIÓN
+    # (regla de negocio: no es factor descalificante laboralmente).
     if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
         if _tiene_delitos_graves(satje):
             return "🚨 CRÍTICO"
+        if _solo_alimentos(satje):
+            return "🟡 OBSERVACIÓN"
         return "🔴 RECHAZAR"
 
     # 🟡 OBSERVACIÓN — sin título o procesos como actor

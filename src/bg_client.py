@@ -126,6 +126,11 @@ def extraer_satje(data: dict) -> dict:
             d_corto = " ".join(partes[1:]) if partes and partes[0].isdigit() else d
             delitos.append(d_corto[:80])
 
+    # Preservar causas completas (con materia + delito) para que el semáforo pueda
+    # detectar el caso especial de pensión alimenticia (regla de negocio RUBASA).
+    causas_demandado_raw = s.get("causas_demandado") or []
+    causas_actor_raw     = s.get("causas_actor") or []
+
     # Extraer nombre desde las causas — primero demandado (sujeto consultado),
     # luego actor. Útil como fallback cuando Bachiller no encuentra al candidato.
     nombre = ""
@@ -142,15 +147,18 @@ def extraer_satje(data: dict) -> dict:
                 break
 
     if td == 0 and ta == 0:
-        return {"estado": "SIN_PROCESOS", "total_demandado": 0, "total_actor": 0, "delitos": [], "nombre": nombre}
+        return {"estado": "SIN_PROCESOS", "total_demandado": 0, "total_actor": 0, "delitos": [], "nombre": nombre,
+                "causas_demandado": [], "causas_actor": []}
 
     return {
-        "estado":          "TIENE_PROCESOS",
-        "total_demandado": td,
-        "total_actor":     ta,
-        "delitos":         delitos,
-        "nombre":          nombre,
-        "detalle":         "; ".join(delitos) if delitos else f"{td} demandado, {ta} actor",
+        "estado":            "TIENE_PROCESOS",
+        "total_demandado":   td,
+        "total_actor":       ta,
+        "delitos":           delitos,
+        "nombre":            nombre,
+        "detalle":           "; ".join(delitos) if delitos else f"{td} demandado, {ta} actor",
+        "causas_demandado":  causas_demandado_raw,
+        "causas_actor":      causas_actor_raw,
     }
 
 
