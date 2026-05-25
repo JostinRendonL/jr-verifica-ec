@@ -45,6 +45,11 @@
             Entrada eliminada del historial.
         {% elif msg == 'borradas' %}
             Se eliminaron {{ n }} entrada(s) de esa cédula.
+        {% elif msg == 'olvido' %}
+            <strong>Derecho al olvido ejecutado</strong> para cédula
+            <code class="font-mono bg-emerald-100 px-1.5 py-0.5 rounded">{{ request.query_params.get('cedula', '') }}</code>:
+            {{ request.query_params.get('n_hist', '0') }} entrada(s) del historial y
+            {{ request.query_params.get('n_ver', '0') }} código(s) de verificación eliminados (LOPDP Art. 14).
         {% endif %}
     </div>
 </div>

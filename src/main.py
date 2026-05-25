@@ -29,6 +29,12 @@ from src.historial_sqlite import (
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
 from src.obs import init_sentry, capture_exception
+from src.compliance import (
+    derecho_al_olvido as compliance_derecho_olvido,
+    ejecutar_limpieza   as compliance_ejecutar_limpieza,
+    estadisticas_compliance,
+    RETENCION_MESES,
+)
 
 # Inicializar Sentry (opt-in con SENTRY_DSN). Debe ir ANTES de crear FastAPI.
 init_sentry(servicio="verifica")
@@ -328,6 +334,72 @@ async def buscar_individual(
         "fecha":     datetime.now().strftime("%d/%m/%Y %H:%M"),
         "desde_cache": bool(resultado.get("_cache")),
     })
+
+
+# ── Compliance LOPDP ─────────────────────────────────────────────────────────
+# Derecho al olvido (Art. 14) + Limpieza periódica (Art. 12).
+# Multa máxima por incumplimiento: $1,800,000 USD.
+
+@app.post("/derecho-al-olvido")
+async def derecho_al_olvido_endpoint(
+    cedula: str = Form(...),
+    motivo: str = Form("Solicitud del titular"),
+    jr_session: str | None = Cookie(None),
+):
+    """
+    LOPDP Art. 14 — borra TODO rastro de una cédula (historial + verificaciones).
+    Requiere autenticación admin (cookie de login en /verifica).
+
+    En el futuro: agregar endpoint público con email-confirmación para que el
+    titular pueda solicitarlo directamente sin pasar por RR.HH.
+    """
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    cedula = (cedula or "").strip()
+    if not cedula_valida_ec(cedula):
+        return RedirectResponse(url="/historial?error=cedula_invalida", status_code=303)
+
+    resultado = compliance_derecho_olvido(cedula, motivo=motivo)
+
+    if resultado.get("ok"):
+        n_hist = resultado.get("historial_borrado", 0)
+        n_ver  = resultado.get("verificaciones_borradas", 0)
+        return RedirectResponse(
+            url=f"/historial?msg=olvido&cedula={cedula}&n_hist={n_hist}&n_ver={n_ver}",
+            status_code=303,
+        )
+    return RedirectResponse(
+        url=f"/historial?error=olvido_fallo&detalle={resultado.get('error', 'desconocido')[:80]}",
+        status_code=303,
+    )
+
+
+@app.post("/admin/limpiar-antiguos")
+async def limpiar_antiguos_endpoint(
+    meses: int = Form(None),
+    jr_session: str | None = Cookie(None),
+):
+    """
+    LOPDP Art. 12 — borra entradas con más de X meses (default RETENCION_MESES=12).
+    Pensado para ser invocado por un Cron de Easypanel cada semana (Scheduled Task).
+
+    Si se invoca sin meses: usa RETENCION_MESES de env (default 12).
+    """
+    if not _autenticado(jr_session):
+        return _redirect_login()
+
+    resultado = compliance_ejecutar_limpieza(meses=meses)
+    # Responde JSON para que el Cron lo pueda parsear
+    return resultado
+
+
+@app.get("/admin/compliance")
+async def compliance_status_endpoint(jr_session: str | None = Cookie(None)):
+    """Resumen del estado de compliance — útil para dashboards o monitoring."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    return estadisticas_compliance()
 
 
 # ── Dashboard ────────────────────────────────────────────────────────────────

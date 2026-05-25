@@ -317,6 +317,24 @@ def limpiar_todo() -> int:
     return n
 
 
+def borrar_antiguos(meses: int = 12) -> int:
+    """
+    LOPDP — borra entradas con timestamp más viejo que X meses.
+    Devuelve cuántas se borraron. Útil como cron periódico.
+    """
+    if meses <= 0:
+        return 0
+    cutoff = int(time.time()) - (meses * 30 * 86400)
+    conn = _get_conn()
+    with _write_lock:
+        cur = conn.execute("DELETE FROM historial WHERE timestamp < ?", (cutoff,))
+        n = cur.rowcount
+        if n > 0:
+            # Liberar espacio físico de las páginas borradas
+            conn.execute("VACUUM")
+    return n
+
+
 # ── Stats para dashboard ─────────────────────────────────────────────────────
 
 def calcular_stats() -> dict:

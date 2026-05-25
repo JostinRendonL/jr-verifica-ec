@@ -71,3 +71,31 @@ def obtener(codigo: str) -> Optional[dict]:
 
 def total() -> int:
     return len(_store)
+
+
+def borrar_por_cedula(cedula: str) -> int:
+    """LOPDP — borra todos los códigos de verificación de una cédula. Devuelve cuántos."""
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return 0
+    with _lock:
+        a_borrar = [k for k, v in _store.items() if v.get("cedula") == cedula]
+        for k in a_borrar:
+            del _store[k]
+        if a_borrar:
+            _guardar_disco()
+    return len(a_borrar)
+
+
+def borrar_antiguos(meses: int = 12) -> int:
+    """LOPDP — borra códigos generados hace más de X meses. Devuelve cuántos."""
+    if meses <= 0:
+        return 0
+    cutoff = int(time.time()) - (meses * 30 * 86400)
+    with _lock:
+        a_borrar = [k for k, v in _store.items() if v.get("timestamp", 0) < cutoff]
+        for k in a_borrar:
+            del _store[k]
+        if a_borrar:
+            _guardar_disco()
+    return len(a_borrar)
