@@ -1,0 +1,436 @@
+"""
+Historial + Caché persistente en SQLite.
+
+Drop-in replacement de historial.py (mismo API público) usando sqlite3 stdlib.
+
+Mejoras vs JSON:
+- Sin límite de 5000 entradas (antes se truncaba silenciosamente)
+- Lectura indexada por cédula/timestamp/semaforo (queries 10-100x más rápidas)
+- Escritura solo del registro nuevo (no se reescribe todo el archivo)
+- WAL mode: múltiples lectores + 1 escritor concurrente
+- Auto-migración del historial.json legacy al primer arranque
+
+Schema:
+    historial(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json)
+    + índices por (cedula,ts), ts, semaforo
+
+API pública (idéntica a historial.py):
+    buscar_cache, registrar, listar, obtener_resultado, total_entradas,
+    borrar_entrada, borrar_por_cedula, limpiar_todo, calcular_stats,
+    CACHE_TTL_SEG
+"""
+from __future__ import annotations
+
+import os
+import json
+import time
+import sqlite3
+import threading
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+
+# ── Config ───────────────────────────────────────────────────────────────────
+CACHE_TTL_SEG = int(os.getenv("CACHE_TTL_SEG", str(60 * 60 * 24)))   # 24h default
+
+_DATA_DIR  = Path(os.getenv("DATA_DIR", "/app/data"))
+_DATA_DIR.mkdir(parents=True, exist_ok=True)
+_DB_FILE   = _DATA_DIR / "historial.db"
+_JSON_LEGACY = _DATA_DIR / "historial.json"
+
+# Lock para escrituras (sqlite3 WAL permite muchos lectores + 1 escritor)
+_write_lock = threading.Lock()
+
+# Conexión singleton — sqlite3 puede compartirse entre threads si
+# check_same_thread=False y usamos lock en escrituras.
+_conn: sqlite3.Connection | None = None
+
+
+# ── Schema + init ────────────────────────────────────────────────────────────
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS historial (
+    id              TEXT PRIMARY KEY,
+    cedula          TEXT NOT NULL,
+    tipo            TEXT NOT NULL,
+    timestamp       INTEGER NOT NULL,
+    semaforo        TEXT,
+    nombre          TEXT,
+    resultado_json  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_cedula_ts ON historial(cedula, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_ts        ON historial(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_semaforo  ON historial(semaforo);
+"""
+
+
+def _get_conn() -> sqlite3.Connection:
+    """Lazy singleton de la conexión SQLite. WAL mode + thread-safe."""
+    global _conn
+    if _conn is not None:
+        return _conn
+
+    _conn = sqlite3.connect(
+        str(_DB_FILE),
+        check_same_thread=False,   # permitir uso desde múltiples threads
+        timeout=30.0,              # esperar hasta 30s si otro thread tiene el lock
+        isolation_level=None,      # autocommit (manejamos transacciones explícitas)
+    )
+    _conn.row_factory = sqlite3.Row
+
+    # WAL = Write-Ahead Logging: lectores no se bloquean por escritor
+    _conn.execute("PRAGMA journal_mode=WAL")
+    _conn.execute("PRAGMA synchronous=NORMAL")
+    _conn.execute("PRAGMA foreign_keys=ON")
+    _conn.executescript(_SCHEMA)
+
+    print(f"[historial_sqlite] ✅ conectado a {_DB_FILE} (WAL mode)")
+    return _conn
+
+
+def _migrar_desde_json_si_existe() -> None:
+    """
+    Si hay un historial.json legacy y la DB está vacía, migra los datos.
+    Después renombra el JSON a .migrated para no re-procesarlo.
+    """
+    if not _JSON_LEGACY.exists():
+        return
+
+    conn = _get_conn()
+    cur = conn.execute("SELECT COUNT(*) FROM historial")
+    existing = cur.fetchone()[0]
+    if existing > 0:
+        # DB ya tiene datos — el JSON es de un run anterior, archivar
+        archivo_arch = _JSON_LEGACY.with_suffix(".json.migrated")
+        try:
+            _JSON_LEGACY.rename(archivo_arch)
+            print(f"[historial_sqlite] DB ya tenía {existing} entradas — JSON archivado a {archivo_arch.name}")
+        except Exception as e:
+            print(f"[historial_sqlite] no se pudo archivar JSON: {e}")
+        return
+
+    try:
+        print(f"[historial_sqlite] 🚚 migrando {_JSON_LEGACY.name} → SQLite...")
+        with open(_JSON_LEGACY, "r", encoding="utf-8") as f:
+            entradas = json.load(f)
+
+        rows = []
+        for e in entradas:
+            rows.append((
+                e.get("id", ""),
+                e.get("cedula", ""),
+                e.get("tipo", ""),
+                int(e.get("timestamp", 0)),
+                e.get("semaforo", ""),
+                e.get("nombre", ""),
+                json.dumps(e.get("resultado", {}), ensure_ascii=False),
+            ))
+
+        with _write_lock:
+            conn.execute("BEGIN")
+            try:
+                conn.executemany(
+                    "INSERT OR IGNORE INTO historial "
+                    "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    rows,
+                )
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+
+        print(f"[historial_sqlite] ✅ migradas {len(rows)} entradas")
+
+        # Archivar el JSON original como backup
+        archivo_arch = _JSON_LEGACY.with_suffix(".json.migrated")
+        _JSON_LEGACY.rename(archivo_arch)
+        print(f"[historial_sqlite] JSON archivado a {archivo_arch.name}")
+    except Exception as e:
+        print(f"[historial_sqlite] ❌ ERROR migrando JSON: {e} — DB queda vacía pero JSON intacto")
+
+
+# Init al importar
+_get_conn()
+_migrar_desde_json_si_existe()
+
+
+# ── API pública (compatible con historial.py legacy) ─────────────────────────
+
+def buscar_cache(cedula: str, tipo: str) -> Optional[dict]:
+    """
+    Si existe una entrada para esta cédula+tipo dentro del TTL, retornar
+    el resultado. Si tipo='bachiller' o 'satje', un 'completo' válido también sirve.
+    """
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return None
+
+    ahora = int(time.time())
+    cutoff = ahora - CACHE_TTL_SEG
+
+    # Buscar tipo exacto primero, luego 'completo' como fallback para sub-tipos
+    tipos_a_buscar = [tipo]
+    if tipo in ("bachiller", "satje"):
+        tipos_a_buscar.append("completo")
+
+    conn = _get_conn()
+    placeholders = ",".join("?" * len(tipos_a_buscar))
+    cur = conn.execute(
+        f"SELECT resultado_json FROM historial "
+        f"WHERE cedula = ? AND tipo IN ({placeholders}) AND timestamp >= ? "
+        f"ORDER BY timestamp DESC LIMIT 1",
+        (cedula, *tipos_a_buscar, cutoff),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    try:
+        return json.loads(row["resultado_json"])
+    except Exception as e:
+        print(f"[historial_sqlite] error parseando resultado_json: {e}")
+        return None
+
+
+def registrar(resultado: dict, tipo: str) -> None:
+    """Agrega una entrada al historial y la persiste."""
+    entrada_id = f"{int(time.time() * 1000):x}"
+    cedula     = resultado.get("cedula", "")
+    timestamp  = int(time.time())
+    semaforo   = resultado.get("semaforo", "")
+    nombre     = (
+        resultado.get("nombre")
+        or (resultado.get("bachiller") or {}).get("nombre", "")
+        or ""
+    )
+    resultado_json = json.dumps(resultado, ensure_ascii=False)
+
+    conn = _get_conn()
+    with _write_lock:
+        conn.execute(
+            "INSERT OR REPLACE INTO historial "
+            "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (entrada_id, cedula, tipo, timestamp, semaforo, nombre, resultado_json),
+        )
+
+
+def listar(filtro_cedula: str = "", filtro_semaforo: str = "", limite: int = 200) -> list[dict]:
+    """Devuelve las entradas más recientes (sin resultado completo)."""
+    cedula_f   = (filtro_cedula or "").strip()
+    semaforo_f = (filtro_semaforo or "").strip().upper()
+
+    sql = "SELECT id, cedula, tipo, timestamp, semaforo, nombre FROM historial WHERE 1=1"
+    params: list = []
+
+    if cedula_f:
+        sql += " AND cedula LIKE ?"
+        params.append(f"%{cedula_f}%")
+    if semaforo_f:
+        sql += " AND UPPER(semaforo) LIKE ?"
+        params.append(f"%{semaforo_f}%")
+
+    sql += " ORDER BY timestamp DESC LIMIT ?"
+    params.append(limite)
+
+    ahora = int(time.time())
+    conn = _get_conn()
+    cur = conn.execute(sql, params)
+    rows = []
+    for r in cur.fetchall():
+        rows.append({
+            "id":        r["id"],
+            "cedula":    r["cedula"],
+            "tipo":      r["tipo"],
+            "timestamp": r["timestamp"],
+            "semaforo":  r["semaforo"],
+            "nombre":    r["nombre"],
+            "edad_seg":  ahora - r["timestamp"],
+        })
+    return rows
+
+
+def obtener_resultado(id_entrada: str) -> Optional[dict]:
+    """Trae el resultado completo de una entrada por ID."""
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT id, cedula, tipo, timestamp, semaforo, nombre, resultado_json "
+        "FROM historial WHERE id = ?",
+        (id_entrada,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+
+    try:
+        resultado = json.loads(row["resultado_json"])
+    except Exception:
+        resultado = {}
+
+    return {
+        "id":        row["id"],
+        "cedula":    row["cedula"],
+        "tipo":      row["tipo"],
+        "timestamp": row["timestamp"],
+        "semaforo":  row["semaforo"],
+        "nombre":    row["nombre"],
+        "resultado": resultado,
+        "edad_seg":  int(time.time()) - row["timestamp"],
+    }
+
+
+def total_entradas() -> int:
+    conn = _get_conn()
+    cur = conn.execute("SELECT COUNT(*) FROM historial")
+    return cur.fetchone()[0]
+
+
+def borrar_entrada(id_entrada: str) -> bool:
+    """Elimina UNA entrada del historial. True si la borró."""
+    conn = _get_conn()
+    with _write_lock:
+        cur = conn.execute("DELETE FROM historial WHERE id = ?", (id_entrada,))
+    return cur.rowcount > 0
+
+
+def borrar_por_cedula(cedula: str) -> int:
+    """Elimina TODAS las entradas de una cédula. Devuelve cuántas borró."""
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return 0
+    conn = _get_conn()
+    with _write_lock:
+        cur = conn.execute("DELETE FROM historial WHERE cedula = ?", (cedula,))
+    return cur.rowcount
+
+
+def limpiar_todo() -> int:
+    """Borra TODO el historial. Devuelve cuántas entradas había."""
+    conn = _get_conn()
+    with _write_lock:
+        cur = conn.execute("SELECT COUNT(*) FROM historial")
+        n = cur.fetchone()[0]
+        conn.execute("DELETE FROM historial")
+        conn.execute("VACUUM")
+    return n
+
+
+# ── Stats para dashboard ─────────────────────────────────────────────────────
+
+def calcular_stats() -> dict:
+    """Métricas agregadas para el dashboard. SQL GROUP BY = mucho más rápido que iterar."""
+    ahora    = int(time.time())
+    UN_DIA   = 86400
+    UNA_SEM  = UN_DIA * 7
+    UN_MES   = UN_DIA * 30
+
+    conn = _get_conn()
+
+    # Totales por periodo (1 query)
+    cur = conn.execute(
+        "SELECT "
+        "  COUNT(*)                                                        AS total, "
+        "  SUM(CASE WHEN timestamp >= ? THEN 1 ELSE 0 END)                 AS hoy, "
+        "  SUM(CASE WHEN timestamp >= ? THEN 1 ELSE 0 END)                 AS semana, "
+        "  SUM(CASE WHEN timestamp >= ? THEN 1 ELSE 0 END)                 AS mes "
+        "FROM historial",
+        (ahora - UN_DIA, ahora - UNA_SEM, ahora - UN_MES),
+    )
+    r = cur.fetchone()
+    total        = r["total"] or 0
+    hoy_count    = r["hoy"] or 0
+    semana_count = r["semana"] or 0
+    mes_count    = r["mes"] or 0
+
+    # Niveles (mapeo de etiquetas viejas + nuevas)
+    MAPEO_VIEJO = {"VERDE": "APTO", "AMARILLO": "OBSERVACIÓN", "ROJO": "RECHAZAR", "GRIS": "SIN DATOS"}
+    niveles = {"APTO": 0, "OBSERVACIÓN": 0, "RECHAZAR": 0, "CRÍTICO": 0, "SIN DATOS": 0, "OTROS": 0}
+
+    cur = conn.execute(
+        "SELECT semaforo, resultado_json FROM historial WHERE timestamp >= ?",
+        (ahora - UN_MES,),
+    )
+    delitos_count: dict[str, int] = {}
+    instituciones: dict[str, int] = {}
+    por_dia: dict[str, int] = {}
+
+    for row in cur.fetchall():
+        sem_str = (row["semaforo"] or "").upper()
+        for vieja, nueva in MAPEO_VIEJO.items():
+            sem_str = sem_str.replace(vieja, nueva)
+
+        # Resultado parseado para extraer delitos + instituciones
+        try:
+            resultado = json.loads(row["resultado_json"]) if row["resultado_json"] else {}
+        except Exception:
+            resultado = {}
+
+        # Recalcular semaforo desde resultado si está vacío
+        if not sem_str:
+            b = resultado.get("bachiller", {}) or {}
+            s = resultado.get("satje", {}) or {}
+            if b and s:
+                if s.get("total_demandado", 0) > 0:
+                    sem_str = "RECHAZAR"
+                elif b.get("estado") != "ENCONTRADO" or s.get("total_actor", 0) > 0:
+                    sem_str = "OBSERVACIÓN"
+                else:
+                    sem_str = "APTO"
+
+        nivel = "OTROS"
+        for k in niveles:
+            if k in sem_str:
+                nivel = k
+                break
+        niveles[nivel] = niveles.get(nivel, 0) + 1
+
+        # Delitos
+        satje = resultado.get("satje", {}) or {}
+        for d in (satje.get("delitos") or []):
+            clave = d.upper().strip()[:60]
+            if clave:
+                delitos_count[clave] = delitos_count.get(clave, 0) + 1
+
+        # Instituciones (de bachiller)
+        bachiller = resultado.get("bachiller", {}) or {}
+        inst = (bachiller.get("institucion") or "").strip()
+        if inst:
+            instituciones[inst] = instituciones.get(inst, 0) + 1
+
+    # Series por día (mes — group by SQL)
+    cur = conn.execute(
+        "SELECT strftime('%d/%m', timestamp, 'unixepoch', 'localtime') AS dia, "
+        "       COUNT(*) AS consultas "
+        "FROM historial WHERE timestamp >= ? "
+        "GROUP BY dia",
+        (ahora - UN_MES,),
+    )
+    por_dia = {row["dia"]: row["consultas"] for row in cur.fetchall()}
+
+    series_dia = []
+    for i in range(29, -1, -1):
+        ts_dia = ahora - (i * UN_DIA)
+        dia_str = datetime.fromtimestamp(ts_dia).strftime("%d/%m")
+        series_dia.append({"dia": dia_str, "consultas": por_dia.get(dia_str, 0)})
+
+    top_delitos       = sorted(delitos_count.items(), key=lambda kv: kv[1], reverse=True)[:10]
+    top_instituciones = sorted(instituciones.items(), key=lambda kv: kv[1], reverse=True)[:10]
+
+    minutos_ahorrados  = total * 15
+    horas_ahorradas    = round(minutos_ahorrados / 60, 1)
+    valor_ahorrado_usd = round(horas_ahorradas * 5, 2)
+
+    return {
+        "total":               total,
+        "hoy":                 hoy_count,
+        "semana":              semana_count,
+        "mes":                 mes_count,
+        "niveles":             niveles,
+        "top_delitos":         top_delitos,
+        "top_instituciones":   top_instituciones,
+        "series_dia":          series_dia,
+        "horas_ahorradas":     horas_ahorradas,
+        "valor_ahorrado_usd":  valor_ahorrado_usd,
+    }

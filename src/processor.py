@@ -6,7 +6,7 @@ import time
 from typing import Literal
 
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
-from src.historial import buscar_cache, registrar
+from src.historial_sqlite import buscar_cache, registrar
 from src.obs import capture_exception
 
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))

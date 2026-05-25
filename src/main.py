@@ -21,7 +21,7 @@ from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
 from src.processor import _calcular_semaforo
-from src.historial import (
+from src.historial_sqlite import (
     buscar_cache, registrar, listar as listar_historial, obtener_resultado,
     total_entradas, CACHE_TTL_SEG, calcular_stats,
     borrar_entrada, borrar_por_cedula, limpiar_todo,
