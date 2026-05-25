@@ -28,6 +28,10 @@ from src.historial import (
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
+from src.obs import init_sentry, capture_exception
+
+# Inicializar Sentry (opt-in con SENTRY_DSN). Debe ir ANTES de crear FastAPI.
+init_sentry(servicio="verifica")
 
 app = FastAPI(title="JR Verifica EC")
 
@@ -315,7 +319,8 @@ async def buscar_individual(
         try:
             registrar(resultado, tipo)
         except Exception as e:
-            print(f"[main] historial: {e}")
+            capture_exception("buscar.registrar_historial", e,
+                              extra={"cedula": cedula, "tipo": tipo})
 
     return templates.TemplateResponse("resultado.html", {
         "request":   request,
@@ -405,9 +410,8 @@ async def descargar_pdf_consulta(
     try:
         pdf_bytes = generar_pdf(cached)
     except Exception as e:
-        import traceback
-        print(f"[pdf] error generando: {type(e).__name__}: {e}")
-        traceback.print_exc()
+        capture_exception("pdf.descargar_consulta", e,
+                          extra={"cedula": cedula, "tipo": tipo})
         return RedirectResponse(url=f"/?error=pdf_error&detalle={type(e).__name__}", status_code=303)
 
     nombre_seguro = (cached.get("nombre", "") or cedula).replace(" ", "_")[:40]
@@ -444,9 +448,8 @@ async def pdf_desde_historial(
     try:
         pdf_bytes = generar_pdf(resultado)
     except Exception as e:
-        import traceback
-        print(f"[pdf] error: {type(e).__name__}: {e}")
-        traceback.print_exc()
+        capture_exception("pdf.desde_historial", e,
+                          extra={"entrada_id": entrada_id})
         return RedirectResponse(url=f"/historial/{entrada_id}?error=pdf_error&detalle={type(e).__name__}", status_code=303)
 
     cedula = resultado.get("cedula", "consulta")

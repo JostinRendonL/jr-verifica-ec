@@ -7,6 +7,7 @@ from typing import Literal
 
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
 from src.historial import buscar_cache, registrar
+from src.obs import capture_exception
 
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
 
@@ -220,7 +221,8 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
     try:
         registrar(resultado, tipo)
     except Exception as e:
-        print(f"[processor] no se pudo registrar en historial: {e}")
+        capture_exception("processor.registrar", e,
+                          extra={"cedula": cedula, "tipo": tipo})
 
     return resultado
 
@@ -258,3 +260,7 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str, incluir_setec:
         job["estado"]    = "error"
         job["error"]     = f"{type(e).__name__}: {str(e)[:300]}"
         job["terminado"] = time.time()
+        capture_exception("processor.ejecutar_job", e,
+                          extra={"job_id": job_id, "tipo": tipo,
+                                 "items_count": len(items),
+                                 "procesados": job["procesados"]})
