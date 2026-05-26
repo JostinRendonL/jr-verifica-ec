@@ -178,6 +178,24 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             except Exception:
                 pass
 
+        # Si pidieron Fiscalia y el cache no la tiene (cache viejo pre-fiscalia),
+        # hacer la llamada por separado y actualizar el cache + semaforo
+        if incluir_fiscalia and not cached.get("fiscalia"):
+            async with sem:
+                raw_f = await consultar(cedula, tipo="fiscalia")
+            cached["fiscalia"] = extraer_fiscalia(raw_f)
+            if tipo == "completo":
+                cached["semaforo"] = _calcular_semaforo(
+                    cached.get("bachiller") or {},
+                    cached.get("satje") or {},
+                    "completo",
+                    fiscalia=cached["fiscalia"],
+                )
+            try:
+                registrar(cached, tipo, usuario_id=usuario_id)
+            except Exception:
+                pass
+
         # Auto-relleno de nombre faltante (cache viejo del schema anterior a SETEC.nombre):
         # Si NO hay nombre cacheado Y el SETEC cacheado dice TIENE_CERTIFICADOS pero no
         # trae nombre, re-fetch SOLO el SETEC para rescatar el nombre desde la tabla.
