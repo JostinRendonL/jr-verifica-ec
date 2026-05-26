@@ -136,11 +136,13 @@ def _aplicar_borde(ws, rango_min_row, rango_max_row, rango_min_col, rango_max_co
             cell.border = _BORDER
 
 
-def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: bool = False) -> bytes:
+def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: bool = False,
+                             incluir_fiscalia: bool = False) -> bytes:
     """
     Genera un Excel premium con los resultados.
     Estructura: banner + stats + tabla.
-    incluir_setec → agrega 3 columnas al final (Estado SETEC, # Cursos, Cursos)
+    incluir_setec    → agrega 3 columnas al final (Estado SETEC, # Cursos, Cursos)
+    incluir_fiscalia → agrega 3 columnas al final (Estado Fiscalía, # Noticias, Delitos)
     """
     wb = Workbook()
     ws = wb.active
@@ -169,6 +171,11 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         headers += ["🎖️ Estado SETEC", "# Cursos", "Capacitaciones"]
         widths  += [22, 12, 70]
 
+    # ── Agregar columnas Fiscalía al final si fue solicitado ─────────────────
+    if incluir_fiscalia:
+        headers += ["🚨 Estado Fiscalía", "# Noticias", "Delitos SIAF"]
+        widths  += [22, 12, 50]
+
     num_cols = len(headers)
 
     # ── Fila 1: Banner con título y branding ─────────────────────────────────
@@ -187,6 +194,8 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
                   "completo":  "Verificación completa (Bachiller + SATJE)"}[tipo]
     if incluir_setec and tipo != "setec":
         tipo_label += " + SETEC"
+    if incluir_fiscalia:
+        tipo_label += " + Fiscalía"
     fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
     sub = ws.cell(row=2, column=1, value=f"{tipo_label}  ·  Generado: {fecha}  ·  Powered by JR Automata")
     sub.fill      = PatternFill(start_color=BANNER_BG, end_color=BANNER_BG, fill_type="solid")
@@ -246,6 +255,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         b  = r.get("bachiller", {}) or {}
         s  = r.get("satje", {}) or {}
         st = r.get("setec", {}) or {}
+        fi = r.get("fiscalia", {}) or {}
         # Fallback de nombre (defensa adicional al chain del processor):
         #   1) input del Excel → 2) bachiller → 3) SATJE → 4) SETEC
         # En lote, el processor ya aplica este chain y guarda r["nombre"], así
@@ -307,9 +317,24 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
                 s.get("detalle", ""),
             ]
 
+        # Helpers Fiscalía para columnas extra
+        fi_estado_lbl = {
+            "SOSPECHOSO":        "⚠ SOSPECHOSO",
+            "DENUNCIANTE":       "ℹ DENUNCIANTE",
+            "SIN_ANTECEDENTES":  "✓ Sin antecedentes",
+            "ERROR":             "✕ Error",
+            "":                  "",
+        }.get(fi.get("estado", ""), fi.get("estado", ""))
+        fi_total  = fi.get("total_noticias", "") if fi else ""
+        fi_delitos = " | ".join(fi.get("delitos", []) or []) if fi else ""
+
         # Anexar columnas SETEC al final si corresponde
         if incluir_setec and tipo != "setec":
             fila += [st_estado_lbl, st_total, st_cursos]
+
+        # Anexar columnas Fiscalía al final si corresponde
+        if incluir_fiscalia:
+            fila += [fi_estado_lbl, fi_total, fi_delitos]
 
         # Banda alternada
         es_par = (idx - header_row_num) % 2 == 0
@@ -357,7 +382,9 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         if tipo == "setec":
             col_setec_estado = 3
         elif incluir_setec:
-            col_setec_estado = num_cols - 2  # 3 columnas SETEC al final → estado es la antepenúltima
+            # Si hay Fiscalía también, SETEC es 3 cols antes del final
+            offset = 3 if not incluir_fiscalia else 6
+            col_setec_estado = num_cols - offset + 1
         if col_setec_estado:
             setec_cell = ws.cell(row=idx, column=col_setec_estado)
             valor = str(setec_cell.value or "")
@@ -367,6 +394,24 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
             elif "Error" in valor or "✕" in valor:
                 setec_cell.fill = PatternFill(start_color=GRIS_BG, end_color=GRIS_BG, fill_type="solid")
                 setec_cell.font = FONT_BODY_B
+
+        # Colorizar columna "Estado Fiscalía" según resultado
+        if incluir_fiscalia:
+            col_fi = num_cols - 2  # 3 cols Fiscalía al final → estado en antepenúltima
+            fi_cell = ws.cell(row=idx, column=col_fi)
+            valor_fi = str(fi_cell.value or "")
+            if "SOSPECHOSO" in valor_fi:
+                fi_cell.fill = PatternFill(start_color=ROJO_BG, end_color=ROJO_BG, fill_type="solid")
+                fi_cell.font = FONT_BODY_B
+            elif "DENUNCIANTE" in valor_fi:
+                fi_cell.fill = PatternFill(start_color=AMARILLO_BG, end_color=AMARILLO_BG, fill_type="solid")
+                fi_cell.font = FONT_BODY_B
+            elif "Sin antecedentes" in valor_fi:
+                fi_cell.fill = PatternFill(start_color=VERDE_BG, end_color=VERDE_BG, fill_type="solid")
+                fi_cell.font = FONT_BODY_B
+            elif "Error" in valor_fi or "✕" in valor_fi:
+                fi_cell.fill = PatternFill(start_color=GRIS_BG, end_color=GRIS_BG, fill_type="solid")
+                fi_cell.font = FONT_BODY_B
 
         ws.row_dimensions[idx].height = 32
 

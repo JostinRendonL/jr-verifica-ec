@@ -352,7 +352,10 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
         job["resultados"].sort(key=lambda r: orden.get(r.get("cedula", ""), 9999))
 
         # Generar Excel
-        job["excel_bytes"] = generar_excel_resultados(job["resultados"], tipo, incluir_setec)
+        job["excel_bytes"] = generar_excel_resultados(
+            job["resultados"], tipo, incluir_setec,
+            incluir_fiscalia=incluir_fiscalia,
+        )
         job["estado"]      = "completado"
         job["terminado"]   = time.time()
     except Exception as e:
