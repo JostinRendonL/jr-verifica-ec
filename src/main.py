@@ -578,6 +578,15 @@ async def buscar_individual(
     # ── Cache ────────────────────────────────────────────────────────────────
     cached = None if forzar else buscar_cache(cedula, tipo)
     if cached:
+        # Si se pide Fiscalia y el cache (viejo) no la tiene, consultarla ahora
+        if quiere_fiscalia and cached.get("fiscalia") is None:
+            raw_fisc = await consultar(cedula, tipo="fiscalia")
+            cached["fiscalia"] = extraer_fiscalia(raw_fisc)
+            try:
+                registrar(cached, tipo, usuario_id=u.id)
+            except Exception:
+                pass
+
         if quiere_b and quiere_s:
             cached["semaforo"] = _calcular_semaforo(
                 cached.get("bachiller") or {},
