@@ -178,9 +178,13 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             except Exception:
                 pass
 
-        # Si pidieron Fiscalia y el cache no la tiene (cache viejo pre-fiscalia),
-        # hacer la llamada por separado y actualizar el cache + semaforo
-        if incluir_fiscalia and not cached.get("fiscalia"):
+        # Si pidieron Fiscalia y el cache no la tiene O esta cacheada con error,
+        # re-fetch desde bg-api. Importante: los errores transitorios (Incapsula,
+        # proxy caido, etc) no deben quedar pegados en cache para siempre.
+        cached_fi = cached.get("fiscalia") or {}
+        fi_ausente = not cached_fi
+        fi_con_error = cached_fi.get("estado") == "ERROR"
+        if incluir_fiscalia and (fi_ausente or fi_con_error):
             async with sem:
                 raw_f = await consultar(cedula, tipo="fiscalia")
             cached["fiscalia"] = extraer_fiscalia(raw_f)
