@@ -56,7 +56,7 @@ def _notificar_password_cambiada(usuario: "usuarios.Usuario", metodo: str,
                           extra={"usuario_id": usuario.id})
 from src.excel_io import leer_cedulas, generar_excel_plantilla
 from src.processor import crear_job, obtener_job, ejecutar_job
-from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
+from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec, extraer_fiscalia
 from src.processor import _calcular_semaforo
 from src.historial_sqlite import (
     buscar_cache, registrar, listar as listar_historial, obtener_resultado,
@@ -183,6 +183,11 @@ app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
 
 # ── Helpers de autenticación multi-usuario ──────────────────────────────────
+
+async def _noop_async():
+    """Coroutine vacia para usar en asyncio.gather cuando un modulo no se solicita."""
+    return None
+
 
 def _usuario_actual(jr_session: str | None) -> usuarios.Usuario | None:
     """Devuelve el Usuario logueado o None. Valida cookie + que siga activo."""
@@ -487,9 +492,10 @@ async def descargar_plantilla(jr_session: str | None = Cookie(None)):
 async def procesar(
     background_tasks: BackgroundTasks,
     archivo: UploadFile = File(...),
-    bachiller:   str = Form(""),
-    satje:       str = Form(""),
-    setec_check: str = Form(""),
+    bachiller:      str = Form(""),
+    satje:          str = Form(""),
+    setec_check:    str = Form(""),
+    fiscalia_check: str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     u = _usuario_actual(jr_session)
@@ -497,11 +503,12 @@ async def procesar(
         return _redirect_login()
 
     # Determinar tipo según checkboxes
-    quiere_b     = bool(bachiller)
-    quiere_s     = bool(satje)
-    quiere_setec = bool(setec_check)
+    quiere_b        = bool(bachiller)
+    quiere_s        = bool(satje)
+    quiere_setec    = bool(setec_check)
+    quiere_fiscalia = bool(fiscalia_check)
 
-    if not quiere_b and not quiere_s and not quiere_setec:
+    if not quiere_b and not quiere_s and not quiere_setec and not quiere_fiscalia:
         return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
 
     if quiere_b and quiere_s:
@@ -511,7 +518,7 @@ async def procesar(
     elif quiere_s:
         tipo = "satje"
     else:
-        tipo = "setec"   # sólo SETEC
+        tipo = "setec"   # solo SETEC (fiscalia se agrega como extra)
 
     # Leer Excel
     contenido = await archivo.read()
@@ -523,8 +530,10 @@ async def procesar(
         return RedirectResponse(url="/?error=vacio", status_code=303)
 
     # Crear job y disparar background task (con auditoria por usuario)
-    job_id = crear_job(items, tipo, incluir_setec=quiere_setec, usuario_id=u.id)
-    background_tasks.add_task(ejecutar_job, job_id, items, tipo, quiere_setec, u.id)
+    job_id = crear_job(items, tipo, incluir_setec=quiere_setec,
+                       incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
+    background_tasks.add_task(ejecutar_job, job_id, items, tipo,
+                               quiere_setec, quiere_fiscalia, u.id)
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
@@ -534,11 +543,12 @@ async def procesar(
 @app.post("/buscar", response_class=HTMLResponse)
 async def buscar_individual(
     request: Request,
-    cedula:      str = Form(...),
-    bachiller:   str = Form(""),
-    satje:       str = Form(""),
-    setec_check: str = Form(""),
-    forzar:      str = Form(""),
+    cedula:         str = Form(...),
+    bachiller:      str = Form(""),
+    satje:          str = Form(""),
+    setec_check:    str = Form(""),
+    fiscalia_check: str = Form(""),
+    forzar:         str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     u = _usuario_actual(jr_session)
@@ -549,10 +559,11 @@ async def buscar_individual(
     if not cedula_valida_ec(cedula):
         return RedirectResponse(url="/?error=cedula_invalida", status_code=303)
 
-    quiere_b     = bool(bachiller)
-    quiere_s     = bool(satje)
-    quiere_setec = bool(setec_check)
-    if not quiere_b and not quiere_s and not quiere_setec:
+    quiere_b        = bool(bachiller)
+    quiere_s        = bool(satje)
+    quiere_setec    = bool(setec_check)
+    quiere_fiscalia = bool(fiscalia_check)
+    if not quiere_b and not quiere_s and not quiere_setec and not quiere_fiscalia:
         return RedirectResponse(url="/?error=sin_seleccion", status_code=303)
 
     if quiere_b and quiere_s:
@@ -562,20 +573,18 @@ async def buscar_individual(
     elif quiere_s:
         tipo = "satje"
     else:
-        tipo = "setec"      # solo SETEC seleccionado
+        tipo = "setec"
 
     # ── Cache ────────────────────────────────────────────────────────────────
     cached = None if forzar else buscar_cache(cedula, tipo)
     if cached:
-        # Recalcular semáforo con lógica actual (no usar el guardado)
         if quiere_b and quiere_s:
             cached["semaforo"] = _calcular_semaforo(
                 cached.get("bachiller") or {},
                 cached.get("satje") or {},
                 "completo",
+                fiscalia=cached.get("fiscalia"),
             )
-        # Recalcular nombre por si el caché es anterior a los fallbacks
-        # (caché antiguo puede tener nombre="" aunque SATJE o SETEC tengan el dato)
         if not cached.get("nombre"):
             b_c  = cached.get("bachiller") or {}
             s_c  = cached.get("satje") or {}
@@ -588,36 +597,30 @@ async def buscar_individual(
                 cached["nombre"] = st_c["nombre"]
         resultado = {**cached, "_cache": True}
     else:
-        # Si quiere SETEC y tipo no es ya "setec" → llamadas en paralelo
-        if quiere_setec and tipo != "setec":
-            raw, raw_setec = await asyncio.gather(
-                consultar(cedula, tipo=tipo),
-                consultar(cedula, tipo="setec"),
-            )
-        elif tipo == "setec":
-            raw       = await consultar(cedula, tipo="setec")
-            raw_setec = raw
-        else:
-            raw       = await consultar(cedula, tipo=tipo)
-            raw_setec = raw
+        # Llamadas en paralelo: principal + setec + fiscalia
+        coros = [consultar(cedula, tipo=tipo)]
+        coros.append(consultar(cedula, tipo="setec") if quiere_setec and tipo != "setec" else _noop_async())
+        coros.append(consultar(cedula, tipo="fiscalia") if quiere_fiscalia else _noop_async())
 
-        b     = extraer_bachiller(raw)      if quiere_b     else None
-        s     = extraer_satje(raw)          if quiere_s     else None
-        setec = extraer_setec(raw_setec)    if quiere_setec else None
+        raw_results = await asyncio.gather(*coros)
+        raw          = raw_results[0]
+        raw_setec    = raw_results[1] if (quiere_setec and tipo != "setec") else (raw if tipo == "setec" else None)
+        raw_fiscalia = raw_results[2] if quiere_fiscalia else None
+
+        b        = extraer_bachiller(raw)       if quiere_b        else None
+        s        = extraer_satje(raw)           if quiere_s        else None
+        setec    = extraer_setec(raw_setec)     if raw_setec       else None
+        fiscalia = extraer_fiscalia(raw_fiscalia) if raw_fiscalia   else None
 
         sem = ""
         if quiere_b and quiere_s:
-            sem = _calcular_semaforo(b or {}, s or {}, "completo")
+            sem = _calcular_semaforo(b or {}, s or {}, "completo", fiscalia=fiscalia)
 
-        # Prioridad: Bachiller → SATJE → SETEC (la búsqueda individual no recibe
-        # nombre desde el usuario, por eso la cadena empieza en bachiller).
         nombre = ""
-        if b and b.get("nombre"):
-            nombre = b.get("nombre")
-        elif s and s.get("nombre"):
-            nombre = s.get("nombre")
-        elif setec and setec.get("nombre"):
-            nombre = setec.get("nombre")
+        for src in (b, s, setec):
+            if src and src.get("nombre"):
+                nombre = src["nombre"]
+                break
 
         resultado = {
             "cedula":    cedula,
@@ -625,6 +628,7 @@ async def buscar_individual(
             "bachiller": b,
             "satje":     s,
             "setec":     setec,
+            "fiscalia":  fiscalia,
             "semaforo":  sem,
         }
         try:

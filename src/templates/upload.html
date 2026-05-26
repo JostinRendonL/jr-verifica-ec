@@ -358,6 +358,29 @@
                     <span class="block text-[11px] text-slate-500 font-medium">SETEC · Min. Trabajo</span>
                   </div>
                 </label>
+
+                {# Card 4: Fiscalía / SIAF #}
+                <label class="group relative flex flex-col justify-between h-[160px] p-5 rounded-xl cursor-pointer border-2 border-brand-600 bg-white hover:border-brand-500 hover:shadow-md transition-all select-none" id="source-card-fiscalia">
+                  <input type="checkbox" id="check-fiscalia" name="fiscalia_check" value="1" checked class="sr-only" onchange="toggleSourceCard('fiscalia')">
+                  <div class="flex justify-between items-start">
+                    <div class="p-2 bg-red-50 text-red-600 rounded-lg">
+                      <i data-lucide="shield-alert" class="h-5 w-5"></i>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <div class="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 border border-emerald-200 rounded-full">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-glow"></span>
+                        <span class="text-[9px] font-bold text-emerald-700 uppercase font-jb tracking-wider">Activo</span>
+                      </div>
+                      <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white check-indicator shadow-md">
+                        <i data-lucide="check" class="h-3.5 w-3.5 stroke-[3]"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-auto">
+                    <span class="block text-sm font-extrabold text-slate-900 tracking-tight">Noticias Delito</span>
+                    <span class="block text-[11px] text-slate-500 font-medium">SIAF · Fiscalía</span>
+                  </div>
+                </label>
               </div>
             </div>
 
@@ -419,6 +442,14 @@
                     <p class="text-[10px] text-slate-400">Capacitaciones</p>
                   </div>
                   <input type="checkbox" name="setec_check" value="1" checked class="w-4 h-4 rounded text-brand-600 border-slate-300 focus:ring-brand-500">
+                </label>
+                <label class="flex items-center gap-3 p-3.5 border border-slate-200 rounded-lg bg-white cursor-pointer hover:border-red-400 transition">
+                  <i data-lucide="shield-alert" class="h-5 w-5 text-red-600"></i>
+                  <div class="flex-1">
+                    <p class="text-xs font-bold text-slate-800">Fiscalía · SIAF</p>
+                    <p class="text-[10px] text-slate-400">Noticias del Delito</p>
+                  </div>
+                  <input type="checkbox" name="fiscalia_check" value="1" checked class="w-4 h-4 rounded text-red-600 border-slate-300 focus:ring-red-500">
                 </label>
               </div>
             </div>

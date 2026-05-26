@@ -5,7 +5,7 @@ import uuid
 import time
 from typing import Literal
 
-from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec
+from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec, extraer_fiscalia
 from src.historial_sqlite import buscar_cache, registrar
 from src.obs import capture_exception
 
@@ -15,22 +15,29 @@ MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
 _jobs: dict[str, dict] = {}
 
 
+async def _noop() -> None:
+    """Coroutine vacia — placeholder para gather cuando un modulo no se solicita."""
+    return None
+
+
 def crear_job(items: list[dict], tipo: str, incluir_setec: bool = False,
+              incluir_fiscalia: bool = False,
               usuario_id: str | None = None) -> str:
     """Crea un job nuevo y retorna su ID. items = [{'cedula': '...', 'nombre': '...'}]"""
     job_id = uuid.uuid4().hex[:12]
     _jobs[job_id] = {
-        "id":            job_id,
-        "tipo":          tipo,
-        "incluir_setec": incluir_setec,
-        "usuario_id":    usuario_id,
-        "total":         len(items),
-        "procesados":    0,
-        "estado":        "pendiente",
-        "iniciado":      time.time(),
-        "terminado":     None,
-        "resultados":    [],
-        "excel_bytes":   None,
+        "id":               job_id,
+        "tipo":             tipo,
+        "incluir_setec":    incluir_setec,
+        "incluir_fiscalia": incluir_fiscalia,
+        "usuario_id":       usuario_id,
+        "total":            len(items),
+        "procesados":       0,
+        "estado":           "pendiente",
+        "iniciado":         time.time(),
+        "terminado":        None,
+        "resultados":       [],
+        "excel_bytes":      None,
     }
     return job_id
 
@@ -87,15 +94,23 @@ def _tiene_delitos_graves(satje: dict) -> bool:
     return any(g in texto for g in DELITOS_GRAVES)
 
 
-def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
+def _tiene_delitos_graves_fiscalia(fiscalia: dict) -> bool:
+    """Detecta si los delitos de Fiscalia son graves."""
+    delitos = fiscalia.get("delitos", []) or []
+    texto = " ".join(d.upper() for d in delitos)
+    return any(g in texto for g in DELITOS_GRAVES)
+
+
+def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str,
+                       fiscalia: dict | None = None) -> str:
     """
     Calcula nivel de riesgo si se piden ambos checks.
 
     Niveles:
       🟢 APTO         — Bachiller confirmado + sin procesos
-      🟡 OBSERVACIÓN  — Sin título oficial, O procesos como actor (víctima/demandante)
-      🔴 RECHAZAR     — Procesos como demandado (sin delitos graves)
-      🚨 CRÍTICO      — Delitos graves detectados (homicidio, narcos, etc)
+      🟡 OBSERVACIÓN  — Sin titulo oficial, O procesos como actor, O solo como denunciante en Fiscalia
+      🔴 RECHAZAR     — Procesos como demandado en SATJE o sospechoso en Fiscalia
+      🚨 CRITICO      — Delitos graves detectados (homicidio, narcos, etc)
       ⚪ SIN DATOS    — Error en alguna consulta
     """
     if tipo != "completo":
@@ -105,18 +120,31 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
     if bachiller.get("estado") == "ERROR" or satje.get("estado") == "ERROR":
         return "⚪ SIN DATOS"
 
-    # 🚨 CRÍTICO o 🔴 RECHAZAR — procesos como demandado
-    # Excepción: si TODAS las causas son por pensión alimenticia → OBSERVACIÓN
-    # (regla de negocio: no es factor descalificante laboralmente).
+    # 🚨 CRITICO — delitos graves en SATJE
     if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
         if _tiene_delitos_graves(satje):
             return "🚨 CRÍTICO"
+
+    # 🚨 CRITICO — delitos graves en Fiscalia (aparece como sospechoso)
+    if fiscalia and fiscalia.get("tiene_antecedentes"):
+        if _tiene_delitos_graves_fiscalia(fiscalia):
+            return "🚨 CRÍTICO"
+
+    # 🔴 RECHAZAR — procesos como demandado en SATJE
+    if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
         if _solo_alimentos(satje):
             return "🟡 OBSERVACIÓN"
         return "🔴 RECHAZAR"
 
-    # 🟡 OBSERVACIÓN — sin título o procesos como actor
+    # 🔴 RECHAZAR — aparece como sospechoso/procesado en Fiscalia
+    if fiscalia and fiscalia.get("tiene_antecedentes") and fiscalia.get("como_sospechoso", 0) > 0:
+        return "🔴 RECHAZAR"
+
+    # 🟡 OBSERVACION — sin titulo O procesos solo como actor O denunciante en Fiscalia
     if bachiller.get("estado") != "ENCONTRADO" or satje.get("total_actor", 0) > 0:
+        return "🟡 OBSERVACIÓN"
+
+    if fiscalia and fiscalia.get("como_denunciante", 0) > 0:
         return "🟡 OBSERVACIÓN"
 
     # 🟢 APTO
@@ -124,7 +152,8 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str) -> str:
 
 
 async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio.Semaphore,
-                        usuario_id: str | None = None) -> dict:
+                        usuario_id: str | None = None,
+                        incluir_fiscalia: bool = False) -> dict:
     """Procesa una sola cédula con semáforo de concurrencia. Usa caché si está disponible."""
     cedula = item["cedula"]
     nombre_input = item.get("nombre", "")
@@ -180,31 +209,40 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
         return {**cached, "_cache": True}
 
     async with sem:
-        # Si quieren SETEC junto con otra cosa, llamadas paralelas
+        # Construir lista de coroutines a ejecutar en paralelo
+        coros = [consultar(cedula, tipo=tipo)]
         if incluir_setec and tipo != "setec":
-            raw_main, raw_setec = await asyncio.gather(
-                consultar(cedula, tipo=tipo),
-                consultar(cedula, tipo="setec"),
-            )
-        elif tipo == "setec":
-            raw_main  = await consultar(cedula, tipo="setec")
-            raw_setec = raw_main
+            coros.append(consultar(cedula, tipo="setec"))
         else:
-            raw_main  = await consultar(cedula, tipo=tipo)
-            raw_setec = None
+            coros.append(asyncio.coroutine(lambda: None)() if False else _noop())
+        if incluir_fiscalia:
+            coros.append(consultar(cedula, tipo="fiscalia"))
+        else:
+            coros.append(_noop())
 
-        # Extraer SETEC primero (si aplica) para usarlo en el fallback de nombre
-        setec_data = None
+        raw_results = await asyncio.gather(*coros, return_exceptions=True)
+        raw_main    = raw_results[0] if not isinstance(raw_results[0], Exception) else {"ok": False, "error": str(raw_results[0])}
+        raw_setec   = raw_results[1] if (incluir_setec and tipo != "setec") else None
+        raw_fiscalia = raw_results[2] if incluir_fiscalia else None
+
+        # Si tipo es setec, raw_main ES la respuesta de setec
+        if tipo == "setec":
+            raw_setec = raw_main
+
+        # Extraer datos
+        setec_data   = None
+        fiscalia_data = None
+
         if tipo == "setec":
             setec_data = extraer_setec(raw_main)
-        elif incluir_setec and raw_setec is not None:
+        elif incluir_setec and raw_setec is not None and not isinstance(raw_setec, Exception):
             setec_data = extraer_setec(raw_setec)
 
+        if incluir_fiscalia and raw_fiscalia is not None and not isinstance(raw_fiscalia, Exception):
+            fiscalia_data = extraer_fiscalia(raw_fiscalia)
+
         # Prioridad de nombre UNIFICADA:
-        #   1) Excel input (lo que el usuario escribió)
-        #   2) Bachiller
-        #   3) SATJE (nombreDemandado / nombreActor)
-        #   4) SETEC (Apellidos / Nombres de la tabla)
+        #   1) Excel input  2) Bachiller  3) SATJE  4) SETEC
         def _elegir_nombre(b=None, s=None, st=None):
             if nombre_input:
                 return nombre_input
@@ -234,7 +272,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 "setec":  setec_data,
             }
         else:
-            # completo: bachiller + satje
+            # completo: bachiller + satje (+ fiscalia si se pidio)
             b = extraer_bachiller(raw_main)
             s = extraer_satje(raw_main)
             resultado = {
@@ -242,12 +280,14 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 "nombre":    _elegir_nombre(b=b, s=s, st=setec_data),
                 "bachiller": b,
                 "satje":     s,
-                "semaforo":  _calcular_semaforo(b, s, "completo"),
+                "semaforo":  _calcular_semaforo(b, s, "completo", fiscalia=fiscalia_data),
             }
 
-        # Agregar SETEC al dict de resultado si fue solicitado y no era el tipo principal
+        # Agregar módulos opcionales al resultado
         if incluir_setec and tipo != "setec" and setec_data is not None:
             resultado["setec"] = setec_data
+        if incluir_fiscalia and fiscalia_data is not None:
+            resultado["fiscalia"] = fiscalia_data
 
     # Registrar en historial+cache
     try:
@@ -261,6 +301,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
 
 async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
                        incluir_setec: bool = False,
+                       incluir_fiscalia: bool = False,
                        usuario_id: str | None = None) -> None:
     """
     Ejecuta el job en background, actualizando _jobs[job_id]['procesados']
@@ -270,14 +311,17 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
 
     job = _jobs[job_id]
     job["estado"] = "procesando"
-    # Si no se pasó explicito, intentar tomarlo del job creado
     if usuario_id is None:
         usuario_id = job.get("usuario_id")
+    if not incluir_fiscalia:
+        incluir_fiscalia = job.get("incluir_fiscalia", False)
 
     sem = asyncio.Semaphore(MAX_WORKERS)
 
     async def _task(it: dict):
-        r = await _procesar_una(it, tipo, incluir_setec, sem, usuario_id=usuario_id)
+        r = await _procesar_una(it, tipo, incluir_setec, sem,
+                                usuario_id=usuario_id,
+                                incluir_fiscalia=incluir_fiscalia)
         job["resultados"].append(r)
         job["procesados"] = len(job["resultados"])
         return r

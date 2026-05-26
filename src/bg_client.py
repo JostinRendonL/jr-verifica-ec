@@ -15,7 +15,7 @@ def _cedula_valida(cedula: str) -> bool:
 
 async def consultar(
     cedula: str,
-    tipo: Literal["bachiller", "satje", "completo"] = "completo",
+    tipo: Literal["bachiller", "satje", "completo", "setec", "fiscalia"] = "completo",
 ) -> dict:
     """
     Llama al bg-api y devuelve el resultado.
@@ -35,6 +35,7 @@ async def consultar(
         "satje":     "/consultar/satje",
         "completo":  "/consultar/completo",
         "setec":     "/consultar/setec",
+        "fiscalia":  "/consultar/fiscalia",
     }[tipo]
 
     try:
@@ -188,3 +189,76 @@ def extraer_setec(data: dict) -> dict | None:
             "nombre":  raw.get("nombre", "") or "",
         }
     return {"estado": "SIN_CERTIFICADOS", "cursos": [], "total": 0, "detalle": "Sin registros", "nombre": ""}
+
+
+def extraer_fiscalia(data: dict) -> dict:
+    """
+    Extrae datos de Fiscalia de la respuesta del bg-api /consultar/fiscalia.
+
+    Returns:
+        {
+            "estado":           "SIN_ANTECEDENTES" | "SOSPECHOSO" | "DENUNCIANTE" | "ERROR",
+            "tiene_antecedentes": bool,
+            "como_sospechoso":  int,
+            "como_denunciante": int,
+            "total_noticias":   int,
+            "noticias":         list[dict],
+            "delitos":          list[str],
+            "detalle":          str,   <- resumen legible
+        }
+    """
+    if not data.get("ok"):
+        return {
+            "estado": "ERROR",
+            "tiene_antecedentes": False,
+            "como_sospechoso": 0,
+            "como_denunciante": 0,
+            "total_noticias": 0,
+            "noticias": [],
+            "delitos": [],
+            "detalle": data.get("error", "sin datos"),
+        }
+
+    raw = data  # respuesta plana de /consultar/fiscalia
+
+    if raw.get("error"):
+        return {
+            "estado": "ERROR",
+            "tiene_antecedentes": False,
+            "como_sospechoso": 0,
+            "como_denunciante": 0,
+            "total_noticias": 0,
+            "noticias": [],
+            "delitos": [],
+            "detalle": raw["error"][:120],
+        }
+
+    sospechoso   = raw.get("como_sospechoso", 0)
+    denunciante  = raw.get("como_denunciante", 0)
+    total        = raw.get("total_noticias", 0)
+    noticias     = raw.get("noticias", [])
+    delitos      = raw.get("delitos", [])
+
+    if sospechoso > 0:
+        estado  = "SOSPECHOSO"
+        detalle = f"{sospechoso} noticia(s) como sospechoso: {', '.join(delitos)}" if delitos else f"{sospechoso} noticia(s) como sospechoso"
+    elif denunciante > 0:
+        estado  = "DENUNCIANTE"
+        detalle = f"{denunciante} noticia(s) como denunciante/victima"
+    elif total == 0:
+        estado  = "SIN_ANTECEDENTES"
+        detalle = "Sin registros en Fiscalia"
+    else:
+        estado  = "SIN_ANTECEDENTES"
+        detalle = "Sin registros relevantes"
+
+    return {
+        "estado":           estado,
+        "tiene_antecedentes": sospechoso > 0,
+        "como_sospechoso":  sospechoso,
+        "como_denunciante": denunciante,
+        "total_noticias":   total,
+        "noticias":         noticias,
+        "delitos":          delitos,
+        "detalle":          detalle,
+    }
