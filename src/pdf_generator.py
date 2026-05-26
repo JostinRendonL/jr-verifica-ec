@@ -59,6 +59,7 @@ def generar_pdf(resultado: dict) -> bytes:
     bachiller  = resultado.get("bachiller") or {}
     satje      = resultado.get("satje") or {}
     setec      = resultado.get("setec") or {}
+    fiscalia   = resultado.get("fiscalia") or {}
 
     # Cadena de fallback para el nombre, por si el cache/historial es antiguo:
     #   resultado.nombre → bachiller → SATJE → SETEC → "—"
@@ -102,7 +103,7 @@ def generar_pdf(resultado: dict) -> bytes:
     # Generar HTML
     html = _construir_html(
         cedula=cedula, nombre=nombre, sem=sem, color=color,
-        bachiller=bachiller, satje=satje, setec=setec,
+        bachiller=bachiller, satje=satje, setec=setec, fiscalia=fiscalia,
         fecha_str=fecha_str, codigo_ver=codigo_ver,
         qr_b64=qr_b64, logo_b64=logo_b64,
     )
@@ -112,7 +113,7 @@ def generar_pdf(resultado: dict) -> bytes:
     return pdf_bytes
 
 
-def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec,
+def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscalia,
                     fecha_str, codigo_ver, qr_b64, logo_b64) -> str:
 
     # Sección bachiller
@@ -239,6 +240,74 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec,
                 </div>
             </div>"""
 
+    # Sección Fiscalía (Noticias del Delito — SIAF)
+    fiscalia_html = ""
+    if fiscalia:
+        estado_f  = fiscalia.get("estado", "")
+        noticias  = fiscalia.get("noticias") or []
+        sospechoso = fiscalia.get("como_sospechoso", 0)
+        denunciante = fiscalia.get("como_denunciante", 0)
+
+        if estado_f == "ERROR":
+            fiscalia_html = f"""
+            <div class="seccion">
+                <div class="seccion-titulo">🚨 Noticias del Delito — SIAF / Fiscalía General del Estado</div>
+                <div class="caja gris">
+                    <div class="caja-titulo">✕ Error de consulta</div>
+                    <div>{fiscalia.get('detalle', 'No se pudo completar la consulta')}</div>
+                </div>
+            </div>"""
+        elif estado_f == "SIN_ANTECEDENTES":
+            fiscalia_html = """
+            <div class="seccion">
+                <div class="seccion-titulo">🚨 Noticias del Delito — SIAF / Fiscalía General del Estado</div>
+                <div class="caja verde">
+                    <div class="caja-titulo">✓ Sin antecedentes en Fiscalía</div>
+                    <div>No aparece en noticias del delito como sospechoso ni imputado.</div>
+                </div>
+            </div>"""
+        else:
+            # Construir tabla de noticias
+            filas_noticias = ""
+            for n in noticias:
+                rol = n.get("rol", "")
+                clase_rol = "badge-rojo" if rol in ("SOSPECHOSO", "IMPUTADO", "PROCESADO", "ACUSADO", "SENTENCIADO", "INVESTIGADO") else "badge-amarillo"
+                filas_noticias += f"""
+                <tr>
+                    <td>{n.get('delito') or '—'}</td>
+                    <td>{n.get('fecha') or '—'}</td>
+                    <td>{n.get('lugar') or '—'}</td>
+                    <td><span class="{clase_rol}">{rol}</span></td>
+                </tr>"""
+
+            resumen = ""
+            if sospechoso > 0:
+                resumen = f"Aparece como <strong>sospechoso/imputado en {sospechoso} noticia(s)</strong>."
+            elif denunciante > 0:
+                resumen = f"Aparece como denunciante/víctima en {denunciante} noticia(s)."
+
+            caja_clase = "roja" if sospechoso > 0 else "amarilla"
+            icono = "⚠" if sospechoso > 0 else "ℹ"
+
+            fiscalia_html = f"""
+            <div class="seccion">
+                <div class="seccion-titulo">🚨 Noticias del Delito — SIAF / Fiscalía General del Estado</div>
+                <div class="caja {caja_clase}">
+                    <div class="caja-titulo">{icono} {resumen}</div>
+                </div>
+                <table class="tabla-noticias">
+                    <thead>
+                        <tr>
+                            <th>Delito</th>
+                            <th>Fecha</th>
+                            <th>Lugar</th>
+                            <th>Rol</th>
+                        </tr>
+                    </thead>
+                    <tbody>{filas_noticias}</tbody>
+                </table>
+            </div>"""
+
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="logo-img"/>' if logo_b64 else ""
 
     return f"""<!DOCTYPE html>
@@ -280,11 +349,12 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec,
 {bach_html}
 {satje_html}
 {setec_html}
+{fiscalia_html}
 
 <div class="footer">
     <div class="footer-left">
         <div><strong>Fecha y hora:</strong> {fecha_str}</div>
-        <div><strong>Fuentes:</strong> Ministerio de Educación del Ecuador · Función Judicial (SATJE) · SETEC (Ministerio del Trabajo)</div>
+        <div><strong>Fuentes:</strong> Ministerio de Educación · Función Judicial (SATJE) · SETEC (Min. Trabajo) · Fiscalía General del Estado (SIAF)</div>
         <div><strong>Validación:</strong> Documento generado automáticamente. Verifique con el código <strong>{codigo_ver}</strong>.</div>
     </div>
     <div class="footer-right">
@@ -378,6 +448,14 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
 /* Lista cursos SETEC */
 .cursos { padding-left: 18px; margin-top: 6px; }
 .cursos li { margin-bottom: 3px; font-size: 9pt; font-weight: 600; }
+
+/* Tabla noticias Fiscalía */
+.tabla-noticias { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 9pt; }
+.tabla-noticias th { background: #0F2C5C; color: white; padding: 6px 8px; text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.5px; }
+.tabla-noticias td { padding: 6px 8px; border-bottom: 1px solid #E2E8F0; vertical-align: middle; }
+.tabla-noticias tr:nth-child(even) td { background: #F8FAFC; }
+.badge-rojo    { background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; border-radius: 3px; padding: 2px 6px; font-size: 7pt; font-weight: bold; text-transform: uppercase; }
+.badge-amarillo { background: #FEF3C7; color: #92400E; border: 1px solid #FCD34D; border-radius: 3px; padding: 2px 6px; font-size: 7pt; font-weight: bold; text-transform: uppercase; }
 
 /* Footer */
 .footer {
