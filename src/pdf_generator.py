@@ -310,6 +310,18 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
 
     logo_html = f'<img src="data:image/png;base64,{logo_b64}" class="logo-img"/>' if logo_b64 else ""
 
+    # Footer dinámico: solo listar fuentes que realmente fueron consultadas
+    fuentes_usadas = []
+    if bachiller:
+        fuentes_usadas.append("Ministerio de Educación")
+    if satje:
+        fuentes_usadas.append("Función Judicial (SATJE)")
+    if setec:
+        fuentes_usadas.append("SETEC (Min. Trabajo)")
+    if fiscalia:
+        fuentes_usadas.append("Fiscalía General del Estado (SIAF)")
+    fuentes_str = " · ".join(fuentes_usadas) if fuentes_usadas else "JR Verifica EC"
+
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8"></head><body>
 
@@ -354,7 +366,7 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
 <div class="footer">
     <div class="footer-left">
         <div><strong>Fecha y hora:</strong> {fecha_str}</div>
-        <div><strong>Fuentes:</strong> Ministerio de Educación · Función Judicial (SATJE) · SETEC (Min. Trabajo) · Fiscalía General del Estado (SIAF)</div>
+        <div><strong>Fuentes:</strong> {fuentes_str}</div>
         <div><strong>Validación:</strong> Documento generado automáticamente. Verifique con el código <strong>{codigo_ver}</strong>.</div>
     </div>
     <div class="footer-right">
