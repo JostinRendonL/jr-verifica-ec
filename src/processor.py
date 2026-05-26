@@ -161,12 +161,15 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
     # ── Cache hit ────────────────────────────────────────────────────────────
     cached = buscar_cache(cedula, tipo)
     if cached is not None:
-        # Recalcular el semáforo con la lógica actual (no usar el guardado)
+        # Recalcular el semáforo con la lógica actual (no usar el guardado).
+        # IMPORTANTE: pasar fiscalia tambien — si el cache tiene fiscalia con
+        # SOSPECHOSO, el semaforo correcto es RECHAZAR/CRITICO, NO APTO.
         if tipo == "completo":
             cached["semaforo"] = _calcular_semaforo(
                 cached.get("bachiller") or {},
                 cached.get("satje") or {},
                 "completo",
+                fiscalia=cached.get("fiscalia") or {},
             )
         # Si pidieron SETEC y el cache no lo tiene, hacer la llamada por separado
         if incluir_setec and not cached.get("setec"):

@@ -789,12 +789,13 @@ async def descargar_pdf_consulta(
     if not cached:
         return RedirectResponse(url="/?error=sin_datos_para_pdf", status_code=303)
 
-    # Recalcular semáforo
+    # Recalcular semáforo (incluir fiscalia si esta cacheada)
     if quiere_b and quiere_s:
         cached["semaforo"] = _calcular_semaforo(
             cached.get("bachiller") or {},
             cached.get("satje") or {},
             "completo",
+            fiscalia=cached.get("fiscalia") or {},
         )
 
     try:
@@ -827,12 +828,13 @@ async def pdf_desde_historial(
         return RedirectResponse(url="/historial?error=no_encontrada", status_code=303)
 
     resultado = entrada["resultado"]
-    # Recalcular semáforo con lógica actual
+    # Recalcular semáforo con lógica actual (incluir fiscalia si esta presente)
     if resultado.get("bachiller") and resultado.get("satje"):
         resultado["semaforo"] = _calcular_semaforo(
             resultado.get("bachiller") or {},
             resultado.get("satje") or {},
             "completo",
+            fiscalia=resultado.get("fiscalia") or {},
         )
 
     try:
