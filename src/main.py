@@ -220,6 +220,21 @@ async def _spa_fallback(full_path: str = ""):
     return _FileResponse(str(index))
 
 
+# Redirects cortos: /busqueda → /app/busqueda, etc.
+# Así el usuario puede usar la URL corta y también funciona el basename="/app" de React.
+@app.get("/busqueda", include_in_schema=False)
+async def _redir_busqueda(): return RedirectResponse("/app/busqueda", status_code=302)
+
+@app.get("/panel", include_in_schema=False)
+async def _redir_panel(): return RedirectResponse("/app/panel", status_code=302)
+
+@app.get("/lote", include_in_schema=False)
+async def _redir_lote(): return RedirectResponse("/app/lote", status_code=302)
+
+@app.get("/usuarios", include_in_schema=False)
+async def _redir_usuarios(): return RedirectResponse("/app/usuarios", status_code=302)
+
+
 # ── Helpers de autenticación multi-usuario ──────────────────────────────────
 
 async def _noop_async():
