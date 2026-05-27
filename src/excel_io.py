@@ -306,9 +306,18 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
             ]
         else:
             sem = r.get("semaforo", "")
+            # FIX: armar titulo+especialidad sin .strip(" ()") que come el ) final
+            b_titulo = (b.get('titulo') or '').strip()
+            b_esp    = (b.get('especialidad') or '').strip()
+            if b_titulo and b_esp:
+                bach_cell = f"{b_titulo} ({b_esp})"
+            elif b_titulo:
+                bach_cell = b_titulo
+            else:
+                bach_cell = b.get("estado", "")
             fila = [
                 r.get("cedula", ""), nombre, sem,
-                f"{b.get('titulo', '')} ({b.get('especialidad', '')})".strip(" ()") if b.get('titulo') else b.get("estado", ""),
+                bach_cell,
                 b.get("institucion", ""),
                 (b.get("fecha_grado") or "")[:4],
                 s.get("estado", ""),
