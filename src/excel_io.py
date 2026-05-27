@@ -315,6 +315,17 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
                 bach_cell = b_titulo
             else:
                 bach_cell = b.get("estado", "")
+
+            # Enriquecer "Delitos / Detalle": detalle viejo + delitos como ACTOR
+            from src.delitos_clasificacion import resumir_delitos
+            detalle_demandado = s.get("detalle", "")
+            causas_actor = s.get("causas_actor") or []
+            resumen_actor = resumir_delitos(causas_actor)
+            if resumen_actor:
+                detalle_completo = f"{detalle_demandado} · 🟡 Actor: {resumen_actor}".strip(" ·")
+            else:
+                detalle_completo = detalle_demandado
+
             fila = [
                 r.get("cedula", ""), nombre, sem,
                 bach_cell,
@@ -323,7 +334,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
                 s.get("estado", ""),
                 s.get("total_demandado", ""),
                 s.get("total_actor", ""),
-                s.get("detalle", ""),
+                detalle_completo,
             ]
 
         # Helpers Fiscalía para columnas extra

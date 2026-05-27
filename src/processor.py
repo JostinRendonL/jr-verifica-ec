@@ -88,14 +88,15 @@ DELITOS_GRAVES = [
 
 
 def _tiene_delitos_graves(satje: dict) -> bool:
-    """Detecta si entre los delitos hay alguno considerado grave."""
+    """LEGACY — Detecta si entre los delitos hay alguno considerado grave.
+    Mantenido por compatibilidad. La nueva lógica usa clasificar_lista_delitos."""
     delitos = satje.get("delitos", []) or []
     texto = " ".join(d.upper() for d in delitos)
     return any(g in texto for g in DELITOS_GRAVES)
 
 
 def _tiene_delitos_graves_fiscalia(fiscalia: dict) -> bool:
-    """Detecta si los delitos de Fiscalia son graves."""
+    """LEGACY — ídem para Fiscalía."""
     delitos = fiscalia.get("delitos", []) or []
     texto = " ".join(d.upper() for d in delitos)
     return any(g in texto for g in DELITOS_GRAVES)
@@ -104,15 +105,20 @@ def _tiene_delitos_graves_fiscalia(fiscalia: dict) -> bool:
 def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str,
                        fiscalia: dict | None = None) -> str:
     """
-    Calcula nivel de riesgo si se piden ambos checks.
+    Calcula nivel de riesgo usando clasificación de 3 niveles (Fase 3).
 
     Niveles:
+      🚨 CRÍTICO      — Algún delito en lista CRITICO (homicidio, narcos, violación, etc)
+      🔴 RECHAZAR     — Algún delito en lista RECHAZAR (robo, estafa, lesiones, etc)
+                        O delito desconocido como demandado/sospechoso (conservador)
+      🟡 OBSERVACIÓN  — Solo delitos en lista OBSERVACION (alimentos, divorcio, etc)
+                        O sin título oficial, O procesos como actor,
+                        O denunciante en Fiscalía, O rol DESCONOCIDO en Fiscalía
       🟢 APTO         — Bachiller confirmado + sin procesos
-      🟡 OBSERVACIÓN  — Sin titulo oficial, O procesos como actor, O solo como denunciante en Fiscalia
-      🔴 RECHAZAR     — Procesos como demandado en SATJE o sospechoso en Fiscalia
-      🚨 CRITICO      — Delitos graves detectados (homicidio, narcos, etc)
-      ⚪ SIN DATOS    — Error en alguna consulta
+      ⚪ SIN DATOS    — Error en Bachiller o SATJE
     """
+    from src.delitos_clasificacion import clasificar_lista_delitos
+
     if tipo != "completo":
         return ""
 
@@ -120,34 +126,45 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str,
     if bachiller.get("estado") == "ERROR" or satje.get("estado") == "ERROR":
         return "⚪ SIN DATOS"
 
-    # 🚨 CRITICO — delitos graves en SATJE
+    # Recolectar TODOS los delitos donde la persona aparece como demandado/sospechoso
+    delitos_serios = []
+    # SATJE — solo causas como demandado (no actor)
     if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
-        if _tiene_delitos_graves(satje):
-            return "🚨 CRÍTICO"
+        for causa in satje.get("causas_demandado") or []:
+            d = causa.get("delito") or ""
+            if d:
+                delitos_serios.append(d)
+        # Si no hay causas_demandado pero sí total_demandado, usar lista delitos legacy
+        if not delitos_serios:
+            for d in satje.get("delitos") or []:
+                if d:
+                    delitos_serios.append(d)
+    # Fiscalía — solo si sospechoso
+    if fiscalia and fiscalia.get("como_sospechoso", 0) > 0:
+        for d in fiscalia.get("delitos") or []:
+            if d:
+                delitos_serios.append(d)
 
-    # 🚨 CRITICO — delitos graves en Fiscalia (aparece como sospechoso)
-    if fiscalia and fiscalia.get("tiene_antecedentes"):
-        if _tiene_delitos_graves_fiscalia(fiscalia):
-            return "🚨 CRÍTICO"
+    # Clasificar el peor delito encontrado
+    nivel = clasificar_lista_delitos(delitos_serios)
 
-    # 🔴 RECHAZAR — procesos como demandado en SATJE
-    if satje.get("estado") == "TIENE_PROCESOS" and satje.get("total_demandado", 0) > 0:
-        if _solo_alimentos(satje):
-            return "🟡 OBSERVACIÓN"
+    if nivel == "CRITICO":
+        return "🚨 CRÍTICO"
+    if nivel == "RECHAZAR":
         return "🔴 RECHAZAR"
-
-    # 🔴 RECHAZAR — aparece como sospechoso/procesado en Fiscalia
-    if fiscalia and fiscalia.get("tiene_antecedentes") and fiscalia.get("como_sospechoso", 0) > 0:
-        return "🔴 RECHAZAR"
-
-    # 🟡 OBSERVACION — sin titulo O procesos solo como actor O denunciante en Fiscalia
-    if bachiller.get("estado") != "ENCONTRADO" or satje.get("total_actor", 0) > 0:
+    if nivel == "OBSERVACION":
+        # Solo delitos personales/civiles → OBSERVACIÓN (no rechazar)
         return "🟡 OBSERVACIÓN"
 
+    # No hay delitos serios. Verificar condiciones secundarias para OBSERVACIÓN:
+    if bachiller.get("estado") != "ENCONTRADO":
+        return "🟡 OBSERVACIÓN"
+    if satje.get("total_actor", 0) > 0:
+        return "🟡 OBSERVACIÓN"
     if fiscalia and fiscalia.get("como_denunciante", 0) > 0:
         return "🟡 OBSERVACIÓN"
 
-    # 🟢 APTO
+    # 🟢 APTO — Bachiller OK + sin procesos como demandado + sin antecedentes Fiscalía
     return "🟢 APTO"
 
 
