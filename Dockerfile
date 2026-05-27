@@ -7,7 +7,8 @@ COPY frontend/package*.json ./
 RUN npm install --legacy-peer-deps
 
 COPY frontend/ .
-RUN npm run build
+# Saltar tsc (ya verificado en CI/local) — solo compilar con Vite
+RUN npx vite build
 # vite.config.ts → build.outDir: '../src/static/frontend'
 # Con WORKDIR /frontend → output en /src/static/frontend
 
