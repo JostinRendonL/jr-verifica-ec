@@ -234,7 +234,24 @@ function confirmarOlvido(e) {
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 font-mono text-sm font-bold text-slate-900 whitespace-nowrap">{{ e.cedula }}</td>
-                        <td class="px-5 py-4 text-sm text-slate-700 font-medium">{{ e.nombre or "—" }}</td>
+                        <td class="px-5 py-4 text-sm text-slate-700 font-medium">
+                            <div class="flex items-center gap-1.5" id="nombre-row-{{ e.cedula }}">
+                                <span id="nombre-txt-{{ e.cedula }}">{{ e.nombre or "—" }}</span>
+                                <button onclick="editarNombreHistorial('{{ e.cedula }}', '{{ e.nombre or '' }}')"
+                                    class="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0" title="Editar nombre">
+                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                            <div class="hidden items-center gap-1.5 mt-1" id="nombre-edit-{{ e.cedula }}">
+                                <input id="nombre-inp-{{ e.cedula }}" type="text" value="{{ e.nombre or '' }}"
+                                    placeholder="Nombre completo..."
+                                    class="border border-slate-200 rounded px-2 py-1 text-xs w-44 focus:outline-none focus:border-brand-400">
+                                <button onclick="guardarNombreHistorial('{{ e.cedula }}')"
+                                    class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded font-medium">OK</button>
+                                <button onclick="cancelarNombreHistorial('{{ e.cedula }}')"
+                                    class="text-xs text-slate-400 hover:text-slate-600 px-1">✕</button>
+                            </div>
+                        </td>
                         <td class="px-5 py-4 text-center">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider rounded">
                                 {% if e.tipo == "completo" %}
@@ -323,4 +340,31 @@ function confirmarOlvido(e) {
     </div>
     {% endif %}
 </div>
+
+<script>
+function editarNombreHistorial(cedula, nombreActual) {
+    document.getElementById('nombre-row-' + cedula).classList.add('hidden');
+    var ed = document.getElementById('nombre-edit-' + cedula);
+    ed.classList.remove('hidden');
+    ed.classList.add('flex');
+    document.getElementById('nombre-inp-' + cedula).focus();
+}
+function cancelarNombreHistorial(cedula) {
+    document.getElementById('nombre-edit-' + cedula).classList.add('hidden');
+    document.getElementById('nombre-edit-' + cedula).classList.remove('flex');
+    document.getElementById('nombre-row-' + cedula).classList.remove('hidden');
+}
+async function guardarNombreHistorial(cedula) {
+    const nombre = document.getElementById('nombre-inp-' + cedula).value.trim();
+    if (!nombre) return;
+    const fd = new FormData();
+    fd.append('nombre', nombre);
+    const r = await fetch('/historial/cedula/' + cedula + '/nombre', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.ok) {
+        document.getElementById('nombre-txt-' + cedula).textContent = nombre;
+        cancelarNombreHistorial(cedula);
+    }
+}
+</script>
 {% endblock %}

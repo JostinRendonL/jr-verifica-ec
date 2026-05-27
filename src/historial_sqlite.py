@@ -335,6 +335,45 @@ def total_entradas() -> int:
     return cur.fetchone()[0]
 
 
+def actualizar_nombre(cedula: str, nombre: str) -> bool:
+    """
+    Actualiza el nombre en la entrada más reciente de una cédula.
+    También lo escribe dentro de resultado_json para que el cache
+    lo devuelva con nombre en búsquedas futuras.
+    Retorna True si actualizó al menos una fila.
+    """
+    cedula = (cedula or "").strip()
+    nombre = (nombre or "").strip()
+    if not cedula:
+        return False
+
+    conn = _get_conn()
+    # Buscar la entrada más reciente de esta cédula
+    cur = conn.execute(
+        "SELECT id, resultado_json FROM historial "
+        "WHERE cedula = ? ORDER BY timestamp DESC LIMIT 1",
+        (cedula,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return False
+
+    # Actualizar nombre dentro del resultado_json
+    try:
+        resultado = json.loads(row["resultado_json"])
+    except Exception:
+        resultado = {}
+    resultado["nombre"] = nombre
+    resultado_json_nuevo = json.dumps(resultado, ensure_ascii=False)
+
+    with _write_lock:
+        conn.execute(
+            "UPDATE historial SET nombre = ?, resultado_json = ? WHERE id = ?",
+            (nombre, resultado_json_nuevo, row["id"]),
+        )
+    return True
+
+
 def borrar_entrada(id_entrada: str) -> bool:
     """Elimina UNA entrada del historial. True si la borró."""
     conn = _get_conn()

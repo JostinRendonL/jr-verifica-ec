@@ -69,7 +69,7 @@ from src.processor import _calcular_semaforo
 from src.historial_sqlite import (
     buscar_cache, registrar, listar as listar_historial, obtener_resultado,
     total_entradas, CACHE_TTL_SEG, calcular_stats,
-    borrar_entrada, borrar_por_cedula, limpiar_todo,
+    borrar_entrada, borrar_por_cedula, limpiar_todo, actualizar_nombre,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -879,6 +879,21 @@ async def borrar_entrada_historial(entrada_id: str, jr_session: str | None = Coo
         return _redirect_login()
     borrar_entrada(entrada_id)
     return RedirectResponse(url="/historial?msg=borrada", status_code=303)
+
+
+@app.post("/historial/cedula/{cedula}/nombre")
+async def editar_nombre_cedula(
+    cedula: str,
+    nombre: str = Form(...),
+    jr_session: str | None = Cookie(None),
+):
+    """Guarda el nombre manualmente para una cédula en el historial y cache."""
+    if not _autenticado(jr_session):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"ok": False, "error": "no autenticado"}, status_code=401)
+    ok = actualizar_nombre(cedula, nombre.strip())
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"ok": ok})
 
 
 @app.post("/historial/cedula/{cedula}/borrar")
