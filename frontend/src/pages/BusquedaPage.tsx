@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   Search, RefreshCw, Clock, Shield, BookOpen, Scale, Award, FileText,
   CheckCircle, XCircle, AlertTriangle, AlertOctagon, ShieldCheck,
-  GraduationCap, Gavel, MinusCircle, Download, ArrowLeft,
+  GraduationCap, Gavel, MinusCircle, Download, ArrowLeft, Database,
 } from 'lucide-react'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/Button'
@@ -77,6 +77,24 @@ export function BusquedaPage() {
     }
   }
 
+  async function handleReverificar() {
+    if (!resultado) return
+    // Reconstruye las fuentes a partir de lo que vino en el resultado
+    setFuentes({
+      bachiller:      !!resultado.bachiller,
+      satje:          !!resultado.satje,
+      setec_check:    !!resultado.setec,
+      fiscalia_check: !!resultado.fiscalia,
+    })
+    setCedula(resultado.cedula)
+    setForzar(true)
+    setResultado(null)
+    // Pequeño delay para que el estado se actualice, luego submit
+    setTimeout(() => {
+      document.getElementById('buscar-form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    }, 50)
+  }
+
   async function handlePdf() {
     if (!resultado) return
     try {
@@ -113,7 +131,7 @@ export function BusquedaPage() {
       <div className={cn('grid gap-6', resultado || loading ? 'grid-cols-1 lg:grid-cols-[380px_1fr]' : 'grid-cols-1 lg:grid-cols-2')}>
         {/* Formulario */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm self-start">
-          <form onSubmit={handleBuscar} className="space-y-5">
+          <form id="buscar-form" onSubmit={handleBuscar} className="space-y-5">
             {/* Cédula */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Cédula de Identidad</label>
@@ -188,7 +206,7 @@ export function BusquedaPage() {
         {/* Resultado / placeholder */}
         <div>
           {loading && <LoadingCard fuentes={FUENTES.filter(f => fuentes[f.formKey as keyof typeof fuentes])} />}
-          {resultado && !loading && <ResultadoCompleto resultado={resultado} onPdf={handlePdf} onNuevaBusqueda={() => setResultado(null)} />}
+          {resultado && !loading && <ResultadoCompleto resultado={resultado} onPdf={handlePdf} onNuevaBusqueda={() => setResultado(null)} onReverificar={handleReverificar} />}
           {!loading && !resultado && (
             <div className="bg-gray-50 rounded-xl border border-gray-200 border-dashed p-12 flex flex-col items-center justify-center text-center gap-3">
               <FileText className="w-12 h-12 text-gray-300" />
@@ -227,10 +245,11 @@ function LoadingCard({ fuentes }: { fuentes: FuenteCheck[] }) {
 }
 
 // ── Resultado completo ────────────────────────────────────────────────────────
-function ResultadoCompleto({ resultado, onPdf, onNuevaBusqueda }: {
+function ResultadoCompleto({ resultado, onPdf, onNuevaBusqueda, onReverificar }: {
   resultado: ResultadoVerificacion
   onPdf: () => void
   onNuevaBusqueda: () => void
+  onReverificar: () => void
 }) {
   const sem   = resultado.semaforo ?? ''
   const hero  = semaforoHero(sem)
@@ -239,12 +258,21 @@ function ResultadoCompleto({ resultado, onPdf, onNuevaBusqueda }: {
     <div className="space-y-4">
       {/* Cache banner */}
       {resultado._cache && (
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 text-sm text-blue-800">
-          <Clock className="w-4 h-4 flex-shrink-0 text-blue-500" />
-          <span>
-            <strong>Resultado desde caché.</strong>
-            {resultado.hace_cuanto ? ` Consultado ${resultado.hace_cuanto}.` : ''}
-          </span>
+        <div className="flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-blue-800">
+            <Database className="w-4 h-4 flex-shrink-0 text-blue-500" />
+            <span>
+              <strong>Resultado desde caché.</strong>
+              {resultado.hace_cuanto ? ` Consultado ${resultado.hace_cuanto}.` : ''}
+            </span>
+          </div>
+          <button
+            onClick={onReverificar}
+            className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 border border-blue-300 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg transition-colors flex-shrink-0"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Re-verificar
+          </button>
         </div>
       )}
 
