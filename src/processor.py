@@ -220,6 +220,30 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             except Exception:
                 pass
 
+        # Si Bachiller o SATJE están cacheados con ERROR, re-fetch desde bg-api.
+        # Mismo patrón que la lógica de Fiscalía — errores transitorios (proxy agotado,
+        # captcha fallido, timeout) no deben quedar pegados en cache 24h.
+        if tipo == "completo":
+            b_con_error = (cached.get("bachiller") or {}).get("estado") == "ERROR"
+            s_con_error = (cached.get("satje") or {}).get("estado") == "ERROR"
+            if b_con_error or s_con_error:
+                async with sem:
+                    raw_main = await consultar(cedula, tipo="completo")
+                if b_con_error:
+                    cached["bachiller"] = extraer_bachiller(raw_main)
+                if s_con_error:
+                    cached["satje"] = extraer_satje(raw_main)
+                cached["semaforo"] = _calcular_semaforo(
+                    cached.get("bachiller") or {},
+                    cached.get("satje") or {},
+                    "completo",
+                    fiscalia=cached.get("fiscalia") or {},
+                )
+                try:
+                    registrar(cached, tipo, usuario_id=usuario_id)
+                except Exception:
+                    pass
+
         # Auto-relleno de nombre faltante (cache viejo del schema anterior a SETEC.nombre):
         # Si NO hay nombre cacheado Y el SETEC cacheado dice TIENE_CERTIFICADOS pero no
         # trae nombre, re-fetch SOLO el SETEC para rescatar el nombre desde la tabla.
