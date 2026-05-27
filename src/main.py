@@ -196,16 +196,28 @@ app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 _frontend_dir = _static_dir / "frontend"
 if _frontend_dir.exists():
     # Assets JS/CSS del build
-    app.mount("/assets", StaticFiles(directory=str(_frontend_dir / "assets")), name="frontend-assets")
+    _assets_dir = _frontend_dir / "assets"
+    if _assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="frontend-assets")
+    print(f"[frontend] ✅ React build encontrado en {_frontend_dir}")
+else:
+    print(f"[frontend] ⚠️  Sin build React en {_frontend_dir} — solo Jinja2 disponible")
 
-    # Fallback SPA: cualquier ruta no reconocida devuelve index.html
-    # (React Router maneja la navegación en el cliente)
-    from fastapi.responses import FileResponse as _FileResponse
+# Fallback SPA — siempre registrado, independiente de si el build existe
+from fastapi.responses import FileResponse as _FileResponse
 
-    @app.get("/app/{full_path:path}", include_in_schema=False)
-    async def _spa_fallback(full_path: str):
-        """Sirve el SPA de React para todas las rutas del frontend."""
-        return _FileResponse(str(_frontend_dir / "index.html"))
+@app.get("/app", include_in_schema=False)
+@app.get("/app/{full_path:path}", include_in_schema=False)
+async def _spa_fallback(full_path: str = ""):
+    """Sirve el SPA de React. Funciona con React Router (client-side routing)."""
+    index = _frontend_dir / "index.html"
+    if not index.exists():
+        from fastapi.responses import JSONResponse as _JSONResponse
+        return _JSONResponse(
+            {"error": "Frontend no compilado", "hint": "Ejecuta npm run build en /frontend"},
+            status_code=503,
+        )
+    return _FileResponse(str(index))
 
 
 # ── Helpers de autenticación multi-usuario ──────────────────────────────────
