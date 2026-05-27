@@ -7,24 +7,11 @@
   <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
     <div class="flex h-16 items-center justify-between">
 
-      {# Logo + nombre del producto #}
-      <a href="/" class="flex items-center gap-3 group">
-        <svg id="app-logo-mark" class="h-9 w-9 text-brand-600 shrink-0" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <path d="M20 2C31.5 2 37 6 37 15C37 26 27.5 34.5 20 38C12.5 34.5 3 26 3 15C3 6 8.5 2 20 2Z" fill="url(#logo-grad-1)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"/>
-          <path d="M14 13V21C14 23.5 15.5 25 18 25" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
-          <path d="M22 25V13H27.5C29.5 13 29.5 17 27.5 17H22M24.5 17L28.5 25" stroke="#1e293b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M16 18L19.5 21L25.5 13.5" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <defs>
-            <linearGradient id="logo-grad-1" x1="20" y1="2" x2="20" y2="38" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#eff6ff"/>
-              <stop offset="1" stop-color="#dbeafe"/>
-            </linearGradient>
-          </defs>
-        </svg>
-        <div class="flex flex-col leading-tight">
-          <span class="text-base font-bold tracking-tight text-slate-900">JR Verifica <span class="text-brand-600">EC</span></span>
-          <span class="text-[9px] uppercase tracking-widest text-slate-500 font-semibold font-mono">by JR Automata</span>
-        </div>
+      {# Logo del producto #}
+      <a href="/" class="flex items-center group">
+        <img src="/static/logo.png" alt="JR Verifica EC"
+             class="h-10 w-auto max-w-[200px] object-contain transition-opacity group-hover:opacity-80"
+             onerror="this.outerHTML='<span class=\'text-[15px] font-bold text-slate-900 tracking-tight\'>JR Verifica EC</span>'">
       </a>
 
       {% set _u = request.state.usuario if request.state and request.state.usuario else None %}
