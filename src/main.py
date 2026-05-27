@@ -333,6 +333,274 @@ async def me(jr_session: str | None = Cookie(None)):
     })
 
 
+# ── JSON API (para React frontend) ──────────────────────────────────────────
+# Todos estos endpoints devuelven JSON y coexisten con los endpoints HTML
+# existentes. El frontend React los consume; las plantillas Jinja2 siguen
+# funcionando mientras dure la migración.
+
+@app.post("/api/buscar")
+async def api_buscar(
+    cedula:         str = Form(...),
+    bachiller:      str = Form(""),
+    satje:          str = Form(""),
+    setec_check:    str = Form(""),
+    fiscalia_check: str = Form(""),
+    forzar:         str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Búsqueda individual — devuelve JSON con el resultado completo."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+
+    cedula = (cedula or "").strip()
+    if not cedula_valida_ec(cedula):
+        return JSONResponse({"error": "cedula_invalida"}, status_code=400)
+
+    quiere_b        = bool(bachiller)
+    quiere_s        = bool(satje)
+    quiere_setec    = bool(setec_check)
+    quiere_fiscalia = bool(fiscalia_check)
+    if not quiere_b and not quiere_s and not quiere_setec and not quiere_fiscalia:
+        return JSONResponse({"error": "sin_seleccion"}, status_code=400)
+
+    if quiere_b and quiere_s:
+        tipo = "completo"
+    elif quiere_b:
+        tipo = "bachiller"
+    elif quiere_s:
+        tipo = "satje"
+    else:
+        tipo = "setec"
+
+    cached = None if forzar else buscar_cache(cedula, tipo)
+    if cached:
+        if quiere_fiscalia and cached.get("fiscalia") is None:
+            raw_fisc = await consultar(cedula, tipo="fiscalia")
+            cached["fiscalia"] = extraer_fiscalia(raw_fisc)
+            try:
+                registrar(cached, tipo, usuario_id=u.id)
+            except Exception:
+                pass
+        if quiere_b and quiere_s:
+            cached["semaforo"] = _calcular_semaforo(
+                cached.get("bachiller") or {},
+                cached.get("satje") or {},
+                "completo",
+                fiscalia=cached.get("fiscalia"),
+            )
+        resultado = {**cached, "_cache": True}
+    else:
+        coros = [consultar(cedula, tipo=tipo)]
+        coros.append(consultar(cedula, tipo="setec") if quiere_setec and tipo != "setec" else _noop_async())
+        coros.append(consultar(cedula, tipo="fiscalia") if quiere_fiscalia else _noop_async())
+        raw_results = await asyncio.gather(*coros)
+        raw          = raw_results[0]
+        raw_setec    = raw_results[1] if (quiere_setec and tipo != "setec") else (raw if tipo == "setec" else None)
+        raw_fiscalia = raw_results[2] if quiere_fiscalia else None
+        b        = extraer_bachiller(raw)         if quiere_b    else None
+        s        = extraer_satje(raw)             if quiere_s    else None
+        setec    = extraer_setec(raw_setec)       if raw_setec   else None
+        fiscalia = extraer_fiscalia(raw_fiscalia) if raw_fiscalia else None
+        sem = ""
+        if quiere_b and quiere_s:
+            sem = _calcular_semaforo(b or {}, s or {}, "completo", fiscalia=fiscalia)
+        nombre = ""
+        for src in (b, s, setec):
+            if src and src.get("nombre"):
+                nombre = src["nombre"]
+                break
+        resultado = {
+            "cedula": cedula, "nombre": nombre,
+            "bachiller": b, "satje": s, "setec": setec, "fiscalia": fiscalia,
+            "semaforo": sem, "_cache": False,
+        }
+        try:
+            registrar(resultado, tipo, usuario_id=u.id)
+        except Exception as e:
+            capture_exception("api.buscar.registrar", e, extra={"cedula": cedula})
+
+    resultado["fecha"] = datetime.now(_TZ_EC).strftime("%d/%m/%Y %H:%M")
+    return JSONResponse(resultado)
+
+
+@app.get("/api/historial")
+async def api_listar_historial(
+    cedula: str = "",
+    semaforo: str = "",
+    limite: int = 200,
+    jr_session: str | None = Cookie(None),
+):
+    """Lista el historial de verificaciones en JSON."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    entradas = listar_historial(
+        filtro_cedula=cedula,
+        filtro_semaforo=semaforo,
+        limite=min(limite, 500),
+    )
+    return JSONResponse({
+        "entradas": entradas,
+        "total":    total_entradas(),
+    })
+
+
+@app.get("/api/historial/cedula/{cedula}")
+async def api_resultado_por_cedula(cedula: str, jr_session: str | None = Cookie(None)):
+    """Devuelve el resultado más reciente de una cédula desde el historial."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    cached = buscar_cache(cedula, "completo") or buscar_cache(cedula, "bachiller") or \
+             buscar_cache(cedula, "satje") or buscar_cache(cedula, "setec")
+    if not cached:
+        return JSONResponse({"error": "no_encontrado"}, status_code=404)
+    return JSONResponse(cached)
+
+
+@app.get("/api/historial/{entrada_id}")
+async def api_entrada_historial(entrada_id: str, jr_session: str | None = Cookie(None)):
+    """Devuelve el resultado completo de una entrada por ID."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    entrada = obtener_resultado(entrada_id)
+    if not entrada:
+        return JSONResponse({"error": "no_encontrada"}, status_code=404)
+    return JSONResponse(entrada)
+
+
+@app.post("/api/procesar")
+async def api_procesar(
+    background_tasks: BackgroundTasks,
+    archivo: UploadFile = File(...),
+    bachiller:      str = Form(""),
+    satje:          str = Form(""),
+    setec_check:    str = Form(""),
+    fiscalia_check: str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Inicia un job de procesamiento por lote y devuelve el job_id en JSON."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+
+    quiere_b        = bool(bachiller)
+    quiere_s        = bool(satje)
+    quiere_setec    = bool(setec_check)
+    quiere_fiscalia = bool(fiscalia_check)
+    if not quiere_b and not quiere_s and not quiere_setec and not quiere_fiscalia:
+        return JSONResponse({"error": "sin_seleccion"}, status_code=400)
+
+    if quiere_b and quiere_s:
+        tipo = "completo"
+    elif quiere_b:
+        tipo = "bachiller"
+    elif quiere_s:
+        tipo = "satje"
+    else:
+        tipo = "setec"
+
+    contenido = await archivo.read()
+    items, errores = leer_cedulas(contenido)
+    if errores:
+        return JSONResponse({"error": "excel_invalido", "detalle": errores[:5]}, status_code=400)
+    if not items:
+        return JSONResponse({"error": "archivo_vacio"}, status_code=400)
+
+    job_id = crear_job(items, tipo, incluir_setec=quiere_setec,
+                       incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
+    background_tasks.add_task(ejecutar_job, job_id, items, tipo,
+                               quiere_setec, quiere_fiscalia, u.id)
+    return JSONResponse({"job_id": job_id, "total": len(items)})
+
+
+@app.get("/api/stats")
+async def api_stats(jr_session: str | None = Cookie(None)):
+    """Estadísticas del dashboard en JSON."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    return JSONResponse(calcular_stats())
+
+
+@app.get("/api/usuarios")
+async def api_listar_usuarios(jr_session: str | None = Cookie(None)):
+    """Lista de usuarios — solo admin."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return JSONResponse({"error": "no_auth"}, status_code=403)
+    lista = usuarios.listar(solo_activos=False)
+    return JSONResponse([
+        {
+            "id":         uu.id,
+            "email":      uu.email,
+            "nombre":     uu.nombre,
+            "rol":        uu.rol,
+            "activo":     uu.activo,
+            "creado_ts":  uu.creado_ts,
+            "ultimo_login": uu.ultimo_login,
+        }
+        for uu in lista
+    ])
+
+
+@app.post("/api/usuarios/{user_id}/desactivar")
+async def api_desactivar_usuario(user_id: str, jr_session: str | None = Cookie(None)):
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return JSONResponse({"error": "no_auth"}, status_code=403)
+    try:
+        usuarios.desactivar(user_id, ejecutor_id=u.id)
+        return JSONResponse({"ok": True})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
+@app.post("/api/usuarios/{user_id}/reactivar")
+async def api_reactivar_usuario(user_id: str, jr_session: str | None = Cookie(None)):
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return JSONResponse({"error": "no_auth"}, status_code=403)
+    usuarios.reactivar(user_id)
+    return JSONResponse({"ok": True})
+
+
+@app.post("/api/usuarios/crear")
+async def api_crear_usuario(
+    email:  str = Form(...),
+    nombre: str = Form(...),
+    rol:    str = Form("operador"),
+    jr_session: str | None = Cookie(None),
+):
+    from fastapi.responses import JSONResponse
+    import secrets, string
+    u = _usuario_actual(jr_session)
+    if not u or u.rol != "admin":
+        return JSONResponse({"error": "no_auth"}, status_code=403)
+    try:
+        # Generar contraseña temporal segura
+        alphabet = string.ascii_letters + string.digits
+        temp_pass = "".join(secrets.choice(alphabet) for _ in range(12))
+        nuevo = usuarios.crear_usuario(
+            email=email, nombre=nombre, password=temp_pass,
+            rol=rol, creado_por=u.id, debe_cambiar_pass=True,
+        )
+        return JSONResponse({"ok": True, "id": nuevo.id, "temp_password": temp_pass})
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+
+
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
