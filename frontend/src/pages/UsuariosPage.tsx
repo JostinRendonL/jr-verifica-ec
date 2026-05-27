@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { UserPlus, Pencil, ToggleLeft, ToggleRight, RefreshCw, Shield, User } from 'lucide-react'
+import { UserPlus, ToggleLeft, ToggleRight, RefreshCw, Shield, User } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '@/lib/api'
 import { Button } from '@/components/ui/Button'
