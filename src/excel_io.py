@@ -5,6 +5,14 @@ from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+# Timezone Ecuador (UTC-5) — sin DST
+try:
+    from zoneinfo import ZoneInfo
+    _TZ_EC = ZoneInfo("America/Guayaquil")
+except ImportError:
+    from datetime import timezone, timedelta
+    _TZ_EC = timezone(timedelta(hours=-5))
+
 
 # ── Paleta de colores premium (branding RUBASA Facility Services) ────────────
 # Colores oficiales tomados del logo + sitio web rubasa.com.ec
@@ -196,7 +204,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         tipo_label += " + SETEC"
     if incluir_fiscalia:
         tipo_label += " + Fiscalía"
-    fecha = datetime.now().strftime("%d/%m/%Y %H:%M")
+    fecha = datetime.now(_TZ_EC).strftime("%d/%m/%Y %H:%M")
     sub = ws.cell(row=2, column=1, value=f"{tipo_label}  ·  Generado: {fecha}  ·  Powered by JR Automata")
     sub.fill      = PatternFill(start_color=BANNER_BG, end_color=BANNER_BG, fill_type="solid")
     sub.font      = FONT_SUB

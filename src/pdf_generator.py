@@ -17,6 +17,20 @@ import qrcode
 
 from src.verificaciones import registrar as registrar_verificacion
 
+# Timezone Ecuador (UTC-5) — sin DST
+try:
+    from zoneinfo import ZoneInfo
+    _TZ_EC = ZoneInfo("America/Guayaquil")
+except ImportError:
+    # Fallback para Python < 3.9
+    from datetime import timezone, timedelta
+    _TZ_EC = timezone(timedelta(hours=-5))
+
+
+def _ahora_ec() -> datetime:
+    """Devuelve datetime actual en zona horaria de Ecuador."""
+    return datetime.now(_TZ_EC)
+
 # Secret para firmar los hashes de verificación
 _SECRET     = os.getenv("PDF_VERIFY_SECRET", os.getenv("SESSION_SECRET", "jr-default"))
 _PUBLIC_URL = os.getenv("PUBLIC_URL", "https://verifica.dentaklin.shop")
@@ -72,7 +86,8 @@ def generar_pdf(resultado: dict) -> bytes:
     )
 
     timestamp  = int(time.time())
-    fecha_str  = datetime.fromtimestamp(timestamp).strftime("%d de %B de %Y · %H:%M")
+    # Usar timezone Ecuador para que el PDF muestre hora local correcta
+    fecha_str  = datetime.fromtimestamp(timestamp, tz=_TZ_EC).strftime("%d de %B de %Y · %H:%M")
     codigo_ver = _hash_verificacion(cedula, timestamp)
 
     # Registrar el código para que sea verificable después

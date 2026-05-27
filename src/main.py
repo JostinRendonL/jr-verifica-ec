@@ -13,6 +13,14 @@ load_dotenv()
 
 from datetime import datetime
 
+# Timezone Ecuador (UTC-5) — para que emails y respuestas muestren hora local
+try:
+    from zoneinfo import ZoneInfo
+    _TZ_EC = ZoneInfo("America/Guayaquil")
+except ImportError:
+    from datetime import timezone, timedelta
+    _TZ_EC = timezone(timedelta(hours=-5))
+
 from src.auth import (
     crear_cookie, decodificar_cookie, COOKIE_NAME, SESSION_MAX_AGE,
     ip_bloqueada, registrar_intento_fallido, limpiar_intentos, cedula_valida_ec,
@@ -33,14 +41,14 @@ def _notificar_password_cambiada(usuario: "usuarios.Usuario", metodo: str,
     try:
         html = templates.get_template("email_password_cambiada.html").render(
             nombre=usuario.nombre,
-            fecha=datetime.now().strftime("%d/%m/%Y %H:%M"),
+            fecha=datetime.now(_TZ_EC).strftime("%d/%m/%Y %H:%M"),
             metodo=metodo,
             ip=ip or "desconocida",
         )
         texto = (
             f"Hola {usuario.nombre},\n\n"
             f"Te confirmamos que tu contraseña en JR Verifica EC fue cambiada.\n\n"
-            f"Cuándo: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+            f"Cuándo: {datetime.now(_TZ_EC).strftime('%d/%m/%Y %H:%M')}\n"
             f"Método: {metodo}\n"
             f"IP:     {ip or 'desconocida'}\n\n"
             f"Si no fuiste vos, cambiá tu contraseña inmediatamente y contactá al administrador."
@@ -649,7 +657,7 @@ async def buscar_individual(
     return templates.TemplateResponse("resultado.html", {
         "request":   request,
         "resultado": resultado,
-        "fecha":     datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "fecha":     datetime.now(_TZ_EC).strftime("%d/%m/%Y %H:%M"),
         "desde_cache": bool(resultado.get("_cache")),
     })
 
