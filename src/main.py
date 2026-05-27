@@ -631,6 +631,46 @@ async def api_crear_usuario(
         return JSONResponse({"error": str(e)}, status_code=400)
 
 
+# ── API: Historial acciones (para React) ─────────────────────────────────────
+
+@app.post("/api/historial/limpiar")
+async def api_limpiar_historial(jr_session: str | None = Cookie(None)):
+    """Borra TODO el historial/caché — devuelve JSON."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    n = limpiar_todo()
+    return JSONResponse({"ok": True, "n": n})
+
+
+@app.post("/api/derecho-al-olvido")
+async def api_derecho_al_olvido(
+    cedula: str = Form(...),
+    motivo: str = Form("Solicitud del titular"),
+    jr_session: str | None = Cookie(None),
+):
+    """Derecho al olvido LOPDP Art. 14 — borra todo rastro de una cédula. Devuelve JSON."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    if not cedula_valida_ec(cedula):
+        return JSONResponse({"error": "cedula_invalida"}, status_code=400)
+    try:
+        resultado = compliance_derecho_olvido(cedula, motivo=motivo)
+        if resultado.get("ok"):
+            return JSONResponse({
+                "ok": True,
+                "n_hist": resultado.get("historial_borrado", 0),
+                "n_ver":  resultado.get("verificaciones_borradas", 0),
+            })
+        return JSONResponse({"error": resultado.get("error", "fallo_desconocido")}, status_code=500)
+    except Exception as e:
+        capture_exception("api.derecho_al_olvido", e, extra={"cedula": cedula})
+        return JSONResponse({"error": str(e)[:120]}, status_code=500)
+
+
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
