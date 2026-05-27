@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  /* Paleta JR Verifica EC — Deep Navy + blancos limpios (fiel al diseño Stitch) */
+  --color-navy-950: #060d1a;
+  --color-navy-900: #0f1e35;
+  --color-navy-800: #162845;
+  --color-navy-700: #1e3557;
+  --color-navy-600: #274470;
+
+  --color-brand:        #1e3557;
+  --color-brand-dark:   #0f1e35;
+  --color-brand-light:  #274470;
+
+  /* Semáforo */
+  --color-semaforo-apto:        #16a34a;
+  --color-semaforo-observacion: #d97706;
+  --color-semaforo-rechazar:    #dc2626;
+  --color-semaforo-critico:     #7f1d1d;
+  --color-semaforo-sin-datos:   #6b7280;
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #1e3557 transparent;
+}
+
+body {
+  margin: 0;
+  background: #f8fafc;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}

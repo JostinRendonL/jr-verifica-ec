@@ -22,3 +22,6 @@ historial.db
 historial.db-wal
 historial.db-shm
 
+
+# Frontend build output (generado por vite build)
+src/static/frontend/

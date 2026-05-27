@@ -315,6 +315,24 @@ async def verificar_codigo(request: Request, codigo: str):
     })
 
 
+# ── Auth API (para React frontend) ──────────────────────────────────────────
+
+@app.get("/me")
+async def me(jr_session: str | None = Cookie(None)):
+    """Devuelve el usuario autenticado actual. Usado por el frontend React."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"autenticado": False})
+    return JSONResponse({
+        "autenticado": True,
+        "usuario_id":  u.id,
+        "email":       u.email,
+        "rol":         u.rol,
+        "nombre":      u.nombre,
+    })
+
+
 # ── Login ────────────────────────────────────────────────────────────────────
 
 @app.get("/login", response_class=HTMLResponse)
