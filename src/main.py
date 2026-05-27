@@ -189,6 +189,24 @@ _static_dir = BASE_DIR / "static"
 _static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
 
+# ── Frontend React (build de Vite) ─────────────────────────────────────────
+# El build de Vite va a src/static/frontend/ (ver vite.config.ts → build.outDir).
+# En producción FastAPI sirve el SPA directamente.
+# En desarrollo local, Vite dev server corre en :5173 con proxy → :8000.
+_frontend_dir = _static_dir / "frontend"
+if _frontend_dir.exists():
+    # Assets JS/CSS del build
+    app.mount("/assets", StaticFiles(directory=str(_frontend_dir / "assets")), name="frontend-assets")
+
+    # Fallback SPA: cualquier ruta no reconocida devuelve index.html
+    # (React Router maneja la navegación en el cliente)
+    from fastapi.responses import FileResponse as _FileResponse
+
+    @app.get("/app/{full_path:path}", include_in_schema=False)
+    async def _spa_fallback(full_path: str):
+        """Sirve el SPA de React para todas las rutas del frontend."""
+        return _FileResponse(str(_frontend_dir / "index.html"))
+
 
 # ── Helpers de autenticación multi-usuario ──────────────────────────────────
 

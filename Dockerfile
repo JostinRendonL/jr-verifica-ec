@@ -1,3 +1,17 @@
+# ── Stage 1: Build React frontend ─────────────────────────────────────────────
+FROM node:22-slim AS frontend-build
+
+WORKDIR /frontend
+COPY frontend/package*.json ./
+RUN npm ci --prefer-offline
+
+COPY frontend/ .
+RUN npm run build
+# Output va a ../src/static/frontend/ (vite.config.ts → build.outDir)
+# Pero en Docker necesitamos copiar desde el stage explícitamente.
+# El build queda en /frontend/../src/static/frontend → /src/static/frontend
+
+# ── Stage 2: Python + FastAPI ─────────────────────────────────────────────────
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y \
@@ -13,6 +27,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+
+# Copiar el build de React desde el stage anterior
+COPY --from=frontend-build /src/static/frontend /app/src/static/frontend
 
 # Carpeta para historial persistente (montar volumen en Easypanel)
 RUN mkdir -p /app/data
