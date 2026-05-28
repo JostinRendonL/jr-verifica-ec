@@ -206,7 +206,16 @@ function confirmarOlvido(e) {
     {% if entradas %}
     <div class="card overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="w-full">
+            <table class="w-full table-fixed">
+                <colgroup>
+                    <col class="w-28">
+                    <col class="w-32">
+                    <col>
+                    <col class="w-28">
+                    <col class="w-32">
+                    <col class="w-32">
+                    <col class="w-40">
+                </colgroup>
                 <thead class="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200">
                     <tr>
                         <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Fecha</th>
@@ -234,9 +243,9 @@ function confirmarOlvido(e) {
                             {% endif %}
                         </td>
                         <td class="px-5 py-4 font-mono text-sm font-bold text-slate-900 whitespace-nowrap">{{ e.cedula }}</td>
-                        <td class="px-5 py-4 text-sm text-slate-700 font-medium">
+                        <td class="px-5 py-4 text-sm text-slate-700 font-medium max-w-0">
                             <div class="flex items-center gap-1.5" id="nombre-row-{{ e.cedula }}">
-                                <span id="nombre-txt-{{ e.cedula }}">{{ e.nombre or "—" }}</span>
+                                <span id="nombre-txt-{{ e.cedula }}" class="truncate">{{ e.nombre or "—" }}</span>
                                 <button onclick="editarNombreHistorial('{{ e.cedula }}', '{{ e.nombre or '' }}')"
                                     class="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0" title="Editar nombre">
                                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
