@@ -259,6 +259,20 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         ws.column_dimensions[get_column_letter(i)].width = w
 
     # ── Filas de datos ───────────────────────────────────────────────────────
+    def _lbl_bach(estado: str) -> str:
+        return {
+            "ENCONTRADO":     "✓ Registrado",
+            "NO_ENCONTRADO":  "— No registrado",
+            "ERROR":          "⚠ Error Min. Educación",
+        }.get(estado, estado)
+
+    def _lbl_satje(estado: str) -> str:
+        return {
+            "SIN_PROCESOS":   "✓ Sin procesos",
+            "TIENE_PROCESOS": "⚠ TIENE PROCESOS",
+            "ERROR":          "⚠ Error SATJE · F. Judicial",
+        }.get(estado, estado)
+
     for idx, r in enumerate(resultados, start=header_row_num + 1):
         b  = r.get("bachiller", {}) or {}
         s  = r.get("satje", {}) or {}
@@ -281,7 +295,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         st_estado_lbl = {
             "TIENE_CERTIFICADOS": "✓ TIENE CERTIFICADOS",
             "SIN_CERTIFICADOS":   "— Sin registros",
-            "ERROR":              "✕ Error",
+            "ERROR":              "⚠ Error SETEC · Min. Trabajo",
             "":                   "",
         }.get(st.get("estado", ""), st.get("estado", ""))
         st_total  = st.get("total", "") if st else ""
@@ -290,20 +304,20 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         if tipo == "bachiller":
             fila = [
                 r.get("cedula", ""), nombre,
-                b.get("estado", ""),
+                _lbl_bach(b.get("estado", "")),
                 b.get("titulo", ""),
                 b.get("especialidad", ""),
                 b.get("institucion", ""),
                 (b.get("fecha_grado") or "")[:4],
-                b.get("detalle", ""),
+                b.get("detalle", "") if b.get("estado") != "ERROR" else b.get("detalle", "Error de conexión con el servidor del Ministerio de Educación"),
             ]
         elif tipo == "satje":
             fila = [
                 r.get("cedula", ""), nombre,
-                s.get("estado", ""),
+                _lbl_satje(s.get("estado", "")),
                 s.get("total_demandado", ""),
                 s.get("total_actor", ""),
-                s.get("detalle", ""),
+                s.get("detalle", "") if s.get("estado") != "ERROR" else s.get("detalle", "Error de conexión con el servidor SATJE"),
             ]
         elif tipo == "setec":
             fila = [
@@ -336,10 +350,10 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
 
             fila = [
                 r.get("cedula", ""), nombre, sem,
-                bach_cell,
+                bach_cell if b.get("estado") != "ERROR" else "⚠ Error Min. Educación",
                 b.get("institucion", ""),
                 (b.get("fecha_grado") or "")[:4],
-                s.get("estado", ""),
+                _lbl_satje(s.get("estado", "")),
                 s.get("total_demandado", ""),
                 s.get("total_actor", ""),
                 detalle_completo,
@@ -350,7 +364,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
             "SOSPECHOSO":        "⚠ SOSPECHOSO",
             "DENUNCIANTE":       "ℹ DENUNCIANTE",
             "SIN_ANTECEDENTES":  "✓ Sin antecedentes",
-            "ERROR":             "✕ Error",
+            "ERROR":             "⚠ Error Fiscalía · SIAF",
             "":                  "",
         }.get(fi.get("estado", ""), fi.get("estado", ""))
         fi_total  = fi.get("total_noticias", "") if fi else ""
