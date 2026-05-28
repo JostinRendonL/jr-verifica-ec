@@ -401,6 +401,56 @@
               </label>
             </div>
 
+            {# Selección de fuentes para lote #}
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <label class="text-xs font-bold uppercase tracking-wider text-slate-600">Fuentes a Consultar</label>
+                <button type="button" onclick="loteActivarTodas(true)" class="text-[11px] text-brand-600 font-semibold hover:underline">Activar todas</button>
+              </div>
+              <div class="grid grid-cols-2 gap-2.5">
+                <label id="lote-card-bachiller" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-brand-500 bg-white cursor-pointer hover:border-brand-400 transition-all select-none">
+                  <input type="checkbox" name="bachiller" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-bachiller')">
+                  <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white shrink-0 lote-check-ind">
+                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold text-slate-800">Bachiller</p>
+                    <p class="text-[10px] text-slate-400">Min. Educación</p>
+                  </div>
+                </label>
+                <label id="lote-card-satje" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-brand-500 bg-white cursor-pointer hover:border-brand-400 transition-all select-none">
+                  <input type="checkbox" name="satje" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-satje')">
+                  <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white shrink-0 lote-check-ind">
+                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold text-slate-800">Causas Judiciales</p>
+                    <p class="text-[10px] text-slate-400">SATJE · F. Judicial</p>
+                  </div>
+                </label>
+                <label id="lote-card-setec" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-brand-500 bg-white cursor-pointer hover:border-brand-400 transition-all select-none">
+                  <input type="checkbox" name="setec_check" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-setec')">
+                  <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white shrink-0 lote-check-ind">
+                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold text-slate-800">Competencias</p>
+                    <p class="text-[10px] text-slate-400">SETEC · Min. Trabajo</p>
+                  </div>
+                </label>
+                <label id="lote-card-fiscalia" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-red-400 bg-white cursor-pointer hover:border-red-300 transition-all select-none">
+                  <input type="checkbox" name="fiscalia_check" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-fiscalia')">
+                  <div class="w-5 h-5 rounded border border-red-400 bg-red-500 flex items-center justify-center text-white shrink-0 lote-check-ind">
+                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
+                  </div>
+                  <div>
+                    <p class="text-xs font-bold text-slate-800">Fiscalía</p>
+                    <p class="text-[10px] text-slate-400">SIAF · Noticias delito</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             <div class="pt-2">
               <button type="submit" class="w-full flex items-center justify-center gap-2 px-6 py-4 bg-brand-600 hover:bg-brand-700 active:scale-[0.99] text-white font-semibold rounded-xl transition-all shadow-md shadow-brand-500/10 text-base">
                 <i data-lucide="rocket" class="w-5 h-5"></i>
@@ -614,6 +664,33 @@
       ind.innerHTML = '';
     }
     if (window.lucide) lucide.createIcons();
+  }
+
+  function loteSyncCard(cb, cardId) {
+    const card = document.getElementById(cardId);
+    const ind  = card.querySelector('.lote-check-ind');
+    if (cb.checked) {
+      card.classList.remove('border-slate-200', 'border-red-200');
+      card.classList.add(cardId === 'lote-card-fiscalia' ? 'border-red-400' : 'border-brand-500');
+      ind.classList.remove('bg-white', 'text-transparent');
+      ind.classList.add(cardId === 'lote-card-fiscalia' ? 'bg-red-500' : 'bg-brand-600', 'text-white');
+      ind.innerHTML = '<i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>';
+    } else {
+      card.classList.remove('border-brand-500', 'border-red-400');
+      card.classList.add('border-slate-200');
+      ind.classList.remove('bg-brand-600', 'bg-red-500', 'text-white');
+      ind.classList.add('bg-white', 'text-transparent');
+      ind.innerHTML = '';
+    }
+    if (window.lucide) lucide.createIcons();
+  }
+
+  function loteActivarTodas(state) {
+    [['bachiller','lote-card-bachiller'], ['satje','lote-card-satje'],
+     ['setec_check','lote-card-setec'], ['fiscalia_check','lote-card-fiscalia']].forEach(([name, cardId]) => {
+      const cb = document.querySelector(`#${cardId} input[type="checkbox"]`);
+      if (cb && cb.checked !== state) { cb.checked = state; loteSyncCard(cb, cardId); }
+    });
   }
 
   function selectAllSources(state) {
