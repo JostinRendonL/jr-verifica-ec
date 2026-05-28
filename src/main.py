@@ -69,7 +69,7 @@ from src.processor import _calcular_semaforo
 from src.historial_sqlite import (
     buscar_cache, registrar, listar as listar_historial, obtener_resultado,
     total_entradas, CACHE_TTL_SEG, calcular_stats,
-    borrar_entrada, borrar_por_cedula, limpiar_todo, actualizar_nombre,
+    borrar_entrada, borrar_por_cedula, limpiar_todo, actualizar_nombre, actualizar_semaforo,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -1263,6 +1263,21 @@ async def editar_nombre_cedula(
         from fastapi.responses import JSONResponse
         return JSONResponse({"ok": False, "error": "no autenticado"}, status_code=401)
     ok = actualizar_nombre(cedula, nombre.strip())
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/historial/cedula/{cedula}/semaforo")
+async def editar_semaforo_cedula(
+    cedula: str,
+    semaforo: str = Form(...),
+    jr_session: str | None = Cookie(None),
+):
+    """Guarda manualmente el semáforo de una cédula. Sobrevive re-verificaciones."""
+    if not _autenticado(jr_session):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"ok": False, "error": "no autenticado"}, status_code=401)
+    ok = actualizar_semaforo(cedula, semaforo.strip())
     from fastapi.responses import JSONResponse
     return JSONResponse({"ok": ok})
 

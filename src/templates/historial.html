@@ -274,19 +274,42 @@ function confirmarOlvido(e) {
                         </td>
                         <td class="px-5 py-4 text-center">
                             {% set sem = e.semaforo %}
-                            {% if 'APTO' in sem %}
-                                <span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
-                            {% elif 'OBSERVACIÓN' in sem %}
-                                <span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
-                            {% elif 'CRÍTICO' in sem %}
-                                <span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>
-                            {% elif 'RECHAZAR' in sem %}
-                                <span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
-                            {% elif sem %}
-                                <span class="badge badge-sin"><span class="badge-dot"></span>{{ sem }}</span>
-                            {% else %}
-                                <span class="text-slate-300 text-xs">—</span>
-                            {% endif %}
+                            <div class="inline-flex flex-col items-center gap-1" id="sem-row-{{ e.cedula }}">
+                                <div class="flex items-center gap-1">
+                                    {% if 'APTO' in sem %}
+                                        <span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
+                                    {% elif 'OBSERVACIÓN' in sem %}
+                                        <span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
+                                    {% elif 'CRÍTICO' in sem %}
+                                        <span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>
+                                    {% elif 'RECHAZAR' in sem %}
+                                        <span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
+                                    {% elif sem %}
+                                        <span class="badge badge-sin"><span class="badge-dot"></span>{{ sem }}</span>
+                                    {% else %}
+                                        <span class="text-slate-300 text-xs">—</span>
+                                    {% endif %}
+                                    <button onclick="abrirSemaforo('{{ e.cedula }}')"
+                                        class="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0" title="Cambiar semáforo manualmente">
+                                        <i data-lucide="pencil" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <!-- Selector inline de semáforo -->
+                            <div class="hidden flex-col items-center gap-1 mt-1" id="sem-edit-{{ e.cedula }}">
+                                <div class="flex flex-wrap justify-center gap-1">
+                                    <button onclick="guardarSemaforo('{{ e.cedula }}','APTO')"
+                                        class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold hover:bg-emerald-200">APTO</button>
+                                    <button onclick="guardarSemaforo('{{ e.cedula }}','OBSERVACION')"
+                                        class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold hover:bg-amber-200">OBS</button>
+                                    <button onclick="guardarSemaforo('{{ e.cedula }}','RECHAZAR')"
+                                        class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold hover:bg-red-200">RECH</button>
+                                    <button onclick="guardarSemaforo('{{ e.cedula }}','CRITICO')"
+                                        class="text-[10px] px-1.5 py-0.5 rounded bg-red-900/20 text-red-900 font-bold hover:bg-red-900/30">CRÍT</button>
+                                </div>
+                                <button onclick="cancelarSemaforo('{{ e.cedula }}')"
+                                    class="text-[10px] text-slate-400 hover:text-slate-600">cancelar</button>
+                            </div>
                         </td>
                         <td class="px-5 py-4 text-sm">
                             {% if e.operador_nombre and e.operador_nombre != '—' %}
@@ -373,6 +396,42 @@ async function guardarNombreHistorial(cedula) {
     if (data.ok) {
         document.getElementById('nombre-txt-' + cedula).textContent = nombre;
         cancelarNombreHistorial(cedula);
+    }
+}
+
+// ── Semáforo manual ────────────────────────────────────────────────────────
+function abrirSemaforo(cedula) {
+    document.getElementById('sem-row-' + cedula).classList.add('hidden');
+    const ed = document.getElementById('sem-edit-' + cedula);
+    ed.classList.remove('hidden');
+    ed.classList.add('flex');
+}
+function cancelarSemaforo(cedula) {
+    document.getElementById('sem-edit-' + cedula).classList.add('hidden');
+    document.getElementById('sem-edit-' + cedula).classList.remove('flex');
+    document.getElementById('sem-row-' + cedula).classList.remove('hidden');
+}
+const _BADGE_HTML = {
+    'APTO':       '<span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>',
+    'OBSERVACION':'<span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>',
+    'RECHAZAR':   '<span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>',
+    'CRITICO':    '<span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>',
+};
+async function guardarSemaforo(cedula, nivel) {
+    const fd = new FormData();
+    fd.append('semaforo', nivel);
+    const r = await fetch('/historial/cedula/' + cedula + '/semaforo', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (data.ok) {
+        // Actualizar badge en la fila
+        const row = document.getElementById('sem-row-' + cedula);
+        const div = row.querySelector('.flex.items-center.gap-1');
+        // Reemplazar todo menos el botón del lápiz
+        const btn = div.querySelector('button');
+        div.innerHTML = (_BADGE_HTML[nivel] || nivel) + ' ';
+        div.appendChild(btn);
+        if (window.lucide) lucide.createIcons({ nodes: [btn] });
+        cancelarSemaforo(cedula);
     }
 }
 </script>

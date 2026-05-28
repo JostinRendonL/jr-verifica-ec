@@ -6,7 +6,7 @@ import time
 from typing import Literal
 
 from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_setec, extraer_fiscalia
-from src.historial_sqlite import buscar_cache, registrar
+from src.historial_sqlite import buscar_cache, registrar, obtener_nombre_guardado, obtener_semaforo_manual
 from src.obs import capture_exception
 
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
@@ -178,10 +178,11 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
     # ── Cache hit ────────────────────────────────────────────────────────────
     cached = buscar_cache(cedula, tipo)
     if cached is not None:
-        # Recalcular el semáforo con la lógica actual (no usar el guardado).
+        # Recalcular el semáforo con la lógica actual (no usar el guardado),
+        # EXCEPTO si el semáforo fue editado manualmente — en ese caso se preserva.
         # IMPORTANTE: pasar fiscalia tambien — si el cache tiene fiscalia con
         # SOSPECHOSO, el semaforo correcto es RECHAZAR/CRITICO, NO APTO.
-        if tipo == "completo":
+        if tipo == "completo" and not cached.get("semaforo_manual"):
             cached["semaforo"] = _calcular_semaforo(
                 cached.get("bachiller") or {},
                 cached.get("satje") or {},
@@ -208,7 +209,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             async with sem:
                 raw_f = await consultar(cedula, tipo="fiscalia")
             cached["fiscalia"] = extraer_fiscalia(raw_f)
-            if tipo == "completo":
+            if tipo == "completo" and not cached.get("semaforo_manual"):
                 cached["semaforo"] = _calcular_semaforo(
                     cached.get("bachiller") or {},
                     cached.get("satje") or {},
@@ -233,12 +234,13 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                     cached["bachiller"] = extraer_bachiller(raw_main)
                 if s_con_error:
                     cached["satje"] = extraer_satje(raw_main)
-                cached["semaforo"] = _calcular_semaforo(
-                    cached.get("bachiller") or {},
-                    cached.get("satje") or {},
-                    "completo",
-                    fiscalia=cached.get("fiscalia") or {},
-                )
+                if not cached.get("semaforo_manual"):
+                    cached["semaforo"] = _calcular_semaforo(
+                        cached.get("bachiller") or {},
+                        cached.get("satje") or {},
+                        "completo",
+                        fiscalia=cached.get("fiscalia") or {},
+                    )
                 try:
                     registrar(cached, tipo, usuario_id=usuario_id)
                 except Exception:
@@ -263,15 +265,18 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 except Exception:
                     pass
 
-        # Prioridad de nombre: si el Excel del usuario trae nombre, ese GANA.
-        # Si no, mantener el del cache (que ya viene de bachiller/satje/setec).
-        # Si tampoco hay en cache, intentar fallback final desde SETEC.
+        # Prioridad de nombre: Excel > cache > SETEC inline > nombre guardado en DB.
         if nombre_input:
             cached["nombre"] = nombre_input
         elif not cached.get("nombre"):
             st = cached.get("setec") or {}
             if st.get("nombre"):
                 cached["nombre"] = st["nombre"]
+            else:
+                # Fallback: nombre editado manualmente en una sesión anterior
+                nombre_db = obtener_nombre_guardado(cedula)
+                if nombre_db:
+                    cached["nombre"] = nombre_db
         return {**cached, "_cache": True}
 
     async with sem:
@@ -308,45 +313,52 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             fiscalia_data = extraer_fiscalia(raw_fiscalia)
 
         # Prioridad de nombre UNIFICADA:
-        #   1) Excel input  2) Bachiller  3) SATJE  4) SETEC
-        def _elegir_nombre(b=None, s=None, st=None):
+        #   1) Excel input  2) Bachiller  3) SATJE  4) SETEC  5) Fiscalía  6) DB manual
+        def _elegir_nombre(b=None, s=None, st=None, fi=None):
             if nombre_input:
                 return nombre_input
-            for src in (b, s, st):
+            for src in (b, s, st, fi):
                 if src and src.get("nombre"):
                     return src["nombre"]
-            return ""
+            # Fallback: nombre editado manualmente en historial (re-verificación)
+            return obtener_nombre_guardado(cedula)
+
+        # Semáforo manual previo — si existía, preservarlo incluso tras re-fetch
+        _semaforo_manual_previo = obtener_semaforo_manual(cedula)
 
         if tipo == "bachiller":
             b = extraer_bachiller(raw_main)
             resultado = {
                 "cedula":    cedula,
-                "nombre":    _elegir_nombre(b=b, st=setec_data),
+                "nombre":    _elegir_nombre(b=b, st=setec_data, fi=fiscalia_data),
                 "bachiller": b,
             }
         elif tipo == "satje":
             s = extraer_satje(raw_main)
             resultado = {
                 "cedula": cedula,
-                "nombre": _elegir_nombre(s=s, st=setec_data),
+                "nombre": _elegir_nombre(s=s, st=setec_data, fi=fiscalia_data),
                 "satje":  s,
             }
         elif tipo == "setec":
             resultado = {
                 "cedula": cedula,
-                "nombre": _elegir_nombre(st=setec_data),
+                "nombre": _elegir_nombre(st=setec_data, fi=fiscalia_data),
                 "setec":  setec_data,
             }
         else:
             # completo: bachiller + satje (+ fiscalia si se pidio)
             b = extraer_bachiller(raw_main)
             s = extraer_satje(raw_main)
+            _sem_calculado = _calcular_semaforo(b, s, "completo", fiscalia=fiscalia_data)
             resultado = {
                 "cedula":    cedula,
-                "nombre":    _elegir_nombre(b=b, s=s, st=setec_data),
+                "nombre":    _elegir_nombre(b=b, s=s, st=setec_data, fi=fiscalia_data),
                 "bachiller": b,
                 "satje":     s,
-                "semaforo":  _calcular_semaforo(b, s, "completo", fiscalia=fiscalia_data),
+                # Si el usuario editó el semáforo manualmente, preservarlo
+                "semaforo":          _semaforo_manual_previo or _sem_calculado,
+                "semaforo_manual":   bool(_semaforo_manual_previo),
             }
 
         # Agregar módulos opcionales al resultado

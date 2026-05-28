@@ -210,6 +210,7 @@ def extraer_fiscalia(data: dict) -> dict:
     if not data.get("ok"):
         return {
             "estado": "ERROR",
+            "nombre": "",
             "tiene_antecedentes": False,
             "como_sospechoso": 0,
             "como_denunciante": 0,
@@ -224,6 +225,7 @@ def extraer_fiscalia(data: dict) -> dict:
     if raw.get("error"):
         return {
             "estado": "ERROR",
+            "nombre": "",
             "tiene_antecedentes": False,
             "como_sospechoso": 0,
             "como_denunciante": 0,
@@ -239,12 +241,20 @@ def extraer_fiscalia(data: dict) -> dict:
     noticias     = raw.get("noticias", [])
     delitos      = raw.get("delitos", [])
 
+    # Detectar si el rol predominante es PERJUDICADO (víctima con daño patrimonial)
+    _ROLES_PERJUDICADO = {"PERJUDICADO", "PERJUDICADA", "AGRAVIADO", "AGRAVIADA", "AFECTADO", "AFECTADA"}
+    roles_en_noticias = {(n.get("rol") or "").upper() for n in noticias}
+    es_perjudicado = bool(roles_en_noticias & _ROLES_PERJUDICADO) and sospechoso == 0
+
     if sospechoso > 0:
         estado  = "SOSPECHOSO"
         detalle = f"{sospechoso} noticia(s) como sospechoso: {', '.join(delitos)}" if delitos else f"{sospechoso} noticia(s) como sospechoso"
+    elif es_perjudicado:
+        estado  = "PERJUDICADO"
+        detalle = f"{denunciante} noticia(s) como perjudicado/víctima (inocente)"
     elif denunciante > 0:
         estado  = "DENUNCIANTE"
-        detalle = f"{denunciante} noticia(s) como denunciante/victima"
+        detalle = f"{denunciante} noticia(s) como denunciante/víctima"
     elif total == 0:
         estado  = "SIN_ANTECEDENTES"
         detalle = "Sin registros en Fiscalia"
@@ -254,6 +264,7 @@ def extraer_fiscalia(data: dict) -> dict:
 
     return {
         "estado":           estado,
+        "nombre":           raw.get("nombre", ""),
         "tiene_antecedentes": sospechoso > 0,
         "como_sospechoso":  sospechoso,
         "como_denunciante": denunciante,

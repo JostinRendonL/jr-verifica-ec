@@ -363,6 +363,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
         fi_estado_lbl = {
             "SOSPECHOSO":        "⚠ SOSPECHOSO",
             "DENUNCIANTE":       "ℹ DENUNCIANTE",
+            "PERJUDICADO":       "ℹ PERJUDICADO",
             "SIN_ANTECEDENTES":  "✓ Sin antecedentes",
             "ERROR":             "⚠ Error Fiscalía · SIAF",
             "":                  "",
@@ -445,7 +446,7 @@ def generar_excel_resultados(resultados: list[dict], tipo: str, incluir_setec: b
             if "SOSPECHOSO" in valor_fi:
                 fi_cell.fill = PatternFill(start_color=ROJO_BG, end_color=ROJO_BG, fill_type="solid")
                 fi_cell.font = FONT_BODY_B
-            elif "DENUNCIANTE" in valor_fi:
+            elif "DENUNCIANTE" in valor_fi or "PERJUDICADO" in valor_fi:
                 fi_cell.fill = PatternFill(start_color=AMARILLO_BG, end_color=AMARILLO_BG, fill_type="solid")
                 fi_cell.font = FONT_BODY_B
             elif "Sin antecedentes" in valor_fi:

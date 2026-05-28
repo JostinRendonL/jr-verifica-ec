@@ -374,6 +374,94 @@ def actualizar_nombre(cedula: str, nombre: str) -> bool:
     return True
 
 
+def obtener_nombre_guardado(cedula: str) -> str:
+    """
+    Retorna el nombre de la entrada más reciente de una cédula, sin importar TTL.
+    Útil para preservar nombres editados manualmente al re-verificar.
+    """
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return ""
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT nombre FROM historial WHERE cedula = ? ORDER BY timestamp DESC LIMIT 1",
+        (cedula,),
+    )
+    row = cur.fetchone()
+    return (row["nombre"] or "").strip() if row else ""
+
+
+def obtener_semaforo_manual(cedula: str) -> str | None:
+    """
+    Retorna el semáforo guardado manualmente para una cédula (campo semaforo_manual
+    en resultado_json), o None si nunca fue modificado manualmente.
+    """
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return None
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT resultado_json FROM historial WHERE cedula = ? ORDER BY timestamp DESC LIMIT 1",
+        (cedula,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    try:
+        resultado = json.loads(row["resultado_json"])
+    except Exception:
+        return None
+    if resultado.get("semaforo_manual"):
+        return resultado.get("semaforo", None)
+    return None
+
+
+def actualizar_semaforo(cedula: str, semaforo: str) -> bool:
+    """
+    Guarda un semáforo manualmente para una cédula.
+    Marca resultado_json['semaforo_manual'] = True para que el re-verificado
+    no lo sobreescriba con el valor calculado automáticamente.
+    Retorna True si actualizó al menos una fila.
+    """
+    SEMAFOROS_VALIDOS = {
+        "APTO":       "🟢 APTO",
+        "OBSERVACION": "🟡 OBSERVACIÓN",
+        "OBSERVACIÓN": "🟡 OBSERVACIÓN",
+        "RECHAZAR":   "🔴 RECHAZAR",
+        "CRITICO":    "🚨 CRÍTICO",
+        "CRÍTICO":    "🚨 CRÍTICO",
+    }
+    cedula   = (cedula or "").strip()
+    semaforo = (semaforo or "").strip().upper()
+    if not cedula or semaforo not in SEMAFOROS_VALIDOS:
+        return False
+    semaforo_fmt = SEMAFOROS_VALIDOS[semaforo]
+
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT id, resultado_json FROM historial WHERE cedula = ? ORDER BY timestamp DESC LIMIT 1",
+        (cedula,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return False
+
+    try:
+        resultado = json.loads(row["resultado_json"])
+    except Exception:
+        resultado = {}
+    resultado["semaforo"]        = semaforo_fmt
+    resultado["semaforo_manual"] = True
+    resultado_json_nuevo = json.dumps(resultado, ensure_ascii=False)
+
+    with _write_lock:
+        conn.execute(
+            "UPDATE historial SET semaforo = ?, resultado_json = ? WHERE id = ?",
+            (semaforo_fmt, resultado_json_nuevo, row["id"]),
+        )
+    return True
+
+
 def borrar_entrada(id_entrada: str) -> bool:
     """Elimina UNA entrada del historial. True si la borró."""
     conn = _get_conn()
