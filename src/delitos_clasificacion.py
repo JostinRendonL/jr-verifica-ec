@@ -42,11 +42,11 @@ DELITOS_RECHAZAR = {
     # Fraude
     "ESTAFA", "FALSIFICACION", "FALSIFICACIÓN", "USURA",
     "FRAUDE", "DEFRAUDACION", "DEFRAUDACIÓN",
-    # Lesiones / Agresión
+    # Lesiones / Agresión (las de accidente van en OBSERVACION)
     "LESIONES", "AGRESION", "AGRESIÓN",
     "VIOLENCIA INTRAFAMILIAR",
-    # Amenazas
-    "AMENAZAS", "INTIMIDACION", "INTIMIDACIÓN", "COACCION", "COACCIÓN",
+    # Amenazas / Coacción (intimidación va en OBSERVACION por criterio HR)
+    "AMENAZAS", "COACCION", "COACCIÓN",
     # Tránsito grave
     "CONDUCCION EN ESTADO DE EMBRIAGUEZ", "CONDUCCIÓN EN ESTADO DE EMBRIAGUEZ",
     "ACCIDENTE DE TRANSITO CON LESIONES", "ACCIDENTE DE TRÁNSITO CON LESIONES",
@@ -58,20 +58,32 @@ DELITOS_RECHAZAR = {
     "DANOS", "DAÑOS", "INCENDIO",
 }
 
-# ── 🟡 OBSERVACIÓN — personal/civil, no descalifica ─────────────────────────
+# ── 🟡 OBSERVACIÓN — personal/civil/accidente, no descalifica ────────────────
+# IMPORTANTE: se evalúa ANTES que RECHAZAR, así que casos específicos aquí
+# ganan sobre keywords generales de RECHAZAR (ej. "LESIONES CAUSADAS POR
+# ACCIDENTE" gana sobre el genérico "LESIONES").
 DELITOS_OBSERVACION = {
     # Familia
     "ALIMENTOS", "PENSION ALIMENTICIA", "PENSIÓN ALIMENTICIA",
     "FIJACION DE PENSION", "FIJACIÓN DE PENSIÓN",
     "DIVORCIO", "PATERNIDAD", "TENENCIA",
+    "REGIMEN DE VISITAS", "RÉGIMEN DE VISITAS",
     "LIQUIDACION DE SOCIEDAD CONYUGAL", "LIQUIDACIÓN DE SOCIEDAD CONYUGAL",
-    # Civil/Patrimonio leve
-    "COBRO DE DINERO", "CONTRATO", "LABORAL",
-    # Tránsito menor
+    "DECLARATORIA DE UNION DE HECHO", "DECLARATORIA DE UNIÓN DE HECHO",
+    # Civil / documentos / trámites
+    "COBRO DE DINERO", "COBRO DE PAGARE", "COBRO DE PAGARÉ",
+    "CONTRATO", "LABORAL",
+    "CONSIGNACION", "CONSIGNACIÓN",
+    "PERDIDA DE DOCUMENTOS", "PÉRDIDA DE DOCUMENTOS",
+    "EJECUCION DE ACTA DE MEDIACION", "EJECUCIÓN DE ACTA DE MEDIACIÓN",
+    "INSCRIPCION DE CONTRATO", "INSCRIPCIÓN DE CONTRATO",
+    # Tránsito: lesiones por accidente y sin lesiones
+    "LESIONES CAUSADAS POR ACCIDENTE", "LESIONES LEVES",
     "ACCIDENTE DE TRANSITO SOLO DANOS", "ACCIDENTE DE TRÁNSITO SOLO DAÑOS",
     "MULTAS", "CONTRAVENCION", "CONTRAVENCIÓN",
-    # Lesiones leves
-    "LESIONES LEVES",
+    # Conductas leves / personales (criterio HR)
+    "ABUSO DE CONFIANZA",
+    "INTIMIDACION", "INTIMIDACIÓN",
 }
 
 
