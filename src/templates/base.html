@@ -351,14 +351,14 @@
 
   <!-- Plan chip -->
   {% if _u %}
-  <div class="vr-plan">
+  <div class="vr-plan" id="vr-plan-widget">
     <div class="vr-plan-chip">
       <div class="vr-plan-row">
         <span class="vr-plan-label">Plan Empresa</span>
-        <span class="vr-plan-pct">72%</span>
+        <span class="vr-plan-pct" id="vr-plan-pct">—</span>
       </div>
-      <div class="vr-plan-track"><div class="vr-plan-fill" style="width:72%"></div></div>
-      <div class="vr-plan-sub">1,283 / 1,800 consultas</div>
+      <div class="vr-plan-track"><div class="vr-plan-fill" id="vr-plan-fill" style="width:0%"></div></div>
+      <div class="vr-plan-sub" id="vr-plan-sub">cargando…</div>
     </div>
   </div>
   {% endif %}
@@ -401,24 +401,40 @@
 <script>
 /* ── Sliding nav pill indicator ───────────────────────────────── */
 (function() {
-  const STEP = 46;           // 40px item + 6px gap
-  const ADM_GAP = 40 + 6;   // section header + extra gap
   const pill = document.getElementById('vr-pill');
   if (!pill) return;
-  const mainItems  = document.querySelectorAll('#vr-nav-main .vr-nav-item');
-  const adminItems = document.querySelectorAll('#vr-nav-admin .vr-nav-item') || [];
-  const allItems   = [...mainItems, ...adminItems];
-  const activeEl   = document.querySelector('.vr-nav-item.active');
+  const activeEl = document.querySelector('.vr-nav-item.active');
   if (!activeEl) { pill.style.display = 'none'; return; }
-  const idx = allItems.indexOf(activeEl);
-  if (idx < 0) { pill.style.display = 'none'; return; }
-  let top;
-  if (idx < mainItems.length) {
-    top = idx * STEP;
-  } else {
-    top = mainItems.length * STEP + ADM_GAP + (idx - mainItems.length) * STEP;
-  }
-  pill.style.transform = `translateY(${top}px)`;
+  // Usar posición real del DOM en vez de matemáticas fijas
+  const nav = pill.closest('nav') || pill.parentElement;
+  const navTop = nav.getBoundingClientRect().top;
+  const elTop  = activeEl.getBoundingClientRect().top;
+  const elH    = activeEl.getBoundingClientRect().height;
+  pill.style.height = elH + 'px';
+  pill.style.transform = `translateY(${elTop - navTop}px)`;
+})();
+
+/* ── Plan Empresa — datos reales desde /api/stats ─────────────── */
+(function() {
+  const pct  = document.getElementById('vr-plan-pct');
+  const fill = document.getElementById('vr-plan-fill');
+  const sub  = document.getElementById('vr-plan-sub');
+  if (!pct || !fill || !sub) return;
+  const QUOTA = 1800; // límite del plan — ajustar según contrato
+  fetch('/api/stats', { credentials: 'same-origin' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) { sub.textContent = 'sin datos'; return; }
+      const used = data.total || 0;
+      const pctVal = Math.min(Math.round((used / QUOTA) * 100), 100);
+      pct.textContent  = pctVal + '%';
+      fill.style.width = pctVal + '%';
+      sub.textContent  = used.toLocaleString('es-EC') + ' / ' + QUOTA.toLocaleString('es-EC') + ' consultas';
+      // Colorear si está cerca del límite
+      if (pctVal >= 90) fill.style.background = '#E04338';
+      else if (pctVal >= 75) fill.style.background = '#E08C0B';
+    })
+    .catch(() => { sub.textContent = '—'; });
 })();
 
 /* ── Toast helper ─────────────────────────────────────────────── */
