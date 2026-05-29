@@ -304,6 +304,7 @@ def obtener_lotes(limite: int = 50) -> list[dict]:
 def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
            filtro_usuario_id: str = "", filtro_nombre: str = "",
            filtro_lote_id: str = "",
+           dedup_por_cedula: bool = False,
            limite: int = 200) -> list[dict]:
     """Devuelve las entradas más recientes (sin resultado completo).
 
@@ -369,11 +370,30 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
             sql += f" AND {col} = ?"
             params.append(lote_f)
 
-    sql += " ORDER BY " + ("h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp") + " DESC LIMIT ?"
-    params.append(limite)
+    ts_col = "h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp"
+
+    if dedup_por_cedula:
+        # CTE: solo la entrada mas reciente por cedula + conteo total de verificaciones.
+        # ROW_NUMBER() OVER (PARTITION BY cedula ORDER BY timestamp DESC) = 1.
+        # SQLite 3.25+ soporta window functions (Python 3.7+ trae 3.25+ usualmente).
+        sql_dedup = (
+            "WITH ranked AS ( "
+            + sql.replace("SELECT ", "SELECT "
+                f"ROW_NUMBER() OVER (PARTITION BY "
+                f"{'h.cedula' if tiene_usuario_id and tiene_usuarios else 'cedula'} "
+                f"ORDER BY {ts_col} DESC) AS rn, "
+                f"COUNT(*) OVER (PARTITION BY "
+                f"{'h.cedula' if tiene_usuario_id and tiene_usuarios else 'cedula'}) AS verif_count, ", 1)
+            + ") SELECT * FROM ranked WHERE rn = 1 ORDER BY timestamp DESC LIMIT ?"
+        )
+        params.append(limite)
+        cur = conn.execute(sql_dedup, params)
+    else:
+        sql += f" ORDER BY {ts_col} DESC LIMIT ?"
+        params.append(limite)
+        cur = conn.execute(sql, params)
 
     ahora = int(time.time())
-    cur = conn.execute(sql, params)
     rows = []
     for r in cur.fetchall():
         rows.append({
@@ -389,8 +409,37 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
             "operador_email":  r["operador_email"]  or "",
             "lote_id":         r["lote_id"],
             "lote_nombre":     r["lote_nombre"],
+            "verif_count":     r["verif_count"] if dedup_por_cedula else 1,
         })
     return rows
+
+
+def listar_por_cedula(cedula: str, limite: int = 50) -> list[dict]:
+    """Devuelve todas las verificaciones de una cédula (para vista expandida)."""
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return []
+    conn = _get_conn()
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(historial)")}
+    tiene_lote = "lote_id" in cols
+    extra = ", lote_id, lote_nombre" if tiene_lote else ", NULL AS lote_id, NULL AS lote_nombre"
+    cur = conn.execute(
+        f"SELECT id, cedula, tipo, timestamp, semaforo, nombre {extra} "
+        f"FROM historial WHERE cedula = ? ORDER BY timestamp DESC LIMIT ?",
+        (cedula, int(limite)),
+    )
+    ahora = int(time.time())
+    return [{
+        "id":          r["id"],
+        "cedula":      r["cedula"],
+        "tipo":        r["tipo"],
+        "timestamp":   r["timestamp"],
+        "edad_seg":    ahora - r["timestamp"],
+        "semaforo":    r["semaforo"],
+        "nombre":      r["nombre"],
+        "lote_id":     r["lote_id"],
+        "lote_nombre": r["lote_nombre"],
+    } for r in cur.fetchall()]
 
 
 def obtener_resultado(id_entrada: str) -> Optional[dict]:

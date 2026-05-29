@@ -89,6 +89,7 @@ from src.historial_sqlite import (
     total_entradas, CACHE_TTL_SEG, calcular_stats,
     borrar_entrada, borrar_por_cedula, borrar_multiples, limpiar_todo,
     actualizar_nombre, actualizar_semaforo, obtener_lotes,
+    listar_por_cedula,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -1189,13 +1190,18 @@ async def ver_dashboard(request: Request, jr_session: str | None = Cookie(None))
 async def ver_historial(
     request: Request,
     cedula: str = "", semaforo: str = "", nombre: str = "", lote: str = "",
+    dups: str = "",
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
         return _redirect_login()
 
+    # Dedup por default; ?dups=1 muestra TODAS las verificaciones (modo auditoria)
+    # Si filtran por lote, no deduplicamos (ya son las cedulas de ese lote)
+    dedup = not _to_bool(dups) and not lote
     entradas = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo,
                                  filtro_nombre=nombre, filtro_lote_id=lote,
+                                 dedup_por_cedula=dedup,
                                  limite=500 if lote else 200)
     # Si se filtró por lote, traer el nombre del lote para mostrarlo
     lote_info = None
@@ -1213,8 +1219,18 @@ async def ver_historial(
         "filtro_nombre":   nombre,
         "filtro_lote":     lote,
         "lote_info":       lote_info,
+        "dedup_activo":    dedup,
         "ttl_horas": CACHE_TTL_SEG // 3600,
     })
+
+
+@app.get("/api/historial/cedula/{cedula}/verificaciones")
+async def api_verificaciones_cedula(cedula: str, jr_session: str | None = Cookie(None)):
+    """Lista todas las verificaciones de una cédula — para expandir el badge ↻."""
+    from fastapi.responses import JSONResponse
+    if not _autenticado(jr_session):
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    return JSONResponse({"entradas": listar_por_cedula(cedula, limite=50)})
 
 
 @app.get("/lotes", response_class=HTMLResponse)
