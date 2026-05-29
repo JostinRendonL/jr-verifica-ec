@@ -438,11 +438,17 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       Buscar otra
     </a>
-    <a href="/pdf?cedula={{ resultado.cedula }}&bachiller={% if b %}1{% endif %}&satje={% if s %}1{% endif %}&setec_check={% if setec %}1{% endif %}&fiscalia_check={% if fiscalia %}1{% endif %}"
-       class="vr-btn vr-btn-pri vr-btn-md" style="flex:1;justify-content:center;">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Descargar PDF oficial
-    </a>
+    <form method="POST" action="/pdf" style="flex:1;display:flex;">
+      <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
+      {% if b %}<input type="hidden" name="bachiller" value="1">{% endif %}
+      {% if s %}<input type="hidden" name="satje" value="1">{% endif %}
+      {% if setec %}<input type="hidden" name="setec_check" value="1">{% endif %}
+      {% if fiscalia %}<input type="hidden" name="fiscalia_check" value="1">{% endif %}
+      <button type="submit" class="vr-btn vr-btn-pri vr-btn-md" style="flex:1;justify-content:center;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar PDF oficial
+      </button>
+    </form>
   </div>
 
 </div>
