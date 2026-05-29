@@ -1,6 +1,7 @@
 """Procesador batch con concurrencia limitada."""
 import os
 import asyncio
+import logging
 import uuid
 import time
 from typing import Literal
@@ -9,10 +10,33 @@ from src.bg_client import consultar, extraer_bachiller, extraer_satje, extraer_s
 from src.historial_sqlite import buscar_cache, registrar, obtener_nombre_guardado, obtener_semaforo_manual
 from src.obs import capture_exception
 
+logger = logging.getLogger("verifica.processor")
+
 MAX_WORKERS = int(os.getenv("MAX_WORKERS", "3"))
 
-# Store in-memory de jobs (suficiente para 1 worker)
+# Cuántas horas conservar un job terminado antes de purgarlo de memoria.
+# Evita que jobs con miles de resultados + Excel grande dejen la RAM hinchada.
+JOB_RETENTION_HOURS = int(os.getenv("JOB_RETENTION_HOURS", "24"))
+
+import threading as _threading
+_jobs_lock = _threading.Lock()
 _jobs: dict[str, dict] = {}
+
+
+def _purgar_jobs_viejos() -> int:
+    """Borra jobs terminados hace más de JOB_RETENTION_HOURS. Llamado oportunistamente
+    al crear/listar para no necesitar un scheduler extra."""
+    cutoff = time.time() - JOB_RETENTION_HOURS * 3600
+    purgados = 0
+    with _jobs_lock:
+        for jid in list(_jobs.keys()):
+            j = _jobs[jid]
+            if j.get("estado") in ("completado", "error") and (j.get("terminado") or 0) < cutoff:
+                del _jobs[jid]
+                purgados += 1
+    if purgados:
+        logger.info("purgados %d jobs viejos (>%dh)", purgados, JOB_RETENTION_HOURS)
+    return purgados
 
 
 async def _noop() -> None:
@@ -24,26 +48,29 @@ def crear_job(items: list[dict], tipo: str, incluir_setec: bool = False,
               incluir_fiscalia: bool = False,
               usuario_id: str | None = None) -> str:
     """Crea un job nuevo y retorna su ID. items = [{'cedula': '...', 'nombre': '...'}]"""
+    _purgar_jobs_viejos()  # cleanup oportunista
     job_id = uuid.uuid4().hex[:12]
-    _jobs[job_id] = {
-        "id":               job_id,
-        "tipo":             tipo,
-        "incluir_setec":    incluir_setec,
-        "incluir_fiscalia": incluir_fiscalia,
-        "usuario_id":       usuario_id,
-        "total":            len(items),
-        "procesados":       0,
-        "estado":           "pendiente",
-        "iniciado":         time.time(),
-        "terminado":        None,
-        "resultados":       [],
-        "excel_bytes":      None,
-    }
+    with _jobs_lock:
+        _jobs[job_id] = {
+            "id":               job_id,
+            "tipo":             tipo,
+            "incluir_setec":    incluir_setec,
+            "incluir_fiscalia": incluir_fiscalia,
+            "usuario_id":       usuario_id,
+            "total":            len(items),
+            "procesados":       0,
+            "estado":           "pendiente",
+            "iniciado":         time.time(),
+            "terminado":        None,
+            "resultados":       [],
+            "excel_bytes":      None,
+        }
     return job_id
 
 
 def obtener_job(job_id: str) -> dict | None:
-    return _jobs.get(job_id)
+    with _jobs_lock:
+        return _jobs.get(job_id)
 
 
 # Palabras clave para identificar causas de pensión alimenticia.
@@ -198,8 +225,9 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             cached["setec"] = extraer_setec(raw_st)
             try:
                 registrar(cached, tipo, usuario_id=usuario_id)
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
+                capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
 
         # Si pidieron Fiscalia y el cache no la tiene O esta cacheada con error,
         # re-fetch desde bg-api. Importante: los errores transitorios (Incapsula,
@@ -220,8 +248,9 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 )
             try:
                 registrar(cached, tipo, usuario_id=usuario_id)
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
+                capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
 
         # Si Bachiller o SATJE están cacheados con ERROR, re-fetch desde bg-api.
         # Mismo patrón que la lógica de Fiscalía — errores transitorios (proxy agotado,
@@ -245,8 +274,9 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                     )
                 try:
                     registrar(cached, tipo, usuario_id=usuario_id)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
+                    capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
 
         # Auto-relleno de nombre faltante (cache viejo del schema anterior a SETEC.nombre):
         # Si NO hay nombre cacheado Y el SETEC cacheado dice TIENE_CERTIFICADOS pero no
@@ -264,8 +294,9 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                     cached["nombre"] = new_st["nombre"]
                 try:
                     registrar(cached, tipo, usuario_id=usuario_id)
-                except Exception:
-                    pass
+                except Exception as _e:
+                    logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
+                    capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
 
         # Prioridad de nombre: Excel > cache > SETEC inline > nombre guardado en DB.
         if nombre_input:

@@ -1,12 +1,30 @@
 """JR Verifica EC — App de búsqueda batch de Bachiller + SATJE."""
 import os
 import asyncio
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request, Form, UploadFile, File, Cookie, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+
+# Logging estructurado — reemplaza print() para que Loki/Sentry/journalctl
+# puedan filtrar por nivel y módulo.
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+)
+logger = logging.getLogger("verifica")
+
+
+def _to_bool(v) -> bool:
+    """Form values son siempre str. '1','true','on','yes' → True; resto → False.
+    Reemplaza bool(str) que era frágil (bool('0') == True)."""
+    if isinstance(v, bool):
+        return v
+    s = str(v or "").strip().lower()
+    return s in ("1", "true", "on", "yes", "si", "sí")
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -25,7 +43,7 @@ from src.auth import (
     crear_cookie, decodificar_cookie, COOKIE_NAME, SESSION_MAX_AGE,
     ip_bloqueada, registrar_intento_fallido, limpiar_intentos, cedula_valida_ec,
 )
-from src import usuarios, password_reset
+from src import usuarios, password_reset, audit_log
 from src.mailer import enviar_email
 
 
@@ -92,6 +110,28 @@ app = FastAPI(title="JR Verifica EC")
 # Métricas Prometheus opt-in (si METRICS_ENABLED=1)
 setup_metrics(app)
 
+# ── Rate limiting (slowapi) — protege endpoints caros del scraping ──────────
+# Disable con RATE_LIMIT_ENABLED=0. Keys por usuario logueado (uid),
+# fallback a IP cuando no hay sesión (login).
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+
+def _rate_key(request: Request) -> str:
+    """Identidad para rate limiting: uid si está logueado, IP si no."""
+    cookie = request.cookies.get(COOKIE_NAME)
+    payload = decodificar_cookie(cookie) if cookie else None
+    if payload and payload.get("uid"):
+        return f"uid:{payload['uid']}"
+    return f"ip:{get_remote_address(request)}"
+
+
+_RL_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "1") != "0"
+limiter = Limiter(key_func=_rate_key, enabled=_RL_ENABLED, default_limits=[])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 
 # ── Lifecycle: arrancar/parar el scheduler de tareas periódicas ──────────────
 
@@ -107,9 +147,9 @@ async def _startup_bootstrap_admin():
     try:
         u = usuarios.bootstrap_admin_si_falta()
         if u:
-            print(f"[startup] admin bootstrap creado: {u.email}")
+            logger.info("admin bootstrap creado: %s", u.email)
     except Exception as e:
-        print(f"[startup] WARN bootstrap admin fallo: {e}")
+        logger.warning("bootstrap admin fallo: %s", e)
         capture_exception("startup.bootstrap_admin", e)
 
 
@@ -119,9 +159,9 @@ async def _startup_reset_admin_si_pedido():
     try:
         u = usuarios.bootstrap_reset_admin_si_pedido()
         if u:
-            print(f"[startup] admin reseteado vía ADMIN_RESET: {u.email}")
+            logger.info("admin reseteado vía ADMIN_RESET: %s", u.email)
     except Exception as e:
-        print(f"[startup] WARN reset admin fallo: {e}")
+        logger.warning("reset admin fallo: %s", e)
         capture_exception("startup.reset_admin", e)
 
 
@@ -161,15 +201,16 @@ async def security_headers(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    # CSP permisiva para Tailwind + Google Fonts + Chart.js + Lucide icons
-    # connect-src incluye unpkg/cdn para que sourcemaps de Lucide carguen sin warnings
+    # CSP minimal — v2 solo usa Google Fonts externamente. Scripts inline siguen
+    # permitidos (unsafe-inline) por handlers onclick en templates; pendiente
+    # migrar a addEventListener para endurecer.
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://unpkg.com; "
+        "script-src 'self' 'unsafe-inline'; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
         "img-src 'self' data:; "
-        "connect-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdn.tailwindcss.com"
+        "connect-src 'self'"
     )
     return response
 
@@ -200,9 +241,9 @@ if _frontend_dir.exists():
     _assets_dir = _frontend_dir / "assets"
     if _assets_dir.exists():
         app.mount("/assets", StaticFiles(directory=str(_assets_dir)), name="frontend-assets")
-    print(f"[frontend] ✅ React build encontrado en {_frontend_dir}")
+    logger.info("React build encontrado en %s", _frontend_dir)
 else:
-    print(f"[frontend] ⚠️  Sin build React en {_frontend_dir} — solo Jinja2 disponible")
+    logger.info("Sin build React en %s — solo Jinja2 disponible", _frontend_dir)
 
 # Fallback SPA — siempre registrado, independiente de si el build existe
 from fastapi.responses import FileResponse as _FileResponse
@@ -385,7 +426,9 @@ async def me(jr_session: str | None = Cookie(None)):
 # funcionando mientras dure la migración.
 
 @app.post("/api/buscar")
+@limiter.limit("30/minute")
 async def api_buscar(
+    request: Request,
     cedula:         str = Form(...),
     bachiller:      str = Form(""),
     satje:          str = Form(""),
@@ -427,8 +470,9 @@ async def api_buscar(
             cached["fiscalia"] = extraer_fiscalia(raw_fisc)
             try:
                 registrar(cached, tipo, usuario_id=u.id)
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.warning("registrar() fallo (re-fetch fiscalia) ced=%s: %s", cedula, _e)
+                capture_exception("buscar.registrar_refetch_fiscalia", _e, extra={"cedula": cedula})
         if quiere_b and quiere_s:
             cached["semaforo"] = _calcular_semaforo(
                 cached.get("bachiller") or {},
@@ -438,7 +482,7 @@ async def api_buscar(
             )
         resultado = {**cached, "_cache": True}
     else:
-        _fr = bool(forzar)  # propagar al bg-api
+        _fr = _to_bool(forzar)  # propagar al bg-api
         coros = [consultar(cedula, tipo=tipo, force_refresh=_fr)]
         coros.append(consultar(cedula, tipo="setec", force_refresh=_fr) if quiere_setec and tipo != "setec" else _noop_async())
         coros.append(consultar(cedula, tipo="fiscalia", force_refresh=_fr) if quiere_fiscalia else _noop_async())
@@ -523,7 +567,9 @@ async def api_entrada_historial(entrada_id: str, jr_session: str | None = Cookie
 
 
 @app.post("/api/procesar")
+@limiter.limit("5/minute")
 async def api_procesar(
+    request: Request,
     background_tasks: BackgroundTasks,
     archivo: UploadFile = File(...),
     bachiller:      str = Form(""),
@@ -566,7 +612,7 @@ async def api_procesar(
                        incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
     background_tasks.add_task(ejecutar_job, job_id, items, tipo,
                                quiere_setec, quiere_fiscalia, u.id,
-                               bool(forzar))
+                               _to_bool(forzar))
     return JSONResponse({"job_id": job_id, "total": len(items)})
 
 
@@ -704,6 +750,7 @@ async def login_form(request: Request, error: str = "", bloqueado: int = 0,
 
 
 @app.post("/login")
+@limiter.limit("10/minute")
 async def login_submit(
     request: Request,
     email: str = Form(...),
@@ -872,7 +919,9 @@ async def descargar_plantilla(jr_session: str | None = Cookie(None)):
 # ── Procesamiento ────────────────────────────────────────────────────────────
 
 @app.post("/procesar")
+@limiter.limit("5/minute")
 async def procesar(
+    request: Request,
     background_tasks: BackgroundTasks,
     archivo: UploadFile = File(...),
     bachiller:      str = Form(""),
@@ -918,7 +967,7 @@ async def procesar(
                        incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
     background_tasks.add_task(ejecutar_job, job_id, items, tipo,
                                quiere_setec, quiere_fiscalia, u.id,
-                               bool(forzar))
+                               _to_bool(forzar))
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 
@@ -926,6 +975,7 @@ async def procesar(
 # ── Búsqueda individual ──────────────────────────────────────────────────────
 
 @app.post("/buscar", response_class=HTMLResponse)
+@limiter.limit("30/minute")
 async def buscar_individual(
     request: Request,
     cedula:         str = Form(...),
@@ -969,8 +1019,9 @@ async def buscar_individual(
             cached["fiscalia"] = extraer_fiscalia(raw_fisc)
             try:
                 registrar(cached, tipo, usuario_id=u.id)
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.warning("registrar() fallo (re-fetch fiscalia) ced=%s: %s", cedula, _e)
+                capture_exception("buscar.registrar_refetch_fiscalia", _e, extra={"cedula": cedula})
 
         if quiere_b and quiere_s:
             cached["semaforo"] = _calcular_semaforo(
@@ -992,7 +1043,7 @@ async def buscar_individual(
         resultado = {**cached, "_cache": True}
     else:
         # Llamadas en paralelo: principal + setec + fiscalia
-        _fr = bool(forzar)  # propagar force_refresh al bg-api
+        _fr = _to_bool(forzar)  # propagar force_refresh al bg-api
         coros = [consultar(cedula, tipo=tipo, force_refresh=_fr)]
         coros.append(consultar(cedula, tipo="setec", force_refresh=_fr) if quiere_setec and tipo != "setec" else _noop_async())
         coros.append(consultar(cedula, tipo="fiscalia", force_refresh=_fr) if quiere_fiscalia else _noop_async())
@@ -1046,6 +1097,7 @@ async def buscar_individual(
 
 @app.post("/derecho-al-olvido")
 async def derecho_al_olvido_endpoint(
+    request: Request,
     cedula: str = Form(...),
     motivo: str = Form("Solicitud del titular"),
     jr_session: str | None = Cookie(None),
@@ -1069,6 +1121,13 @@ async def derecho_al_olvido_endpoint(
     if resultado.get("ok"):
         n_hist = resultado.get("historial_borrado", 0)
         n_ver  = resultado.get("verificaciones_borradas", 0)
+        audit_log.registrar(
+            _usuario_actual(jr_session),
+            "derecho_al_olvido",
+            target=cedula,
+            ip=_ip_cliente(request),
+            motivo=motivo, n_hist=n_hist, n_ver=n_ver,
+        )
         return RedirectResponse(
             url=f"/historial?msg=olvido&cedula={cedula}&n_hist={n_hist}&n_ver={n_ver}",
             status_code=303,
@@ -1261,14 +1320,18 @@ async def borrar_entrada_historial(entrada_id: str, jr_session: str | None = Coo
 
 @app.post("/historial/borrar-multiple")
 async def borrar_multiples_historial(
+    request: Request,
     ids: str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     """Borra varias entradas del historial. `ids` viene como CSV: 'id1,id2,id3'."""
-    if not _autenticado(jr_session):
+    u = _usuario_actual(jr_session)
+    if not u:
         return _redirect_login()
     lista_ids = [i for i in (ids or "").split(",") if i.strip()]
     n = borrar_multiples(lista_ids)
+    audit_log.registrar(u, "historial_borrar_multiple",
+                        ip=_ip_cliente(request), n_borradas=n, n_solicitadas=len(lista_ids))
     return RedirectResponse(url=f"/historial?msg=borradas&n={n}", status_code=303)
 
 
@@ -1469,6 +1532,8 @@ async def admin_usuarios_crear(
             email=email, nombre=nombre, password=password, rol=rol,
             creado_por=u.id, debe_cambiar_pass=True,
         )
+        audit_log.registrar(u, "usuario_creado", target=nuevo.email,
+                            ip=_ip_cliente(request), nuevo_id=nuevo.id, rol=rol)
     except usuarios.UsuarioError as e:
         return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
 
@@ -1509,6 +1574,7 @@ async def admin_usuarios_crear(
 
 @app.post("/admin/usuarios/{user_id}/desactivar")
 async def admin_usuarios_desactivar(
+    request: Request,
     user_id: str,
     jr_session: str | None = Cookie(None),
 ):
@@ -1517,6 +1583,8 @@ async def admin_usuarios_desactivar(
         return _redirect_login()
     try:
         usuarios.desactivar(user_id, ejecutor_id=u.id)
+        audit_log.registrar(u, "usuario_desactivado", target=user_id,
+                            ip=_ip_cliente(request))
         return RedirectResponse(url="/admin/usuarios?ok=Desactivado", status_code=303)
     except usuarios.UsuarioError as e:
         return RedirectResponse(url=f"/admin/usuarios?error={str(e)[:80]}", status_code=303)
@@ -1524,6 +1592,7 @@ async def admin_usuarios_desactivar(
 
 @app.post("/admin/usuarios/{user_id}/reactivar")
 async def admin_usuarios_reactivar(
+    request: Request,
     user_id: str,
     jr_session: str | None = Cookie(None),
 ):
@@ -1531,6 +1600,7 @@ async def admin_usuarios_reactivar(
     if not u or u.rol != "admin":
         return _redirect_login()
     usuarios.reactivar(user_id)
+    audit_log.registrar(u, "usuario_reactivado", target=user_id, ip=_ip_cliente(request))
     return RedirectResponse(url="/admin/usuarios?ok=Reactivado", status_code=303)
 
 
@@ -1564,6 +1634,9 @@ async def admin_usuarios_reset_password(
             f"Reset por administrador ({u.nombre})",
             _ip_cliente(request),
         )
+    audit_log.registrar(u, "password_reset_admin",
+                        target=(afectado.email if afectado else user_id),
+                        ip=_ip_cliente(request))
     return RedirectResponse(url="/admin/usuarios?ok=Password+reseteada", status_code=303)
 
 
@@ -1623,6 +1696,6 @@ async def admin_test_email(
 
 @app.on_event("startup")
 async def startup():
-    print("🚀 JR Verifica EC — listo")
-    print(f"   BG_API_URL: {os.getenv('BG_API_URL', '(no configurado)')}")
-    print(f"   MAX_WORKERS: {os.getenv('MAX_WORKERS', '3')}")
+    logger.info("JR Verifica EC listo · BG_API_URL=%s · MAX_WORKERS=%s",
+                os.getenv("BG_API_URL", "(no configurado)"),
+                os.getenv("MAX_WORKERS", "3"))

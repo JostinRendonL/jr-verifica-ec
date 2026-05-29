@@ -25,3 +25,4 @@ historial.db-shm
 
 # Frontend build output (generado por vite build)
 src/static/frontend/
+src/static/preview_*.html

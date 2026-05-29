@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov
+.tox
+venv
+env
+.venv
+
+# Node / Frontend build artifacts
+frontend/node_modules
+frontend/dist
+frontend/.vite
+src/static/frontend/.vite
+
+# Local data / secrets
+.env
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+src/data/
+
+# Preview/dev artifacts
+src/static/preview_*.html
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code worktrees
+.claude/worktrees
