@@ -140,9 +140,9 @@
       <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3);">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </span>
-      <input type="text" id="hist-q" value="{{ filtro_cedula }}" placeholder="Buscar por cédula…"
-        class="vr-inp" style="padding-left:38px;font-family:var(--font-m);font-size:14px;"
-        oninput="histFilter()" maxlength="10">
+      <input type="text" id="hist-q" value="{{ filtro_cedula or filtro_nombre or '' }}" placeholder="Cédula o nombre (ej: 0912345678 o García López)…"
+        class="vr-inp" style="padding-left:38px;font-size:14px;"
+        oninput="histFilter()">
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <svg width="15" height="15" style="color:var(--text3);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -300,6 +300,10 @@
 <!-- FAB selección múltiple -->
 <div class="hist-fab" id="hist-fab">
   <span class="hist-fab-count" id="hist-fab-count">0 seleccionados</span>
+  <button type="button" class="hist-fab-btn" style="background:var(--primary);" onclick="histDescargarZip()" title="Descargar todos como PDFs en un .zip">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    PDFs (ZIP)
+  </button>
   <button type="button" class="hist-fab-btn" onclick="histBorrarSeleccionados()">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
     Borrar
@@ -309,6 +313,9 @@
 
 <form id="hist-form-bulk" method="POST" action="/historial/borrar-multiple" style="display:none;">
   <input type="hidden" name="ids" id="hist-form-bulk-ids">
+</form>
+<form id="hist-form-zip" method="POST" action="/historial/pdf-zip" style="display:none;">
+  <input type="hidden" name="ids" id="hist-form-zip-ids">
 </form>
 
 <!-- Modal Derecho al Olvido -->
@@ -354,16 +361,39 @@
 <script>
 /* ── Filter ────────────────────────────────────────────────────── */
 let activeChip = '{{ filtro_semaforo }}';
+let histFilterTimer = null;
 
 function histChip(btn, sem) {
   document.querySelectorAll('#hist-chips .hist-filter-chip').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   activeChip = sem;
-  histFilter();
+  histFilterApply();
 }
 
+// Búsqueda inteligente:
+//  - Si es solo dígitos → filtra por cédula (cliente, instantáneo)
+//  - Si tiene letras    → filtra por nombre (servidor, busca en TODOS los registros)
+//  - Vacío              → reset
 function histFilter() {
-  const q = document.getElementById('hist-q').value.replace(/\D/g,'');
+  clearTimeout(histFilterTimer);
+  histFilterTimer = setTimeout(histFilterApply, 350);  // debounce
+}
+
+function histFilterApply() {
+  const raw = document.getElementById('hist-q').value.trim();
+  const esCedula = /^\d+$/.test(raw);
+  // Si es nombre o cambio de chip y hay texto que buscar en TODO el historial → server
+  // Si es solo dígitos o vacío → filtro local (más rápido, ya está cargado)
+  if (raw && !esCedula) {
+    // Búsqueda por nombre → ir al servidor (los 528 registros, no solo los 200 cargados)
+    const params = new URLSearchParams();
+    params.set('nombre', raw);
+    if (activeChip) params.set('semaforo', activeChip);
+    window.location.href = '/historial?' + params.toString();
+    return;
+  }
+  // Filtro local por cédula
+  const q = raw;
   const rows = document.querySelectorAll('#hist-table tbody tr');
   let shown = 0;
   rows.forEach(r => {
@@ -491,6 +521,18 @@ function histBorrarSeleccionados() {
   if (!confirm(`¿Borrar ${histSel.size} entrada(s) del historial? Esta acción es irreversible.`)) return;
   document.getElementById('hist-form-bulk-ids').value = [...histSel].join(',');
   document.getElementById('hist-form-bulk').submit();
+}
+function histDescargarZip() {
+  if (histSel.size === 0) return;
+  if (histSel.size > 200) {
+    alert(`Tope de 200 PDFs por descarga (seleccionaste ${histSel.size}). Filtra y descarga por partes.`);
+    return;
+  }
+  // Aviso: cada PDF ~0.5s. 200 PDFs = ~2 minutos de espera.
+  if (histSel.size > 30 && !confirm(`Vas a generar ${histSel.size} PDFs en un ZIP. Puede tardar ${Math.ceil(histSel.size*0.5)} segundos. ¿Continuar?`)) return;
+  document.getElementById('hist-form-zip-ids').value = [...histSel].join(',');
+  document.getElementById('hist-form-zip').submit();
+  vrToast(`Generando ${histSel.size} PDFs… no cierres la pestaña`);
 }
 
 /* ── Derecho al olvido ─────────────────────────────────────────── */

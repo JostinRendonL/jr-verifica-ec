@@ -426,7 +426,7 @@ async def me(jr_session: str | None = Cookie(None)):
 # funcionando mientras dure la migración.
 
 @app.post("/api/buscar")
-@limiter.limit("30/minute")
+@limiter.limit("50/minute")
 async def api_buscar(
     request: Request,
     cedula:         str = Form(...),
@@ -975,7 +975,7 @@ async def procesar(
 # ── Búsqueda individual ──────────────────────────────────────────────────────
 
 @app.post("/buscar", response_class=HTMLResponse)
-@limiter.limit("30/minute")
+@limiter.limit("50/minute")
 async def buscar_individual(
     request: Request,
     cedula:         str = Form(...),
@@ -1184,19 +1184,21 @@ async def ver_dashboard(request: Request, jr_session: str | None = Cookie(None))
 @app.get("/historial", response_class=HTMLResponse)
 async def ver_historial(
     request: Request,
-    cedula: str = "", semaforo: str = "",
+    cedula: str = "", semaforo: str = "", nombre: str = "",
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
         return _redirect_login()
 
-    entradas = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo, limite=200)
+    entradas = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo,
+                                 filtro_nombre=nombre, limite=200)
     return templates.TemplateResponse("historial.html", {
         "request":   request,
         "entradas":  entradas,
         "total":     total_entradas(),
         "filtro_cedula":   cedula,
         "filtro_semaforo": semaforo,
+        "filtro_nombre":   nombre,
         "ttl_horas": CACHE_TTL_SEG // 3600,
     })
 
@@ -1316,6 +1318,64 @@ async def borrar_entrada_historial(entrada_id: str, jr_session: str | None = Coo
         return _redirect_login()
     borrar_entrada(entrada_id)
     return RedirectResponse(url="/historial?msg=borrada", status_code=303)
+
+
+@app.post("/historial/pdf-zip")
+@limiter.limit("3/minute")
+async def descargar_pdfs_zip(
+    request: Request,
+    ids: str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Genera un ZIP con los PDFs de varias entradas del historial.
+    `ids` viene como CSV. Streaming para no acumular MB en RAM."""
+    import io, zipfile
+    from src.processor import _calcular_semaforo as _sem
+    u = _usuario_actual(jr_session)
+    if not u:
+        return _redirect_login()
+    lista_ids = [i for i in (ids or "").split(",") if i.strip()][:200]  # tope 200 por request
+    if not lista_ids:
+        return RedirectResponse(url="/historial?error=sin_seleccion", status_code=303)
+
+    buf = io.BytesIO()
+    n_ok, n_fail = 0, 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for entrada_id in lista_ids:
+            entrada = obtener_resultado(entrada_id)
+            if not entrada:
+                n_fail += 1
+                continue
+            resultado = entrada["resultado"]
+            # Recalcular semaforo con logica actual antes de generar PDF
+            if resultado.get("bachiller") and resultado.get("satje"):
+                resultado["semaforo"] = _sem(
+                    resultado.get("bachiller") or {},
+                    resultado.get("satje") or {},
+                    "completo",
+                    fiscalia=resultado.get("fiscalia") or {},
+                )
+            try:
+                pdf_bytes = generar_pdf(resultado)
+                cedula = resultado.get("cedula", entrada_id)
+                nombre = (resultado.get("nombre") or "").replace(" ", "_").replace("/", "-")[:40]
+                fname = f"{cedula}_{nombre}.pdf" if nombre else f"{cedula}.pdf"
+                zf.writestr(fname, pdf_bytes)
+                n_ok += 1
+            except Exception as e:
+                logger.warning("pdf-zip fallo ced=%s id=%s: %s",
+                               resultado.get("cedula"), entrada_id, e)
+                capture_exception("pdf_zip.generar", e, extra={"entrada_id": entrada_id})
+                n_fail += 1
+    audit_log.registrar(u, "historial_pdf_zip", ip=_ip_cliente(request),
+                        n_ok=n_ok, n_fail=n_fail, n_solicitados=len(lista_ids))
+    buf.seek(0)
+    fname = f"verificaciones_{n_ok}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 @app.post("/historial/borrar-multiple")

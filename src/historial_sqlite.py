@@ -236,7 +236,8 @@ def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None) -> N
 
 
 def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
-           filtro_usuario_id: str = "", limite: int = 200) -> list[dict]:
+           filtro_usuario_id: str = "", filtro_nombre: str = "",
+           limite: int = 200) -> list[dict]:
     """Devuelve las entradas más recientes (sin resultado completo).
 
     Incluye el nombre del operador (LEFT JOIN con usuarios) si la columna
@@ -246,6 +247,7 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
     cedula_f   = (filtro_cedula or "").strip()
     semaforo_f = (filtro_semaforo or "").strip().upper()
     usuario_f  = (filtro_usuario_id or "").strip()
+    nombre_f   = (filtro_nombre or "").strip()
 
     conn = _get_conn()
     # Detectar si la columna usuario_id existe (compatibilidad pre-migración)
@@ -277,6 +279,13 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
     if usuario_f and tiene_usuario_id:
         sql += " AND h.usuario_id = ?"
         params.append(usuario_f)
+    if nombre_f:
+        # Búsqueda por nombre: ignora orden de palabras (cada token con LIKE).
+        # Ej: 'perez juan' encuentra 'JUAN CARLOS PEREZ MENDOZA'.
+        col = "h.nombre" if tiene_usuario_id and tiene_usuarios else "nombre"
+        for token in nombre_f.split():
+            sql += f" AND UPPER(COALESCE({col},'')) LIKE ?"
+            params.append(f"%{token.upper()}%")
 
     sql += " ORDER BY " + ("h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp") + " DESC LIMIT ?"
     params.append(limite)
