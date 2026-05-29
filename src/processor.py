@@ -170,13 +170,15 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str,
 
 async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio.Semaphore,
                         usuario_id: str | None = None,
-                        incluir_fiscalia: bool = False) -> dict:
-    """Procesa una sola cédula con semáforo de concurrencia. Usa caché si está disponible."""
+                        incluir_fiscalia: bool = False,
+                        force_refresh: bool = False) -> dict:
+    """Procesa una sola cédula con semáforo de concurrencia. Usa caché si está disponible.
+    Si force_refresh=True, ignora el cache SQLite Y propaga force_refresh al bg-api (Redis)."""
     cedula = item["cedula"]
     nombre_input = item.get("nombre", "")
 
     # ── Cache hit ────────────────────────────────────────────────────────────
-    cached = buscar_cache(cedula, tipo)
+    cached = None if force_refresh else buscar_cache(cedula, tipo)
     if cached is not None:
         # Recalcular el semáforo con la lógica actual (no usar el guardado),
         # EXCEPTO si el semáforo fue editado manualmente — en ese caso se preserva.
@@ -192,7 +194,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
         # Si pidieron SETEC y el cache no lo tiene, hacer la llamada por separado
         if incluir_setec and not cached.get("setec"):
             async with sem:
-                raw_st = await consultar(cedula, tipo="setec")
+                raw_st = await consultar(cedula, tipo="setec", force_refresh=force_refresh)
             cached["setec"] = extraer_setec(raw_st)
             try:
                 registrar(cached, tipo, usuario_id=usuario_id)
@@ -207,7 +209,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
         fi_con_error = cached_fi.get("estado") == "ERROR"
         if incluir_fiscalia and (fi_ausente or fi_con_error):
             async with sem:
-                raw_f = await consultar(cedula, tipo="fiscalia")
+                raw_f = await consultar(cedula, tipo="fiscalia", force_refresh=force_refresh)
             cached["fiscalia"] = extraer_fiscalia(raw_f)
             if tipo == "completo" and not cached.get("semaforo_manual"):
                 cached["semaforo"] = _calcular_semaforo(
@@ -229,7 +231,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             s_con_error = (cached.get("satje") or {}).get("estado") == "ERROR"
             if b_con_error or s_con_error:
                 async with sem:
-                    raw_main = await consultar(cedula, tipo="completo")
+                    raw_main = await consultar(cedula, tipo="completo", force_refresh=force_refresh)
                 if b_con_error:
                     cached["bachiller"] = extraer_bachiller(raw_main)
                 if s_con_error:
@@ -255,7 +257,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
             st_old = cached.get("setec") or {}
             if st_old.get("estado") == "TIENE_CERTIFICADOS" and not st_old.get("nombre"):
                 async with sem:
-                    raw_st2 = await consultar(cedula, tipo="setec")
+                    raw_st2 = await consultar(cedula, tipo="setec", force_refresh=force_refresh)
                 new_st = extraer_setec(raw_st2)
                 cached["setec"] = new_st
                 if new_st.get("nombre"):
@@ -281,13 +283,13 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
 
     async with sem:
         # Construir lista de coroutines a ejecutar en paralelo
-        coros = [consultar(cedula, tipo=tipo)]
+        coros = [consultar(cedula, tipo=tipo, force_refresh=force_refresh)]
         if incluir_setec and tipo != "setec":
-            coros.append(consultar(cedula, tipo="setec"))
+            coros.append(consultar(cedula, tipo="setec", force_refresh=force_refresh))
         else:
             coros.append(asyncio.coroutine(lambda: None)() if False else _noop())
         if incluir_fiscalia:
-            coros.append(consultar(cedula, tipo="fiscalia"))
+            coros.append(consultar(cedula, tipo="fiscalia", force_refresh=force_refresh))
         else:
             coros.append(_noop())
 
@@ -380,7 +382,8 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
 async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
                        incluir_setec: bool = False,
                        incluir_fiscalia: bool = False,
-                       usuario_id: str | None = None) -> None:
+                       usuario_id: str | None = None,
+                       force_refresh: bool = False) -> None:
     """
     Ejecuta el job en background, actualizando _jobs[job_id]['procesados']
     en cada cédula completada.
@@ -399,7 +402,8 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
     async def _task(it: dict):
         r = await _procesar_una(it, tipo, incluir_setec, sem,
                                 usuario_id=usuario_id,
-                                incluir_fiscalia=incluir_fiscalia)
+                                incluir_fiscalia=incluir_fiscalia,
+                                force_refresh=force_refresh)
         job["resultados"].append(r)
         job["procesados"] = len(job["resultados"])
         return r

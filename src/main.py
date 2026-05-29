@@ -437,9 +437,10 @@ async def api_buscar(
             )
         resultado = {**cached, "_cache": True}
     else:
-        coros = [consultar(cedula, tipo=tipo)]
-        coros.append(consultar(cedula, tipo="setec") if quiere_setec and tipo != "setec" else _noop_async())
-        coros.append(consultar(cedula, tipo="fiscalia") if quiere_fiscalia else _noop_async())
+        _fr = bool(forzar)  # propagar al bg-api
+        coros = [consultar(cedula, tipo=tipo, force_refresh=_fr)]
+        coros.append(consultar(cedula, tipo="setec", force_refresh=_fr) if quiere_setec and tipo != "setec" else _noop_async())
+        coros.append(consultar(cedula, tipo="fiscalia", force_refresh=_fr) if quiere_fiscalia else _noop_async())
         raw_results = await asyncio.gather(*coros)
         raw          = raw_results[0]
         raw_setec    = raw_results[1] if (quiere_setec and tipo != "setec") else (raw if tipo == "setec" else None)
@@ -528,6 +529,7 @@ async def api_procesar(
     satje:          str = Form(""),
     setec_check:    str = Form(""),
     fiscalia_check: str = Form(""),
+    forzar:         str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     """Inicia un job de procesamiento por lote y devuelve el job_id en JSON."""
@@ -562,7 +564,8 @@ async def api_procesar(
     job_id = crear_job(items, tipo, incluir_setec=quiere_setec,
                        incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
     background_tasks.add_task(ejecutar_job, job_id, items, tipo,
-                               quiere_setec, quiere_fiscalia, u.id)
+                               quiere_setec, quiere_fiscalia, u.id,
+                               bool(forzar))
     return JSONResponse({"job_id": job_id, "total": len(items)})
 
 
@@ -875,6 +878,7 @@ async def procesar(
     satje:          str = Form(""),
     setec_check:    str = Form(""),
     fiscalia_check: str = Form(""),
+    forzar:         str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     u = _usuario_actual(jr_session)
@@ -912,7 +916,8 @@ async def procesar(
     job_id = crear_job(items, tipo, incluir_setec=quiere_setec,
                        incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
     background_tasks.add_task(ejecutar_job, job_id, items, tipo,
-                               quiere_setec, quiere_fiscalia, u.id)
+                               quiere_setec, quiere_fiscalia, u.id,
+                               bool(forzar))
 
     return RedirectResponse(url=f"/job/{job_id}", status_code=303)
 

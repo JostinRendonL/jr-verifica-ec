@@ -333,6 +333,11 @@
         </button>
       </div>
 
+      <label style="display:flex;align-items:center;gap:9px;margin-top:16px;cursor:pointer;" onclick="loteToggleForzar()">
+        <div class="sw-track" id="lote-sw-forzar"><div class="sw-thumb"></div></div>
+        <span style="font-size:13px;color:var(--text2);">Forzar re-consulta (ignorar caché)</span>
+      </label>
+
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;gap:12px;flex-wrap:wrap;">
         <a href="/plantilla" style="display:inline-flex;align-items:center;gap:7px;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -791,11 +796,18 @@ function loteRemoveFile() {
   document.getElementById('lote-btn').disabled = true;
 }
 
+let loteForzar = false;
+function loteToggleForzar() {
+  loteForzar = !loteForzar;
+  document.getElementById('lote-sw-forzar').classList.toggle('on', loteForzar);
+}
+
 async function loteIniciar() {
   if (!loteFile) return;
   const fd = new FormData();
   fd.append('archivo', document.getElementById('lote-file-input').files[0]);
   document.querySelectorAll('.lote-src-btn[data-on="1"]').forEach(b => fd.append(b.dataset.key, '1'));
+  if (loteForzar) fd.append('forzar', '1');
 
   document.getElementById('lote-btn').disabled = true;
   document.getElementById('lote-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:vspin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Iniciando…';
