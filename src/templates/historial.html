@@ -370,7 +370,7 @@ function histFilter() {
     const ced = r.dataset.cedula || '';
     const sem = r.dataset.sem || '';
     const matchQ   = !q || ced.includes(q);
-    const matchSem = !activeChip || sem === activeChip;
+    const matchSem = !activeChip || sem.includes(activeChip);
     const show = matchQ && matchSem;
     r.style.display = show ? '' : 'none';
     if (show) shown++;
