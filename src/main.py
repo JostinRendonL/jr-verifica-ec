@@ -515,6 +515,7 @@ async def api_buscar(
             capture_exception("api.buscar.registrar", e, extra={"cedula": cedula})
 
     resultado["fecha"] = datetime.now(_TZ_EC).strftime("%d/%m/%Y %H:%M")
+    resultado["notas"] = obtener_notas(cedula)
     return JSONResponse(resultado)
 
 

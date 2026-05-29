@@ -575,6 +575,22 @@ function bqRenderResult(r) {
   if (r.setec)     html += bqCardSetec(r.setec);
   if (r.fiscalia)  html += bqCardFiscalia(r.fiscalia);
 
+  // Notas del operador
+  const notasInit = (r.notas || '').replace(/"/g,'&quot;');
+  html += `<div class="vr-card" style="padding:16px 18px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <span style="font-family:var(--font-d);font-weight:700;font-size:13px;color:var(--text);">Notas del operador</span>
+      </div>
+      <span id="bq-notas-status" style="font-size:11px;color:var(--text3);">Se guarda al salir del campo</span>
+    </div>
+    <textarea id="bq-notas-input" data-ced="${r.cedula}" placeholder="Ej: Llamé y confirmó datos. SATJE es por pensión alimenticia ya cancelada."
+      style="width:100%;border:1.5px solid var(--line);border-radius:11px;padding:9px 11px;font-family:var(--font-b);font-size:13px;color:var(--text);outline:none;resize:vertical;min-height:55px;transition:border-color .2s;"
+      onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--line)';bqGuardarNotas()"
+      oninput="document.getElementById('bq-notas-status').textContent='Sin guardar…';document.getElementById('bq-notas-status').style.color='var(--obs)';">${notasInit}</textarea>
+  </div>`;
+
   // Action buttons
   html += `<div style="display:flex;gap:10px;">
     <button class="vr-btn vr-btn-sec vr-btn-md" style="flex:1;" onclick="bqReset()">
@@ -589,6 +605,24 @@ function bqRenderResult(r) {
 
   container.innerHTML = html;
   bqSetState('result');
+}
+
+async function bqGuardarNotas() {
+  const ta = document.getElementById('bq-notas-input');
+  if (!ta) return;
+  const cedula = ta.dataset.ced;
+  const txt = (ta.value || '').trim();
+  try {
+    const fd = new FormData(); fd.append('notas', txt);
+    const r = await fetch('/historial/cedula/' + cedula + '/notas', { method: 'POST', body: fd, credentials: 'same-origin' });
+    const d = await r.json();
+    const s = document.getElementById('bq-notas-status');
+    if (d.ok) { s.textContent = 'Guardado ✓'; s.style.color = 'var(--apto)'; }
+    else      { s.textContent = 'No se pudo guardar'; s.style.color = 'var(--rech)'; }
+  } catch(e) {
+    const s = document.getElementById('bq-notas-status');
+    s.textContent = 'Error de red'; s.style.color = 'var(--rech)';
+  }
 }
 
 function bqDescargarPdf(cedula, bachiller, satje, setec, fiscalia) {
