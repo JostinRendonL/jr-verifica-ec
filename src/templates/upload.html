@@ -566,14 +566,26 @@ function bqRenderResult(r) {
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
       Nueva búsqueda
     </button>
-    <a href="/pdf?cedula=${r.cedula}&bachiller=${r.bachiller?1:0}&satje=${r.satje?1:0}&setec_check=${r.setec?1:0}" class="vr-btn vr-btn-pri vr-btn-md" style="flex:1;">
+    <button class="vr-btn vr-btn-pri vr-btn-md" style="flex:1;" onclick="bqDescargarPdf('${r.cedula}',${r.bachiller?1:0},${r.satje?1:0},${r.setec?1:0},${r.fiscalia?1:0})">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Descargar PDF oficial
-    </a>
+    </button>
   </div>`;
 
   container.innerHTML = html;
   bqSetState('result');
+}
+
+function bqDescargarPdf(cedula, bachiller, satje, setec, fiscalia) {
+  const f = document.createElement('form');
+  f.method = 'POST'; f.action = '/pdf';
+  const add = (n, v) => { const i = document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; f.appendChild(i); };
+  add('cedula', cedula);
+  if (bachiller) add('bachiller', '1');
+  if (satje)     add('satje', '1');
+  if (setec)     add('setec_check', '1');
+  if (fiscalia)  add('fiscalia_check', '1');
+  document.body.appendChild(f); f.submit(); document.body.removeChild(f);
 }
 
 function bqReset() {
