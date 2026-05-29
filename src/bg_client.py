@@ -16,6 +16,7 @@ def _cedula_valida(cedula: str) -> bool:
 async def consultar(
     cedula: str,
     tipo: Literal["bachiller", "satje", "completo", "setec", "fiscalia"] = "completo",
+    force_refresh: bool = False,
 ) -> dict:
     """
     Llama al bg-api y devuelve el resultado.
@@ -46,7 +47,7 @@ async def consultar(
                     "X-API-Key":    BG_API_KEY,
                     "Content-Type": "application/json",
                 },
-                json={"cedula": cedula},
+                json={"cedula": cedula, "force_refresh": force_refresh},
             )
             r.raise_for_status()
             data = r.json()

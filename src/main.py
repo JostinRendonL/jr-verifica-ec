@@ -986,9 +986,10 @@ async def buscar_individual(
         resultado = {**cached, "_cache": True}
     else:
         # Llamadas en paralelo: principal + setec + fiscalia
-        coros = [consultar(cedula, tipo=tipo)]
-        coros.append(consultar(cedula, tipo="setec") if quiere_setec and tipo != "setec" else _noop_async())
-        coros.append(consultar(cedula, tipo="fiscalia") if quiere_fiscalia else _noop_async())
+        _fr = bool(forzar)  # propagar force_refresh al bg-api
+        coros = [consultar(cedula, tipo=tipo, force_refresh=_fr)]
+        coros.append(consultar(cedula, tipo="setec", force_refresh=_fr) if quiere_setec and tipo != "setec" else _noop_async())
+        coros.append(consultar(cedula, tipo="fiscalia", force_refresh=_fr) if quiere_fiscalia else _noop_async())
 
         raw_results = await asyncio.gather(*coros)
         raw          = raw_results[0]
