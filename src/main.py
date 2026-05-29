@@ -88,7 +88,7 @@ from src.historial_sqlite import (
     buscar_cache, registrar, listar as listar_historial, obtener_resultado,
     total_entradas, CACHE_TTL_SEG, calcular_stats,
     borrar_entrada, borrar_por_cedula, borrar_multiples, limpiar_todo,
-    actualizar_nombre, actualizar_semaforo,
+    actualizar_nombre, actualizar_semaforo, obtener_lotes,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -577,6 +577,7 @@ async def api_procesar(
     setec_check:    str = Form(""),
     fiscalia_check: str = Form(""),
     forzar:         str = Form(""),
+    lote_nombre:    str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     """Inicia un job de procesamiento por lote y devuelve el job_id en JSON."""
@@ -609,7 +610,8 @@ async def api_procesar(
         return JSONResponse({"error": "archivo_vacio"}, status_code=400)
 
     job_id = crear_job(items, tipo, incluir_setec=quiere_setec,
-                       incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
+                       incluir_fiscalia=quiere_fiscalia, usuario_id=u.id,
+                       lote_nombre=lote_nombre)
     background_tasks.add_task(ejecutar_job, job_id, items, tipo,
                                quiere_setec, quiere_fiscalia, u.id,
                                _to_bool(forzar))
@@ -929,6 +931,7 @@ async def procesar(
     setec_check:    str = Form(""),
     fiscalia_check: str = Form(""),
     forzar:         str = Form(""),
+    lote_nombre:    str = Form(""),
     jr_session: str | None = Cookie(None),
 ):
     u = _usuario_actual(jr_session)
@@ -964,7 +967,8 @@ async def procesar(
 
     # Crear job y disparar background task (con auditoria por usuario)
     job_id = crear_job(items, tipo, incluir_setec=quiere_setec,
-                       incluir_fiscalia=quiere_fiscalia, usuario_id=u.id)
+                       incluir_fiscalia=quiere_fiscalia, usuario_id=u.id,
+                       lote_nombre=lote_nombre)
     background_tasks.add_task(ejecutar_job, job_id, items, tipo,
                                quiere_setec, quiere_fiscalia, u.id,
                                _to_bool(forzar))
@@ -1184,14 +1188,22 @@ async def ver_dashboard(request: Request, jr_session: str | None = Cookie(None))
 @app.get("/historial", response_class=HTMLResponse)
 async def ver_historial(
     request: Request,
-    cedula: str = "", semaforo: str = "", nombre: str = "",
+    cedula: str = "", semaforo: str = "", nombre: str = "", lote: str = "",
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
         return _redirect_login()
 
     entradas = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo,
-                                 filtro_nombre=nombre, limite=200)
+                                 filtro_nombre=nombre, filtro_lote_id=lote,
+                                 limite=500 if lote else 200)
+    # Si se filtró por lote, traer el nombre del lote para mostrarlo
+    lote_info = None
+    if lote and lote != "__individuales__" and entradas:
+        primero = entradas[0]
+        lote_info = {"id": lote, "nombre": primero.get("lote_nombre") or "(sin nombre)"}
+    elif lote == "__individuales__":
+        lote_info = {"id": "__individuales__", "nombre": "Búsquedas individuales"}
     return templates.TemplateResponse("historial.html", {
         "request":   request,
         "entradas":  entradas,
@@ -1199,7 +1211,20 @@ async def ver_historial(
         "filtro_cedula":   cedula,
         "filtro_semaforo": semaforo,
         "filtro_nombre":   nombre,
+        "filtro_lote":     lote,
+        "lote_info":       lote_info,
         "ttl_horas": CACHE_TTL_SEG // 3600,
+    })
+
+
+@app.get("/lotes", response_class=HTMLResponse)
+async def ver_lotes(request: Request, jr_session: str | None = Cookie(None)):
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    lotes = obtener_lotes(limite=100)
+    return templates.TemplateResponse("lotes.html", {
+        "request": request,
+        "lotes":   lotes,
     })
 
 

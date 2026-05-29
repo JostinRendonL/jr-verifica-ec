@@ -46,10 +46,18 @@ async def _noop() -> None:
 
 def crear_job(items: list[dict], tipo: str, incluir_setec: bool = False,
               incluir_fiscalia: bool = False,
-              usuario_id: str | None = None) -> str:
-    """Crea un job nuevo y retorna su ID. items = [{'cedula': '...', 'nombre': '...'}]"""
+              usuario_id: str | None = None,
+              lote_nombre: str | None = None) -> str:
+    """Crea un job nuevo y retorna su ID. items = [{'cedula': '...', 'nombre': '...'}]
+    Si lote_nombre se pasa, se usa para etiquetar las entradas del historial.
+    Si no, se genera uno automático del tipo 'Lote del DD-MM-AAAA HH:MM (N cédulas)'."""
     _purgar_jobs_viejos()  # cleanup oportunista
     job_id = uuid.uuid4().hex[:12]
+    if not lote_nombre or not lote_nombre.strip():
+        fecha_str = time.strftime("%d/%m/%Y %H:%M", time.localtime())
+        lote_nombre = f"Lote {fecha_str} · {len(items)} céd."
+    else:
+        lote_nombre = lote_nombre.strip()[:120]
     with _jobs_lock:
         _jobs[job_id] = {
             "id":               job_id,
@@ -57,6 +65,7 @@ def crear_job(items: list[dict], tipo: str, incluir_setec: bool = False,
             "incluir_setec":    incluir_setec,
             "incluir_fiscalia": incluir_fiscalia,
             "usuario_id":       usuario_id,
+            "lote_nombre":      lote_nombre,
             "total":            len(items),
             "procesados":       0,
             "estado":           "pendiente",
@@ -198,7 +207,9 @@ def _calcular_semaforo(bachiller: dict, satje: dict, tipo: str,
 async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio.Semaphore,
                         usuario_id: str | None = None,
                         incluir_fiscalia: bool = False,
-                        force_refresh: bool = False) -> dict:
+                        force_refresh: bool = False,
+                        lote_id: str | None = None,
+                        lote_nombre: str | None = None) -> dict:
     """Procesa una sola cédula con semáforo de concurrencia. Usa caché si está disponible.
     Si force_refresh=True, ignora el cache SQLite Y propaga force_refresh al bg-api (Redis)."""
     cedula = item["cedula"]
@@ -224,7 +235,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 raw_st = await consultar(cedula, tipo="setec", force_refresh=force_refresh)
             cached["setec"] = extraer_setec(raw_st)
             try:
-                registrar(cached, tipo, usuario_id=usuario_id)
+                registrar(cached, tipo, usuario_id=usuario_id, lote_id=lote_id, lote_nombre=lote_nombre)
             except Exception as _e:
                 logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
                 capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
@@ -247,7 +258,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                     fiscalia=cached["fiscalia"],
                 )
             try:
-                registrar(cached, tipo, usuario_id=usuario_id)
+                registrar(cached, tipo, usuario_id=usuario_id, lote_id=lote_id, lote_nombre=lote_nombre)
             except Exception as _e:
                 logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
                 capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
@@ -273,7 +284,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                         fiscalia=cached.get("fiscalia") or {},
                     )
                 try:
-                    registrar(cached, tipo, usuario_id=usuario_id)
+                    registrar(cached, tipo, usuario_id=usuario_id, lote_id=lote_id, lote_nombre=lote_nombre)
                 except Exception as _e:
                     logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
                     capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
@@ -293,7 +304,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
                 if new_st.get("nombre"):
                     cached["nombre"] = new_st["nombre"]
                 try:
-                    registrar(cached, tipo, usuario_id=usuario_id)
+                    registrar(cached, tipo, usuario_id=usuario_id, lote_id=lote_id, lote_nombre=lote_nombre)
                 except Exception as _e:
                     logger.warning("registrar() fallo (cache update) ced=%s tipo=%s: %s", cedula, tipo, _e)
                     capture_exception("processor.registrar_cache_update", _e, extra={"cedula": cedula, "tipo": tipo})
@@ -402,7 +413,7 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
 
     # Registrar en historial+cache
     try:
-        registrar(resultado, tipo, usuario_id=usuario_id)
+        registrar(resultado, tipo, usuario_id=usuario_id, lote_id=lote_id, lote_nombre=lote_nombre)
     except Exception as e:
         capture_exception("processor.registrar", e,
                           extra={"cedula": cedula, "tipo": tipo})
@@ -429,12 +440,15 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
         incluir_fiscalia = job.get("incluir_fiscalia", False)
 
     sem = asyncio.Semaphore(MAX_WORKERS)
+    lote_nombre = job.get("lote_nombre")
 
     async def _task(it: dict):
         r = await _procesar_una(it, tipo, incluir_setec, sem,
                                 usuario_id=usuario_id,
                                 incluir_fiscalia=incluir_fiscalia,
-                                force_refresh=force_refresh)
+                                force_refresh=force_refresh,
+                                lote_id=job_id,
+                                lote_nombre=lote_nombre)
         job["resultados"].append(r)
         job["procesados"] = len(job["resultados"])
         return r

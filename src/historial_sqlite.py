@@ -87,6 +87,16 @@ def _get_conn() -> sqlite3.Connection:
     _conn.execute("PRAGMA foreign_keys=ON")
     _conn.executescript(_SCHEMA)
 
+    # ── Migración: agregar lote_id y lote_nombre si no existen ──────────
+    cols = {r["name"] for r in _conn.execute("PRAGMA table_info(historial)")}
+    if "lote_id" not in cols:
+        _conn.execute("ALTER TABLE historial ADD COLUMN lote_id TEXT")
+        _conn.execute("CREATE INDEX IF NOT EXISTS idx_lote ON historial(lote_id)")
+    if "lote_nombre" not in cols:
+        _conn.execute("ALTER TABLE historial ADD COLUMN lote_nombre TEXT")
+    if "usuario_id" not in cols:
+        _conn.execute("ALTER TABLE historial ADD COLUMN usuario_id TEXT")
+
     print(f"[historial_sqlite] ✅ conectado a {_DB_FILE} (WAL mode)")
     return _conn
 
@@ -195,11 +205,13 @@ def buscar_cache(cedula: str, tipo: str) -> Optional[dict]:
         return None
 
 
-def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None) -> None:
+def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None,
+              lote_id: Optional[str] = None, lote_nombre: Optional[str] = None) -> None:
     """Agrega una entrada al historial y la persiste.
 
-    `usuario_id` es opcional para retrocompatibilidad — si se omite o la
-    columna no existe (DB legacy), la fila queda con NULL en usuario_id.
+    `usuario_id` es opcional para retrocompatibilidad.
+    `lote_id` y `lote_nombre` son opcionales — solo se usan en procesamiento
+    por lote para agrupar visualmente las entradas del mismo Excel.
     """
     entrada_id = f"{int(time.time() * 1000):x}{uuid.uuid4().hex[:8]}"
     cedula     = resultado.get("cedula", "")
@@ -213,12 +225,20 @@ def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None) -> N
     resultado_json = json.dumps(resultado, ensure_ascii=False)
 
     conn = _get_conn()
-    # Detectar si la columna usuario_id existe (DB pre-migración → SI NO)
     cols = {r["name"] for r in conn.execute("PRAGMA table_info(historial)")}
     tiene_usuario_id = "usuario_id" in cols
+    tiene_lote       = "lote_id" in cols
 
     with _write_lock:
-        if tiene_usuario_id:
+        if tiene_usuario_id and tiene_lote:
+            conn.execute(
+                "INSERT OR REPLACE INTO historial "
+                "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json, usuario_id, lote_id, lote_nombre) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (entrada_id, cedula, tipo, timestamp, semaforo, nombre,
+                 resultado_json, usuario_id, lote_id, lote_nombre),
+            )
+        elif tiene_usuario_id:
             conn.execute(
                 "INSERT OR REPLACE INTO historial "
                 "(id, cedula, tipo, timestamp, semaforo, nombre, resultado_json, usuario_id) "
@@ -235,8 +255,55 @@ def registrar(resultado: dict, tipo: str, usuario_id: Optional[str] = None) -> N
             )
 
 
+def obtener_lotes(limite: int = 50) -> list[dict]:
+    """Lista todos los lotes con stats agregadas: total, semáforos, primer/último ts."""
+    conn = _get_conn()
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(historial)")}
+    if "lote_id" not in cols:
+        return []
+    cur = conn.execute(
+        """
+        SELECT
+            lote_id,
+            MAX(COALESCE(lote_nombre, '')) AS lote_nombre,
+            MIN(timestamp)                  AS iniciado,
+            MAX(timestamp)                  AS terminado,
+            COUNT(*)                        AS total,
+            SUM(CASE WHEN UPPER(COALESCE(semaforo,'')) LIKE '%APTO%'         THEN 1 ELSE 0 END) AS n_apto,
+            SUM(CASE WHEN UPPER(COALESCE(semaforo,'')) LIKE '%OBSERVACI%'    THEN 1 ELSE 0 END) AS n_obs,
+            SUM(CASE WHEN UPPER(COALESCE(semaforo,'')) LIKE '%RECHAZAR%'     THEN 1 ELSE 0 END) AS n_rech,
+            SUM(CASE WHEN UPPER(COALESCE(semaforo,'')) LIKE '%CR_TICO%'      THEN 1 ELSE 0 END) AS n_crit,
+            SUM(CASE WHEN UPPER(COALESCE(semaforo,'')) LIKE '%SIN DATOS%'    THEN 1 ELSE 0 END) AS n_sin,
+            usuario_id
+        FROM historial
+        WHERE lote_id IS NOT NULL AND lote_id != ''
+        GROUP BY lote_id
+        ORDER BY MAX(timestamp) DESC
+        LIMIT ?
+        """,
+        (int(limite),),
+    )
+    rows = []
+    for r in cur.fetchall():
+        rows.append({
+            "lote_id":     r["lote_id"],
+            "lote_nombre": r["lote_nombre"] or "(sin nombre)",
+            "iniciado":    r["iniciado"],
+            "terminado":   r["terminado"],
+            "total":       r["total"],
+            "n_apto":      r["n_apto"],
+            "n_obs":       r["n_obs"],
+            "n_rech":      r["n_rech"],
+            "n_crit":      r["n_crit"],
+            "n_sin":       r["n_sin"],
+            "usuario_id":  r["usuario_id"],
+        })
+    return rows
+
+
 def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
            filtro_usuario_id: str = "", filtro_nombre: str = "",
+           filtro_lote_id: str = "",
            limite: int = 200) -> list[dict]:
     """Devuelve las entradas más recientes (sin resultado completo).
 
@@ -248,6 +315,7 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
     semaforo_f = (filtro_semaforo or "").strip().upper()
     usuario_f  = (filtro_usuario_id or "").strip()
     nombre_f   = (filtro_nombre or "").strip()
+    lote_f     = (filtro_lote_id or "").strip()
 
     conn = _get_conn()
     # Detectar si la columna usuario_id existe (compatibilidad pre-migración)
@@ -258,15 +326,22 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
         "SELECT name FROM sqlite_master WHERE type='table' AND name='usuarios'"
     ).fetchone())
 
+    # Detectar lote_id (post-migración)
+    tiene_lote = "lote_id" in cols
+
     if tiene_usuario_id and tiene_usuarios:
-        sql = ("SELECT h.id, h.cedula, h.tipo, h.timestamp, h.semaforo, h.nombre, "
-               "       h.usuario_id, u.nombre AS operador_nombre, u.email AS operador_email "
-               "FROM historial h LEFT JOIN usuarios u ON u.id = h.usuario_id "
-               "WHERE 1=1")
+        lote_select = ", h.lote_id, h.lote_nombre" if tiene_lote else ", NULL AS lote_id, NULL AS lote_nombre"
+        sql = (f"SELECT h.id, h.cedula, h.tipo, h.timestamp, h.semaforo, h.nombre, "
+               f"       h.usuario_id, u.nombre AS operador_nombre, u.email AS operador_email"
+               f"{lote_select} "
+               f"FROM historial h LEFT JOIN usuarios u ON u.id = h.usuario_id "
+               f"WHERE 1=1")
     else:
-        sql = ("SELECT id, cedula, tipo, timestamp, semaforo, nombre, "
-               "       NULL AS usuario_id, NULL AS operador_nombre, NULL AS operador_email "
-               "FROM historial WHERE 1=1")
+        lote_select = ", lote_id, lote_nombre" if tiene_lote else ", NULL AS lote_id, NULL AS lote_nombre"
+        sql = (f"SELECT id, cedula, tipo, timestamp, semaforo, nombre, "
+               f"       NULL AS usuario_id, NULL AS operador_nombre, NULL AS operador_email"
+               f"{lote_select} "
+               f"FROM historial WHERE 1=1")
 
     params: list = []
 
@@ -286,6 +361,13 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
         for token in nombre_f.split():
             sql += f" AND UPPER(COALESCE({col},'')) LIKE ?"
             params.append(f"%{token.upper()}%")
+    if lote_f:
+        col = "h.lote_id" if tiene_usuario_id and tiene_usuarios else "lote_id"
+        if lote_f == "__individuales__":
+            sql += f" AND ({col} IS NULL OR {col} = '')"
+        else:
+            sql += f" AND {col} = ?"
+            params.append(lote_f)
 
     sql += " ORDER BY " + ("h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp") + " DESC LIMIT ?"
     params.append(limite)
@@ -305,6 +387,8 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
             "usuario_id":      r["usuario_id"],
             "operador_nombre": r["operador_nombre"] or "—",
             "operador_email":  r["operador_email"]  or "",
+            "lote_id":         r["lote_id"],
+            "lote_nombre":     r["lote_nombre"],
         })
     return rows
 

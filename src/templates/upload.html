@@ -308,6 +308,16 @@
       </div>
       <input type="file" id="lote-file-input" accept=".xlsx" style="display:none" onchange="loteFileSelected(this)">
 
+      <!-- Nombre del lote (opcional) -->
+      <div style="margin-top:18px;">
+        <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:7px;">
+          Nombre del lote <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--text3);">(opcional)</span>
+        </label>
+        <input type="text" id="lote-nombre" placeholder="ej: Rubasa Mayo 2026, Limpieza turno tarde, etc."
+          class="vr-inp" style="font-size:14px;" maxlength="120">
+        <p style="font-size:11.5px;color:var(--text3);margin-top:5px;">Sirve para encontrar este grupo después en la sección de Lotes.</p>
+      </div>
+
       <!-- Source grid -->
       <div style="margin-top:22px;margin-bottom:10px;font-size:12.5px;font-weight:600;color:var(--text2);">Fuentes a consultar</div>
       <div class="lote-src-grid">
@@ -808,6 +818,8 @@ async function loteIniciar() {
   fd.append('archivo', document.getElementById('lote-file-input').files[0]);
   document.querySelectorAll('.lote-src-btn[data-on="1"]').forEach(b => fd.append(b.dataset.key, '1'));
   if (loteForzar) fd.append('forzar', '1');
+  const loteNombreVal = (document.getElementById('lote-nombre').value || '').trim();
+  if (loteNombreVal) fd.append('lote_nombre', loteNombreVal);
 
   document.getElementById('lote-btn').disabled = true;
   document.getElementById('lote-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:vspin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Iniciando…';

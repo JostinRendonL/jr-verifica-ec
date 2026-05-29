@@ -94,12 +94,25 @@
 </style>
 
 <div class="vr-page">
+  {% if lote_info %}
+  <div style="margin-bottom:14px;font-size:13px;color:var(--text2);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+    <a href="/lotes" style="color:var(--primary);font-weight:600;">← Lotes</a>
+    <span style="color:var(--text3);">/</span>
+    <span style="color:var(--text);font-weight:600;">{{ lote_info.nombre }}</span>
+  </div>
+  {% endif %}
   <!-- Page header -->
   <div class="vr-ph">
     <div>
-      <div class="vr-eyebrow">Registro de actividad</div>
-      <h1 class="vr-title">Historial</h1>
-      <p class="vr-sub">Todas las consultas realizadas · <strong style="color:var(--text);">{{ total|default(entradas|length) }}</strong> registros</p>
+      <div class="vr-eyebrow">{% if lote_info %}Lote{% else %}Registro de actividad{% endif %}</div>
+      <h1 class="vr-title">{% if lote_info %}{{ lote_info.nombre }}{% else %}Historial{% endif %}</h1>
+      <p class="vr-sub">
+        {% if lote_info %}
+          <strong style="color:var(--text);">{{ entradas|length }}</strong> cédulas de este lote
+        {% else %}
+          Todas las consultas realizadas · <strong style="color:var(--text);">{{ total|default(entradas|length) }}</strong> registros
+        {% endif %}
+      </p>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <button type="button" onclick="document.getElementById('modal-olvido').style.display='flex'"
