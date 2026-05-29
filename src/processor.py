@@ -441,13 +441,16 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
 
     sem = asyncio.Semaphore(MAX_WORKERS)
     lote_nombre = job.get("lote_nombre")
+    # _lote_id_override permite re-procesar errores de un lote viejo manteniendo
+    # el mismo lote_id, así las entradas re-procesadas se agrupan con el original.
+    lote_id_real = job.get("_lote_id_override") or job_id
 
     async def _task(it: dict):
         r = await _procesar_una(it, tipo, incluir_setec, sem,
                                 usuario_id=usuario_id,
                                 incluir_fiscalia=incluir_fiscalia,
                                 force_refresh=force_refresh,
-                                lote_id=job_id,
+                                lote_id=lote_id_real,
                                 lote_nombre=lote_nombre)
         job["resultados"].append(r)
         job["procesados"] = len(job["resultados"])

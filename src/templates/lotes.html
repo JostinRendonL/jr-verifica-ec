@@ -92,6 +92,7 @@
           {% if l.n_obs  %}<span class="lote-stat obs"><span class="lote-stat-dot"></span>{{ l.n_obs }} OBSERV.</span>{% endif %}
           {% if l.n_rech %}<span class="lote-stat rech"><span class="lote-stat-dot"></span>{{ l.n_rech }} RECH.</span>{% endif %}
           {% if l.n_crit %}<span class="lote-stat crit"><span class="lote-stat-dot"></span>{{ l.n_crit }} CRÍT.</span>{% endif %}
+          {% if l.n_errores %}<span class="lote-stat" style="background:var(--obs-s);color:var(--obs-t);"><span class="lote-stat-dot" style="background:var(--obs);"></span>{{ l.n_errores }} con vacíos</span>{% endif %}
         </div>
       </div>
       <div class="lote-arrow">

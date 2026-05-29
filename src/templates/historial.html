@@ -124,6 +124,23 @@
     <span style="color:var(--text3);">/</span>
     <span style="color:var(--text);font-weight:600;">{{ lote_info.nombre }}</span>
   </div>
+  {% if filtro_lote and filtro_lote != '__individuales__' %}
+  <div id="banner-errores-lote" data-lote="{{ filtro_lote }}" style="display:none;margin-bottom:16px;padding:14px 18px;border-radius:14px;background:var(--obs-s);border:1px solid rgba(224,140,11,.35);align-items:center;gap:14px;">
+    <div style="width:36px;height:36px;border-radius:12px;background:var(--obs);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-weight:700;color:var(--obs-t);font-size:14px;">Tu lote tiene <span id="err-count">0</span> cédula(s) con vacíos</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px;">Fallaron por problemas temporales del Ministerio. Antes de exportar, re-procesa para completar.</div>
+    </div>
+    <form method="POST" action="/lotes/{{ filtro_lote }}/reprocesar-errores" style="flex-shrink:0;" onsubmit="return confirm('Re-procesar las cédulas con errores? Tarda ~30s por cédula.')">
+      <button type="submit" class="vr-btn vr-btn-sm" style="background:var(--obs);color:#fff;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
+        Re-procesar
+      </button>
+    </form>
+  </div>
+  {% endif %}
   {% endif %}
   <!-- Page header -->
   <div class="vr-ph">
@@ -145,6 +162,16 @@
         Derecho al olvido
       </button>
       {% if entradas %}
+      <form method="POST" action="/historial/export-excel" style="display:inline;">
+        <input type="hidden" name="cedula" value="{{ filtro_cedula }}">
+        <input type="hidden" name="nombre" value="{{ filtro_nombre }}">
+        <input type="hidden" name="semaforo" value="{{ filtro_semaforo }}">
+        <input type="hidden" name="lote" value="{{ filtro_lote }}">
+        <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--apto-t);border-color:rgba(18,161,80,.35);" title="Exporta a Excel todo lo que se ve en la vista actual">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel filtrado
+        </button>
+      </form>
       <form method="POST" action="/historial/limpiar" onsubmit="return confirm('¿Borrar TODO el caché y el historial? Esta acción es irreversible.')">
         <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--rech-t);border-color:rgba(224,67,56,.35);">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
@@ -350,6 +377,10 @@
 <!-- FAB selección múltiple -->
 <div class="hist-fab" id="hist-fab">
   <span class="hist-fab-count" id="hist-fab-count">0 seleccionados</span>
+  <button type="button" class="hist-fab-btn" style="background:var(--apto);" onclick="histExportarExcel()" title="Excel con las seleccionadas">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Excel
+  </button>
   <button type="button" class="hist-fab-btn" style="background:var(--primary);" onclick="histDescargarZip()" title="Descargar todos como PDFs en un .zip">
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     PDFs (ZIP)
@@ -366,6 +397,9 @@
 </form>
 <form id="hist-form-zip" method="POST" action="/historial/pdf-zip" style="display:none;">
   <input type="hidden" name="ids" id="hist-form-zip-ids">
+</form>
+<form id="hist-form-xlsx" method="POST" action="/historial/export-excel" style="display:none;">
+  <input type="hidden" name="ids" id="hist-form-xlsx-ids">
 </form>
 
 <!-- Modal Derecho al Olvido -->
@@ -526,6 +560,21 @@ async function guardarSemaforo(ced, nivel) {
   }
 }
 
+/* ── Banner re-procesar errores (solo en vista de lote) ───────── */
+(function() {
+  const banner = document.getElementById('banner-errores-lote');
+  if (!banner) return;
+  const loteId = banner.dataset.lote;
+  fetch('/api/lotes/' + loteId + '/errores', { credentials: 'same-origin' })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data || !data.total) return;
+      document.getElementById('err-count').textContent = data.total;
+      banner.style.display = 'flex';
+    })
+    .catch(() => {});
+})();
+
 /* ── Expandir re-verificaciones (badge ↻) ─────────────────────── */
 function histFormatRel(seg) {
   if (seg < 60) return 'hace ' + seg + 's';
@@ -629,6 +678,16 @@ function histBorrarSeleccionados() {
   if (!confirm(`¿Borrar ${histSel.size} entrada(s) del historial? Esta acción es irreversible.`)) return;
   document.getElementById('hist-form-bulk-ids').value = [...histSel].join(',');
   document.getElementById('hist-form-bulk').submit();
+}
+function histExportarExcel() {
+  if (histSel.size === 0) return;
+  if (histSel.size > 1000) {
+    alert(`Tope de 1000 entradas (seleccionaste ${histSel.size}). Filtra primero.`);
+    return;
+  }
+  document.getElementById('hist-form-xlsx-ids').value = [...histSel].join(',');
+  document.getElementById('hist-form-xlsx').submit();
+  vrToast(`Generando Excel con ${histSel.size} entradas…`);
 }
 function histDescargarZip() {
   if (histSel.size === 0) return;

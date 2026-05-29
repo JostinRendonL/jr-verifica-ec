@@ -85,6 +85,7 @@ def generar_pdf(resultado: dict) -> bytes:
     satje      = resultado.get("satje") or {}
     setec      = resultado.get("setec") or {}
     fiscalia   = resultado.get("fiscalia") or {}
+    notas      = (resultado.get("notas") or "").strip()
 
     # Cadena de fallback para el nombre, por si el cache/historial es antiguo:
     #   resultado.nombre → bachiller → SATJE → SETEC → "—"
@@ -140,6 +141,7 @@ def generar_pdf(resultado: dict) -> bytes:
         qr_b64=qr_b64, logo_b64=logo_b64,
         logo_mineduc=logo_mineduc, logo_cj=logo_cj,
         logo_setec=logo_setec, logo_fge=logo_fge,
+        notas=notas,
     )
 
     # Renderizar a PDF
@@ -149,7 +151,8 @@ def generar_pdf(resultado: dict) -> bytes:
 
 def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscalia,
                     fecha_str, codigo_ver, qr_b64, logo_b64,
-                    logo_mineduc="", logo_cj="", logo_setec="", logo_fge="") -> str:
+                    logo_mineduc="", logo_cj="", logo_setec="", logo_fge="",
+                    notas="") -> str:
 
     def _src_header(logo_b64_str: str, title: str, subtitle: str) -> str:
         """Cabecera de sección con logo de fuente oficial."""
@@ -407,6 +410,13 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
 {satje_html}
 {setec_html}
 {fiscalia_html}
+
+{f'''<div class="seccion notas-block">
+    <div class="seccion-titulo" style="border-color:#7C5CE0;">
+        <div style="font-size:10.5pt;font-weight:700;color:#5B4BE3;">📝 Notas del operador</div>
+    </div>
+    <div class="caja" style="background:#F4F0FE;border-color:#C5B8F2;color:#2C2480;white-space:pre-wrap;">{notas.replace('<','&lt;').replace('>','&gt;')}</div>
+</div>''' if notas else ''}
 
 <div class="footer">
     <div class="footer-left">

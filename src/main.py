@@ -89,7 +89,8 @@ from src.historial_sqlite import (
     total_entradas, CACHE_TTL_SEG, calcular_stats,
     borrar_entrada, borrar_por_cedula, borrar_multiples, limpiar_todo,
     actualizar_nombre, actualizar_semaforo, obtener_lotes,
-    listar_por_cedula,
+    listar_por_cedula, cedulas_con_errores_lote, actualizar_notas,
+    obtener_notas,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -1088,6 +1089,7 @@ async def buscar_individual(
             capture_exception("buscar.registrar_historial", e,
                               extra={"cedula": cedula, "tipo": tipo})
 
+    resultado["notas"] = obtener_notas(cedula)
     return templates.TemplateResponse("resultado.html", {
         "request":   request,
         "resultado": resultado,
@@ -1238,10 +1240,95 @@ async def ver_lotes(request: Request, jr_session: str | None = Cookie(None)):
     if not _autenticado(jr_session):
         return _redirect_login()
     lotes = obtener_lotes(limite=100)
+    # Para cada lote, contar errores (rápido, ya está cacheado en SQLite)
+    for l in lotes:
+        l["n_errores"] = len(cedulas_con_errores_lote(l["lote_id"]))
     return templates.TemplateResponse("lotes.html", {
         "request": request,
         "lotes":   lotes,
     })
+
+
+@app.get("/api/lotes/{lote_id}/errores")
+async def api_lote_errores(lote_id: str, jr_session: str | None = Cookie(None)):
+    """Devuelve las cédulas con errores en un lote."""
+    from fastapi.responses import JSONResponse
+    if not _autenticado(jr_session):
+        return JSONResponse({"error": "no_auth"}, status_code=401)
+    errores = cedulas_con_errores_lote(lote_id)
+    return JSONResponse({"total": len(errores), "cedulas": errores})
+
+
+@app.post("/lotes/{lote_id}/reprocesar-errores")
+@limiter.limit("3/minute")
+async def reprocesar_errores_lote(
+    request: Request,
+    lote_id: str,
+    background_tasks: BackgroundTasks,
+    jr_session: str | None = Cookie(None),
+):
+    """Re-procesa con force_refresh SOLO las cédulas de un lote que tienen ERROR.
+    Las entradas re-procesadas se etiquetan con el MISMO lote_id, así el lote
+    queda completo cuando termina."""
+    u = _usuario_actual(jr_session)
+    if not u:
+        return _redirect_login()
+    errores = cedulas_con_errores_lote(lote_id)
+    if not errores:
+        return RedirectResponse(url=f"/historial?lote={lote_id}&msg=sin_errores", status_code=303)
+
+    items = [{"cedula": e["cedula"], "nombre": e["nombre"]} for e in errores]
+    # Determinar el tipo del lote inspeccionando una entrada original
+    sample = obtener_resultado(errores[0]["id"])
+    if not sample:
+        return RedirectResponse(url=f"/historial?lote={lote_id}&error=sin_muestra", status_code=303)
+    res = sample["resultado"]
+    quiere_b = bool(res.get("bachiller"))
+    quiere_s = bool(res.get("satje"))
+    quiere_st = bool(res.get("setec"))
+    quiere_fi = bool(res.get("fiscalia"))
+    if quiere_b and quiere_s: tipo = "completo"
+    elif quiere_b:            tipo = "bachiller"
+    elif quiere_s:            tipo = "satje"
+    else:                     tipo = "setec"
+
+    # Reusar el nombre del lote original
+    primero = listar_historial(filtro_lote_id=lote_id, limite=1)
+    lote_nombre_orig = primero[0]["lote_nombre"] if primero else None
+
+    job_id = crear_job(items, tipo, incluir_setec=quiere_st,
+                       incluir_fiscalia=quiere_fi, usuario_id=u.id,
+                       lote_nombre=lote_nombre_orig)
+    # IMPORTANTE: el job nuevo tendra job_id diferente, pero pasamos el lote_id
+    # original via... una técnica: monkey-patch del job para usar el mismo lote_id.
+    # Más limpio: ajustar processor._jobs[job_id]['_lote_id_override']
+    from src.processor import _jobs as _proc_jobs
+    _proc_jobs[job_id]["_lote_id_override"] = lote_id
+
+    background_tasks.add_task(ejecutar_job, job_id, items, tipo,
+                               quiere_st, quiere_fi, u.id, True)  # force_refresh=True
+    audit_log.registrar(u, "lote_reprocesar_errores", target=lote_id,
+                        ip=_ip_cliente(request), n=len(items))
+    return RedirectResponse(url=f"/job/{job_id}?volver_lote={lote_id}", status_code=303)
+
+
+# ── Notas por cédula ────────────────────────────────────────────────────────
+
+@app.post("/historial/cedula/{cedula}/notas")
+async def guardar_notas_cedula(
+    request: Request,
+    cedula: str,
+    notas: str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Guarda notas (texto libre) en TODAS las entradas de una cédula."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"ok": False, "error": "no_auth"}, status_code=401)
+    from src.historial_sqlite import actualizar_notas as _act_notas
+    ok = _act_notas(cedula, notas)
+    return JSONResponse({"ok": ok})
 
 
 @app.post("/pdf")
@@ -1286,6 +1373,7 @@ async def descargar_pdf_consulta(
             fiscalia=cached.get("fiscalia") or {},
         )
 
+    cached["notas"] = obtener_notas(cedula)
     try:
         pdf_bytes = generar_pdf(cached)
     except Exception as e:
@@ -1325,6 +1413,7 @@ async def pdf_desde_historial(
             fiscalia=resultado.get("fiscalia") or {},
         )
 
+    resultado["notas"] = obtener_notas(resultado.get("cedula", ""))
     try:
         pdf_bytes = generar_pdf(resultado)
     except Exception as e:
@@ -1396,6 +1485,7 @@ async def descargar_pdfs_zip(
                     "completo",
                     fiscalia=resultado.get("fiscalia") or {},
                 )
+            resultado["notas"] = obtener_notas(resultado.get("cedula", ""))
             try:
                 pdf_bytes = generar_pdf(resultado)
                 cedula = resultado.get("cedula", entrada_id)
@@ -1415,6 +1505,86 @@ async def descargar_pdfs_zip(
     return Response(
         content=buf.getvalue(),
         media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
+@app.post("/historial/export-excel")
+@limiter.limit("10/minute")
+async def export_historial_excel(
+    request: Request,
+    ids: str = Form(""),
+    # Si no se pasan IDs, exporta TODO lo que matcheen los filtros (vista actual)
+    cedula:   str = Form(""),
+    nombre:   str = Form(""),
+    semaforo: str = Form(""),
+    lote:     str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Exporta a Excel: si vienen `ids` exporta SOLO esos (selección), si no
+    exporta todo lo que matcheen los filtros (vista actual)."""
+    from src.excel_io import generar_excel_resultados
+    u = _usuario_actual(jr_session)
+    if not u:
+        return _redirect_login()
+
+    lista_ids = [i for i in (ids or "").split(",") if i.strip()]
+
+    # Decidir qué entradas exportar
+    if lista_ids:
+        entradas = []
+        for entrada_id in lista_ids[:1000]:  # tope 1000 por export
+            e = obtener_resultado(entrada_id)
+            if e:
+                entradas.append(e)
+        modo = "seleccion"
+    else:
+        # Exportar lo que filtra la vista actual (sin dedup, ya en orden)
+        rows = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo,
+                                 filtro_nombre=nombre, filtro_lote_id=lote,
+                                 dedup_por_cedula=not lote, limite=1000)
+        entradas = []
+        for r in rows:
+            e = obtener_resultado(r["id"])
+            if e:
+                entradas.append(e)
+        modo = "filtrado"
+
+    if not entradas:
+        return RedirectResponse(url="/historial?error=sin_entradas_export", status_code=303)
+
+    # Reconstruir lista de resultados para excel_io. Determinar tipo y flags.
+    resultados = []
+    incluir_setec    = False
+    incluir_fiscalia = False
+    tiene_bach = tiene_satje = False
+    for e in entradas:
+        r = e["resultado"]
+        resultados.append(r)
+        if r.get("bachiller"): tiene_bach = True
+        if r.get("satje"):     tiene_satje = True
+        if r.get("setec"):     incluir_setec = True
+        if r.get("fiscalia"):  incluir_fiscalia = True
+
+    if tiene_bach and tiene_satje:
+        tipo = "completo"
+    elif tiene_bach:
+        tipo = "bachiller"
+    elif tiene_satje:
+        tipo = "satje"
+    else:
+        tipo = "setec"
+
+    excel_bytes = generar_excel_resultados(resultados, tipo,
+                                            incluir_setec=incluir_setec,
+                                            incluir_fiscalia=incluir_fiscalia)
+    audit_log.registrar(u, "historial_export_excel", ip=_ip_cliente(request),
+                        modo=modo, n=len(resultados), lote=lote or "")
+    fecha = datetime.now(_TZ_EC).strftime("%Y%m%d_%H%M")
+    fname = f"historial_{modo}_{len(resultados)}_{fecha}.xlsx"
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
 
@@ -1487,9 +1657,11 @@ async def ver_entrada_historial(
     if not entrada:
         return RedirectResponse(url="/historial?error=no_encontrada", status_code=303)
 
+    res_ent = entrada["resultado"]
+    res_ent["notas"] = obtener_notas(res_ent.get("cedula", ""))
     return templates.TemplateResponse("resultado.html", {
         "request":   request,
-        "resultado": entrada["resultado"],
+        "resultado": res_ent,
         "fecha":     datetime.fromtimestamp(entrada["timestamp"]).strftime("%d/%m/%Y %H:%M"),
         "desde_cache": True,
         "edad_seg":  entrada["edad_seg"],

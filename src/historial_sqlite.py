@@ -96,6 +96,8 @@ def _get_conn() -> sqlite3.Connection:
         _conn.execute("ALTER TABLE historial ADD COLUMN lote_nombre TEXT")
     if "usuario_id" not in cols:
         _conn.execute("ALTER TABLE historial ADD COLUMN usuario_id TEXT")
+    if "notas" not in cols:
+        _conn.execute("ALTER TABLE historial ADD COLUMN notas TEXT")
 
     print(f"[historial_sqlite] ✅ conectado a {_DB_FILE} (WAL mode)")
     return _conn
@@ -414,6 +416,40 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
     return rows
 
 
+def cedulas_con_errores_lote(lote_id: str) -> list[dict]:
+    """Devuelve cédulas de un lote cuyas verificaciones contienen ERROR.
+    Útil para "re-procesar vacíos" antes de exportar.
+    Retorna: [{cedula, nombre, fuentes_con_error: [...]}]"""
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT id, cedula, nombre, resultado_json, semaforo FROM historial "
+        "WHERE lote_id = ?", (lote_id,)
+    )
+    con_errores = []
+    for row in cur.fetchall():
+        try:
+            res = json.loads(row["resultado_json"]) if row["resultado_json"] else {}
+        except Exception:
+            continue
+        errores = []
+        b = (res.get("bachiller") or {})
+        s = (res.get("satje") or {})
+        st = (res.get("setec") or {})
+        fi = (res.get("fiscalia") or {})
+        if b and (b.get("estado") == "ERROR"):                   errores.append("bachiller")
+        if s and (s.get("status") == "ERROR" or s.get("estado") == "ERROR"): errores.append("satje")
+        if st and (st.get("estado") == "ERROR"):                 errores.append("setec")
+        if fi and (fi.get("estado") == "ERROR"):                 errores.append("fiscalia")
+        if errores:
+            con_errores.append({
+                "id":     row["id"],
+                "cedula": row["cedula"],
+                "nombre": row["nombre"] or "",
+                "fuentes_con_error": errores,
+            })
+    return con_errores
+
+
 def listar_por_cedula(cedula: str, limite: int = 50) -> list[dict]:
     """Devuelve todas las verificaciones de una cédula (para vista expandida)."""
     cedula = (cedula or "").strip()
@@ -514,6 +550,36 @@ def actualizar_nombre(cedula: str, nombre: str) -> bool:
             (nombre, resultado_json_nuevo, row["id"]),
         )
     return True
+
+
+def actualizar_notas(cedula: str, notas: str) -> bool:
+    """Guarda notas (texto libre) en TODAS las entradas de una cédula. Las notas
+    son del operador, no se sobrescriben con re-verificaciones."""
+    cedula = (cedula or "").strip()
+    notas  = (notas or "").strip()[:2000]  # tope 2k chars
+    if not cedula:
+        return False
+    conn = _get_conn()
+    with _write_lock:
+        cur = conn.execute(
+            "UPDATE historial SET notas = ? WHERE cedula = ?",
+            (notas or None, cedula),
+        )
+    return cur.rowcount > 0
+
+
+def obtener_notas(cedula: str) -> str:
+    cedula = (cedula or "").strip()
+    if not cedula:
+        return ""
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT notas FROM historial WHERE cedula = ? AND notas IS NOT NULL "
+        "ORDER BY timestamp DESC LIMIT 1",
+        (cedula,),
+    )
+    row = cur.fetchone()
+    return (row["notas"] or "").strip() if row else ""
 
 
 def obtener_nombre_guardado(cedula: str) -> str:
