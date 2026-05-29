@@ -54,12 +54,23 @@ def _qr_base64(texto: str) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def _logo_base64() -> str:
-    """Lee el logo y lo convierte a base64."""
-    logo_path = Path(__file__).parent / "static" / "logo.png"
-    if not logo_path.exists():
+def _img_b64(rel_path: str) -> str:
+    """Carga una imagen de static/ y devuelve base64. Retorna '' si no existe."""
+    p = Path(__file__).parent / "static" / rel_path
+    if not p.exists():
         return ""
-    return base64.b64encode(logo_path.read_bytes()).decode()
+    return base64.b64encode(p.read_bytes()).decode()
+
+
+def _logo_base64() -> str:
+    return _img_b64("logo.png")
+
+
+def _src_img(b64: str, size: int = 28) -> str:
+    """Devuelve <img> inline con logo de fuente, o '' si no hay imagen."""
+    if not b64:
+        return ""
+    return f'<img src="data:image/png;base64,{b64}" style="width:{size}px;height:{size}px;object-fit:contain;vertical-align:middle;border-radius:6px;" />'
 
 
 def generar_pdf(resultado: dict) -> bytes:
@@ -101,6 +112,12 @@ def generar_pdf(resultado: dict) -> bytes:
     qr_b64     = _qr_base64(url_verificacion)
     logo_b64   = _logo_base64()
 
+    # Logos de fuentes oficiales
+    logo_mineduc = _img_b64("logos/logo-mineduc-mark.png")
+    logo_cj      = _img_b64("logos/logo-cj-mark.png")
+    logo_setec   = _img_b64("logos/logo-setec-mark.png")
+    logo_fge     = _img_b64("logos/logo-fge-mark.png")
+
     # Color del banner según nivel
     nivel_color = {
         "APTO":         "#10b981",
@@ -121,6 +138,8 @@ def generar_pdf(resultado: dict) -> bytes:
         bachiller=bachiller, satje=satje, setec=setec, fiscalia=fiscalia,
         fecha_str=fecha_str, codigo_ver=codigo_ver,
         qr_b64=qr_b64, logo_b64=logo_b64,
+        logo_mineduc=logo_mineduc, logo_cj=logo_cj,
+        logo_setec=logo_setec, logo_fge=logo_fge,
     )
 
     # Renderizar a PDF
@@ -129,16 +148,33 @@ def generar_pdf(resultado: dict) -> bytes:
 
 
 def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscalia,
-                    fecha_str, codigo_ver, qr_b64, logo_b64) -> str:
+                    fecha_str, codigo_ver, qr_b64, logo_b64,
+                    logo_mineduc="", logo_cj="", logo_setec="", logo_fge="") -> str:
+
+    def _src_header(logo_b64_str: str, title: str, subtitle: str) -> str:
+        """Cabecera de sección con logo de fuente oficial."""
+        ico = _src_img(logo_b64_str, 26)
+        return f"""<div class="seccion-titulo">
+            <table style="width:100%;border-collapse:collapse;">
+                <tr>
+                    <td style="width:34px;vertical-align:middle;padding-right:10px;">{ico}</td>
+                    <td style="vertical-align:middle;">
+                        <div style="font-size:10.5pt;font-weight:700;color:#0F2C5C;line-height:1.2;">{title}</div>
+                        <div style="font-size:7.5pt;color:#7B8794;margin-top:1px;">{subtitle}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>"""
 
     # Sección bachiller
     bach_html = ""
     if bachiller:
         estado_b = bachiller.get("estado", "")
+        hdr_b = _src_header(logo_mineduc, "Bachiller", "Ministerio de Educación del Ecuador")
         if estado_b == "ENCONTRADO":
             bach_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🎓 Bachiller — Ministerio de Educación</div>
+                {hdr_b}
                 <div class="caja verde">
                     <div class="caja-titulo">✓ Título confirmado</div>
                     <div class="caja-grid">
@@ -152,18 +188,18 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
         elif estado_b == "NO_ENCONTRADO":
             bach_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🎓 Bachiller — Ministerio de Educación</div>
+                {hdr_b}
                 <div class="caja amarilla">
-                    <div class="caja-titulo">⚠ Sin registro</div>
+                    <div class="caja-titulo">Sin registro de bachillerato</div>
                     <div>No existe título de bachiller registrado oficialmente para esta cédula.</div>
                 </div>
             </div>"""
         else:
             bach_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🎓 Bachiller — Ministerio de Educación</div>
+                {hdr_b}
                 <div class="caja gris">
-                    <div class="caja-titulo">✕ Error de consulta</div>
+                    <div class="caja-titulo">Error de consulta</div>
                     <div>{bachiller.get('detalle', 'No se pudo completar la consulta')}</div>
                 </div>
             </div>"""
@@ -172,12 +208,13 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
     satje_html = ""
     if satje:
         estado_s = satje.get("estado", "")
+        hdr_s = _src_header(logo_cj, "Procesos Judiciales", "Consejo de la Judicatura — SATJE")
         if estado_s == "SIN_PROCESOS":
-            satje_html = """
+            satje_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">⚖️ Procesos Judiciales — Función Judicial</div>
+                {hdr_s}
                 <div class="caja verde">
-                    <div class="caja-titulo">✓ Sin procesos judiciales</div>
+                    <div class="caja-titulo">Sin procesos judiciales</div>
                     <div>No tiene causas activas como demandado ni como actor.</div>
                 </div>
             </div>"""
@@ -191,13 +228,13 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
                 items = "".join(f"<li>{d}</li>" for d in delitos)
                 delitos_html = f"""
                 <div class="caja roja" style="margin-top:8px;">
-                    <div class="caja-titulo">⚠ Delitos detectados</div>
+                    <div class="caja-titulo">Delitos detectados</div>
                     <ul class="delitos">{items}</ul>
                 </div>"""
 
             satje_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">⚖️ Procesos Judiciales — Función Judicial</div>
+                {hdr_s}
                 <div class="stats-grid">
                     <div class="stat-box {'rojo' if td > 0 else 'gris'}">
                         <div class="stat-num">{td}</div>
@@ -213,76 +250,77 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
         else:
             satje_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">⚖️ Procesos Judiciales — Función Judicial</div>
+                {hdr_s}
                 <div class="caja gris">
-                    <div class="caja-titulo">✕ Error de consulta</div>
+                    <div class="caja-titulo">Error de consulta</div>
                     <div>{satje.get('detalle', 'No se pudo completar la consulta')}</div>
                 </div>
             </div>"""
 
-    # Sección SETEC (Capacitaciones Oficiales — Ministerio del Trabajo)
+    # Sección SETEC
     setec_html = ""
     if setec:
         estado_st = setec.get("estado", "")
+        hdr_st = _src_header(logo_setec, "Capacitaciones Oficiales", "SETEC — Ministerio del Trabajo del Ecuador")
         if estado_st == "TIENE_CERTIFICADOS":
             cursos = setec.get("cursos", []) or []
             total = setec.get("total", len(cursos))
             items = "".join(f"<li>{c}</li>" for c in cursos)
             setec_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🎖️ Capacitaciones Oficiales — SETEC / Ministerio del Trabajo</div>
+                {hdr_st}
                 <div class="caja verde">
-                    <div class="caja-titulo">✓ {total} certificación{'es' if total != 1 else ''} registrada{'s' if total != 1 else ''}</div>
+                    <div class="caja-titulo">{total} certificación{'es' if total != 1 else ''} registrada{'s' if total != 1 else ''}</div>
                     <ul class="cursos">{items}</ul>
                 </div>
             </div>"""
         elif estado_st == "SIN_CERTIFICADOS":
-            setec_html = """
+            setec_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🎖️ Capacitaciones Oficiales — SETEC / Ministerio del Trabajo</div>
+                {hdr_st}
                 <div class="caja gris">
-                    <div class="caja-titulo">— Sin certificaciones registradas</div>
+                    <div class="caja-titulo">Sin certificaciones registradas</div>
                     <div>No tiene cursos registrados en el sistema SETEC.</div>
                 </div>
             </div>"""
-        else:  # ERROR u otro
+        else:
             setec_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🎖️ Capacitaciones Oficiales — SETEC / Ministerio del Trabajo</div>
+                {hdr_st}
                 <div class="caja gris">
-                    <div class="caja-titulo">✕ Error de consulta</div>
+                    <div class="caja-titulo">Error de consulta</div>
                     <div>{setec.get('detalle', 'No se pudo completar la consulta')}</div>
                 </div>
             </div>"""
 
-    # Sección Fiscalía (Noticias del Delito — SIAF)
+    # Sección Fiscalía
     fiscalia_html = ""
     if fiscalia:
-        estado_f  = fiscalia.get("estado", "")
-        noticias  = fiscalia.get("noticias") or []
+        estado_f   = fiscalia.get("estado", "")
+        noticias   = fiscalia.get("noticias") or []
         sospechoso = fiscalia.get("como_sospechoso", 0)
         denunciante = fiscalia.get("como_denunciante", 0)
+        hdr_f = _src_header(logo_fge, "Noticias del Delito", "SIAF — Fiscalía General del Estado")
 
         if estado_f == "ERROR":
             fiscalia_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🚨 Noticias del Delito — SIAF / Fiscalía General del Estado</div>
+                {hdr_f}
                 <div class="caja gris">
-                    <div class="caja-titulo">✕ Error de consulta</div>
+                    <div class="caja-titulo">Error de consulta</div>
                     <div>{fiscalia.get('detalle', 'No se pudo completar la consulta')}</div>
                 </div>
             </div>"""
         elif estado_f == "SIN_ANTECEDENTES":
-            fiscalia_html = """
+            fiscalia_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🚨 Noticias del Delito — SIAF / Fiscalía General del Estado</div>
+                {hdr_f}
                 <div class="caja verde">
-                    <div class="caja-titulo">✓ Sin antecedentes en Fiscalía</div>
+                    <div class="caja-titulo">Sin antecedentes en Fiscalía</div>
                     <div>No aparece en noticias del delito como sospechoso ni imputado.</div>
                 </div>
             </div>"""
         else:
-            # Construir tabla de noticias
             filas_noticias = ""
             for n in noticias:
                 rol = n.get("rol", "")
@@ -302,23 +340,15 @@ def _construir_html(cedula, nombre, sem, color, bachiller, satje, setec, fiscali
                 resumen = f"Aparece como denunciante/víctima en {denunciante} noticia(s)."
 
             caja_clase = "roja" if sospechoso > 0 else "amarilla"
-            icono = "⚠" if sospechoso > 0 else "ℹ"
 
             fiscalia_html = f"""
             <div class="seccion">
-                <div class="seccion-titulo">🚨 Noticias del Delito — SIAF / Fiscalía General del Estado</div>
+                {hdr_f}
                 <div class="caja {caja_clase}">
-                    <div class="caja-titulo">{icono} {resumen}</div>
+                    <div class="caja-titulo">{resumen}</div>
                 </div>
                 <table class="tabla-noticias">
-                    <thead>
-                        <tr>
-                            <th>Delito</th>
-                            <th>Fecha</th>
-                            <th>Lugar</th>
-                            <th>Rol</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Delito</th><th>Fecha</th><th>Lugar</th><th>Rol</th></tr></thead>
                     <tbody>{filas_noticias}</tbody>
                 </table>
             </div>"""
@@ -442,8 +472,8 @@ body { font-family: 'Helvetica', 'Arial', sans-serif; color: #1C2833; font-size:
 .nombre-val { font-size: 12pt; font-weight: bold; color: #1C2833; }
 
 /* Secciones */
-.seccion { margin-bottom: 14px; }
-.seccion-titulo { font-size: 11pt; font-weight: bold; color: #0F2C5C; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #D5D8DC; }
+.seccion { margin-bottom: 16px; }
+.seccion-titulo { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1.5px solid #E8ECF0; }
 
 /* Cajas */
 .caja { padding: 12px 14px; border-radius: 6px; border: 1px solid; }
