@@ -1193,7 +1193,7 @@ async def ver_dashboard(request: Request, jr_session: str | None = Cookie(None))
 async def ver_historial(
     request: Request,
     cedula: str = "", semaforo: str = "", nombre: str = "", lote: str = "",
-    dups: str = "",
+    dups: str = "", orden: str = "fecha-desc",
     jr_session: str | None = Cookie(None),
 ):
     if not _autenticado(jr_session):
@@ -1205,6 +1205,7 @@ async def ver_historial(
     entradas = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo,
                                  filtro_nombre=nombre, filtro_lote_id=lote,
                                  dedup_por_cedula=dedup,
+                                 orden=orden,
                                  limite=500 if lote else 200)
     # Si se filtró por lote, traer el nombre del lote para mostrarlo
     lote_info = None
@@ -1223,6 +1224,7 @@ async def ver_historial(
         "filtro_lote":     lote,
         "lote_info":       lote_info,
         "dedup_activo":    dedup,
+        "orden_activo":    orden,
         "ttl_horas": CACHE_TTL_SEG // 3600,
     })
 
@@ -1549,6 +1551,7 @@ async def export_historial_excel(
     nombre:   str = Form(""),
     semaforo: str = Form(""),
     lote:     str = Form(""),
+    orden:    str = Form("fecha-desc"),
     jr_session: str | None = Cookie(None),
 ):
     """Exporta a Excel: si vienen `ids` exporta SOLO esos (selección), si no
@@ -1569,10 +1572,12 @@ async def export_historial_excel(
                 entradas.append(e)
         modo = "seleccion"
     else:
-        # Exportar lo que filtra la vista actual (sin dedup, ya en orden)
+        # Exportar lo que filtra la vista actual, respetando el orden elegido
         rows = listar_historial(filtro_cedula=cedula, filtro_semaforo=semaforo,
                                  filtro_nombre=nombre, filtro_lote_id=lote,
-                                 dedup_por_cedula=not lote, limite=1000)
+                                 dedup_por_cedula=not lote,
+                                 orden=orden,
+                                 limite=1000)
         entradas = []
         for r in rows:
             e = obtener_resultado(r["id"])

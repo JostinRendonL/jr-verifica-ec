@@ -303,10 +303,29 @@ def obtener_lotes(limite: int = 50) -> list[dict]:
     return rows
 
 
+_ORDEN_VALIDOS = {
+    "fecha-desc":   "{ts} DESC",
+    "fecha-asc":    "{ts} ASC",
+    "nombre-asc":   "UPPER(COALESCE({nom},'')) ASC, {ts} DESC",
+    "nombre-desc":  "UPPER(COALESCE({nom},'')) DESC, {ts} DESC",
+    "cedula-asc":   "{ced} ASC, {ts} DESC",
+    "cedula-desc":  "{ced} DESC, {ts} DESC",
+    # Orden semáforo: APTO → OBSERVACIÓN → RECHAZAR → CRÍTICO → SIN DATOS
+    # Usa CASE WHEN para mapear semáforo a un número de prioridad.
+    "semaforo":     ("CASE "
+                     "WHEN UPPER(COALESCE({sem},'')) LIKE '%APTO%'          THEN 1 "
+                     "WHEN UPPER(COALESCE({sem},'')) LIKE '%OBSERVACI%'     THEN 2 "
+                     "WHEN UPPER(COALESCE({sem},'')) LIKE '%RECHAZAR%'      THEN 3 "
+                     "WHEN UPPER(COALESCE({sem},'')) LIKE '%CR_TICO%'       THEN 4 "
+                     "ELSE 5 END ASC, {ts} DESC"),
+}
+
+
 def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
            filtro_usuario_id: str = "", filtro_nombre: str = "",
            filtro_lote_id: str = "",
            dedup_por_cedula: bool = False,
+           orden: str = "fecha-desc",
            limite: int = 200) -> list[dict]:
     """Devuelve las entradas más recientes (sin resultado completo).
 
@@ -372,26 +391,37 @@ def listar(filtro_cedula: str = "", filtro_semaforo: str = "",
             sql += f" AND {col} = ?"
             params.append(lote_f)
 
-    ts_col = "h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp"
+    ts_col  = "h.timestamp" if tiene_usuario_id and tiene_usuarios else "timestamp"
+    nom_col = "h.nombre"    if tiene_usuario_id and tiene_usuarios else "nombre"
+    ced_col = "h.cedula"    if tiene_usuario_id and tiene_usuarios else "cedula"
+    sem_col = "h.semaforo"  if tiene_usuario_id and tiene_usuarios else "semaforo"
+
+    # Resolver ORDER BY según `orden` (whitelist segura — protege de SQL injection)
+    orden_key = orden if orden in _ORDEN_VALIDOS else "fecha-desc"
+    order_by_sql = _ORDEN_VALIDOS[orden_key].format(
+        ts=ts_col, nom=nom_col, ced=ced_col, sem=sem_col
+    )
 
     if dedup_por_cedula:
-        # CTE: solo la entrada mas reciente por cedula + conteo total de verificaciones.
-        # ROW_NUMBER() OVER (PARTITION BY cedula ORDER BY timestamp DESC) = 1.
-        # SQLite 3.25+ soporta window functions (Python 3.7+ trae 3.25+ usualmente).
+        # CTE: solo la entrada mas reciente por cedula + conteo total.
+        # Para dedup mantenemos PARTITION ORDER BY timestamp DESC (queremos la
+        # mas reciente), pero el ORDER BY del SELECT externo respeta el orden pedido.
+        # Mapear las columnas dentro del CTE (sin alias h.) para el ORDER BY externo.
+        outer_order = _ORDEN_VALIDOS[orden_key].format(
+            ts="timestamp", nom="nombre", ced="cedula", sem="semaforo"
+        )
         sql_dedup = (
             "WITH ranked AS ( "
             + sql.replace("SELECT ", "SELECT "
-                f"ROW_NUMBER() OVER (PARTITION BY "
-                f"{'h.cedula' if tiene_usuario_id and tiene_usuarios else 'cedula'} "
+                f"ROW_NUMBER() OVER (PARTITION BY {ced_col} "
                 f"ORDER BY {ts_col} DESC) AS rn, "
-                f"COUNT(*) OVER (PARTITION BY "
-                f"{'h.cedula' if tiene_usuario_id and tiene_usuarios else 'cedula'}) AS verif_count, ", 1)
-            + ") SELECT * FROM ranked WHERE rn = 1 ORDER BY timestamp DESC LIMIT ?"
+                f"COUNT(*) OVER (PARTITION BY {ced_col}) AS verif_count, ", 1)
+            + f") SELECT * FROM ranked WHERE rn = 1 ORDER BY {outer_order} LIMIT ?"
         )
         params.append(limite)
         cur = conn.execute(sql_dedup, params)
     else:
-        sql += f" ORDER BY {ts_col} DESC LIMIT ?"
+        sql += f" ORDER BY {order_by_sql} LIMIT ?"
         params.append(limite)
         cur = conn.execute(sql, params)
 

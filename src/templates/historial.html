@@ -59,6 +59,16 @@
 .hist-toggle-mode:hover { border-color: #D7D9E2; }
 .hist-toggle-mode.on { background: var(--primary-soft); color: var(--primary); border-color: var(--primary); }
 
+/* Selector de orden */
+.hist-orden-sel {
+  font-size: 12px; padding: 5px 11px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--text2); cursor: pointer; font-weight: 600;
+  font-family: var(--font-b); appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238B90A3' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 8px center; padding-right: 26px;
+}
+.hist-orden-sel:hover, .hist-orden-sel:focus { border-color: var(--primary); outline: none; }
+
 /* Multi-select */
 .hist-chk {
   width: 17px; height: 17px; border-radius: 5px;
@@ -167,6 +177,7 @@
         <input type="hidden" name="nombre" value="{{ filtro_nombre }}">
         <input type="hidden" name="semaforo" value="{{ filtro_semaforo }}">
         <input type="hidden" name="lote" value="{{ filtro_lote }}">
+        <input type="hidden" name="orden" value="{{ orden_activo or 'fecha-desc' }}">
         <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--apto-t);border-color:rgba(18,161,80,.35);" title="Exporta a Excel todo lo que se ve en la vista actual">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Excel filtrado
@@ -220,12 +231,21 @@
       </div>
     </div>
     {% if not lote_info %}
-    <a href="?{% if filtro_semaforo %}semaforo={{ filtro_semaforo }}&{% endif %}{% if filtro_nombre %}nombre={{ filtro_nombre }}&{% endif %}{% if dedup_activo %}dups=1{% endif %}"
+    <a href="?{% if filtro_semaforo %}semaforo={{ filtro_semaforo }}&{% endif %}{% if filtro_nombre %}nombre={{ filtro_nombre }}&{% endif %}{% if orden_activo and orden_activo != 'fecha-desc' %}orden={{ orden_activo }}&{% endif %}{% if dedup_activo %}dups=1{% endif %}"
        class="hist-toggle-mode {% if not dedup_activo %}on{% endif %}" title="{% if dedup_activo %}Ver todas las verificaciones (modo auditoria){% else %}Ver solo la verificacion mas reciente por cedula{% endif %}">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
       {% if dedup_activo %}Ver todas{% else %}Solo recientes{% endif %}
     </a>
     {% endif %}
+    <select class="hist-orden-sel" onchange="histCambiarOrden(this.value)" title="Ordenar listado">
+      <option value="fecha-desc"  {% if orden_activo == 'fecha-desc' %}selected{% endif %}>🕐 Más reciente</option>
+      <option value="fecha-asc"   {% if orden_activo == 'fecha-asc' %}selected{% endif %}>🕐 Más antiguo</option>
+      <option value="nombre-asc"  {% if orden_activo == 'nombre-asc' %}selected{% endif %}>🔤 Nombre A → Z</option>
+      <option value="nombre-desc" {% if orden_activo == 'nombre-desc' %}selected{% endif %}>🔤 Nombre Z → A</option>
+      <option value="cedula-asc"  {% if orden_activo == 'cedula-asc' %}selected{% endif %}>🔢 Cédula ↑</option>
+      <option value="cedula-desc" {% if orden_activo == 'cedula-desc' %}selected{% endif %}>🔢 Cédula ↓</option>
+      <option value="semaforo"    {% if orden_activo == 'semaforo' %}selected{% endif %}>🚦 Por semáforo</option>
+    </select>
     <span style="margin-left:auto;font-size:12.5px;color:var(--text3);" id="hist-count">{{ entradas|length }} de {{ total|default(entradas|length) }}</span>
   </div>
 
@@ -445,6 +465,14 @@
 
 {% block scripts %}
 <script>
+/* ── Ordenar listado ───────────────────────────────────────────── */
+function histCambiarOrden(v) {
+  const u = new URL(window.location.href);
+  if (v === 'fecha-desc') u.searchParams.delete('orden');
+  else u.searchParams.set('orden', v);
+  window.location.href = u.toString();
+}
+
 /* ── Filter ────────────────────────────────────────────────────── */
 let activeChip = '{{ filtro_semaforo }}';
 let histFilterTimer = null;
@@ -681,13 +709,22 @@ function histBorrarSeleccionados() {
   document.getElementById('hist-form-bulk-ids').value = [...histSel].join(',');
   document.getElementById('hist-form-bulk').submit();
 }
+// Devuelve los IDs seleccionados en el orden visual actual (no orden de seleccion).
+// Asi el ZIP y el Excel respetan el orden que el usuario eligio (alfabético, etc).
+function histSelInOrderVisual() {
+  const out = [];
+  document.querySelectorAll('.hist-chk-row').forEach(c => {
+    if (c.checked && histSel.has(c.dataset.id)) out.push(c.dataset.id);
+  });
+  return out;
+}
 function histExportarExcel() {
   if (histSel.size === 0) return;
   if (histSel.size > 1000) {
     alert(`Tope de 1000 entradas (seleccionaste ${histSel.size}). Filtra primero.`);
     return;
   }
-  document.getElementById('hist-form-xlsx-ids').value = [...histSel].join(',');
+  document.getElementById('hist-form-xlsx-ids').value = histSelInOrderVisual().join(',');
   document.getElementById('hist-form-xlsx').submit();
   vrToast(`Generando Excel con ${histSel.size} entradas…`);
 }
@@ -699,7 +736,7 @@ function histDescargarZip() {
   }
   // Aviso: cada PDF ~0.5s. 200 PDFs = ~2 minutos de espera.
   if (histSel.size > 30 && !confirm(`Vas a generar ${histSel.size} PDFs en un ZIP. Puede tardar ${Math.ceil(histSel.size*0.5)} segundos. ¿Continuar?`)) return;
-  document.getElementById('hist-form-zip-ids').value = [...histSel].join(',');
+  document.getElementById('hist-form-zip-ids').value = histSelInOrderVisual().join(',');
   document.getElementById('hist-form-zip').submit();
   vrToast(`Generando ${histSel.size} PDFs… no cierres la pestaña`);
 }
