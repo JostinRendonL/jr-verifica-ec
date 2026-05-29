@@ -1235,6 +1235,35 @@ async def api_verificaciones_cedula(cedula: str, jr_session: str | None = Cookie
     return JSONResponse({"entradas": listar_por_cedula(cedula, limite=50)})
 
 
+@app.get("/historial/persona/{cedula}", response_class=HTMLResponse)
+async def ver_timeline_cedula(
+    request: Request,
+    cedula: str,
+    jr_session: str | None = Cookie(None),
+):
+    """Vista timeline: TODA la historia de una persona en una página dedicada."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    cedula = (cedula or "").strip()
+    if not cedula_valida_ec(cedula):
+        return RedirectResponse(url="/historial?error=cedula_invalida", status_code=303)
+    entradas = listar_por_cedula(cedula, limite=100)
+    if not entradas:
+        return RedirectResponse(url=f"/historial?cedula={cedula}&error=sin_historia", status_code=303)
+    # Nombre: el más reciente con valor no vacío
+    nombre = next((e["nombre"] for e in entradas if e.get("nombre")), "(sin nombre)")
+    # Notas (compartidas para toda la cédula)
+    notas = obtener_notas(cedula)
+    return templates.TemplateResponse("timeline.html", {
+        "request":  request,
+        "cedula":   cedula,
+        "nombre":   nombre,
+        "entradas": entradas,
+        "notas":    notas,
+        "total":    len(entradas),
+    })
+
+
 @app.get("/lotes", response_class=HTMLResponse)
 async def ver_lotes(request: Request, jr_session: str | None = Cookie(None)):
     if not _autenticado(jr_session):

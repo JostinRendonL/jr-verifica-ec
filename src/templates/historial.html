@@ -271,7 +271,9 @@
               {% endif %}
             </td>
             {# Cédula #}
-            <td style="padding:13px 14px;font-family:var(--font-m);font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">{{ e.cedula }}</td>
+            <td style="padding:13px 14px;font-family:var(--font-m);font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">
+              <a href="/historial/persona/{{ e.cedula }}" style="color:var(--text);text-decoration:none;" title="Ver toda la historia de esta persona">{{ e.cedula }}</a>
+            </td>
             {# Nombre #}
             <td style="padding:13px 14px;font-size:13.5px;max-width:200px;">
               <div style="display:flex;align-items:center;gap:5px;" id="nom-row-{{ e.cedula }}">

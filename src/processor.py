@@ -421,6 +421,86 @@ async def _procesar_una(item: dict, tipo: str, incluir_setec: bool, sem: asyncio
     return resultado
 
 
+def _notificar_lote_terminado(job: dict) -> None:
+    """Envía email al usuario que disparó el lote, con stats y link. Best-effort."""
+    from src import usuarios
+    from src.mailer import enviar_email
+    from jinja2 import Environment, FileSystemLoader
+    from pathlib import Path
+    import os
+
+    uid = job.get("usuario_id")
+    if not uid:
+        return
+    u = usuarios.obtener_por_id(uid)
+    if not u or not u.email:
+        return
+
+    # Stats del lote desde job["resultados"]
+    sem_count = {"APTO": 0, "OBS": 0, "RECH": 0, "CRIT": 0, "ERR": 0}
+    for r in job.get("resultados", []):
+        s = (r.get("semaforo") or "").upper()
+        if "APTO" in s:           sem_count["APTO"] += 1
+        elif "OBSERVACI" in s:    sem_count["OBS"] += 1
+        elif "CR" in s and "TICO" in s: sem_count["CRIT"] += 1
+        elif "RECHAZAR" in s:     sem_count["RECH"] += 1
+        # contar errores (cualquier fuente con ERROR)
+        for fuente in ("bachiller", "satje", "setec", "fiscalia"):
+            f_data = r.get(fuente) or {}
+            if f_data.get("estado") == "ERROR" or f_data.get("status") == "ERROR":
+                sem_count["ERR"] += 1
+                break
+
+    iniciado  = job.get("iniciado") or 0
+    terminado = job.get("terminado") or time.time()
+    duracion_min = max(1, int((terminado - iniciado) / 60))
+
+    base_url = os.getenv("APP_BASE_URL") or os.getenv("PUBLIC_URL", "https://verifica.dentaklin.shop")
+    base_url = base_url.rstrip("/")
+    link_lote     = f"{base_url}/historial?lote={job['id']}"
+    link_descarga = f"{base_url}/job/{job['id']}/descargar"
+
+    tmpl_dir = Path(__file__).parent / "templates"
+    env = Environment(loader=FileSystemLoader(str(tmpl_dir)))
+    html = env.get_template("email_lote_terminado.html").render(
+        nombre=u.nombre,
+        lote_nombre=job.get("lote_nombre") or "Lote sin nombre",
+        total=job.get("total", 0),
+        n_apto=sem_count["APTO"],
+        n_obs=sem_count["OBS"],
+        n_rech=sem_count["RECH"],
+        n_crit=sem_count["CRIT"],
+        n_errores=sem_count["ERR"],
+        duracion_min=duracion_min,
+        operador=u.nombre,
+        link_lote=link_lote,
+        link_descarga=link_descarga,
+    )
+    texto = (
+        f"Hola {u.nombre},\n\n"
+        f'Tu lote "{job.get("lote_nombre")}" de {job.get("total")} cédulas terminó.\n\n'
+        f"  ✅ APTO:      {sem_count['APTO']}\n"
+        f"  🟡 OBSERVAC.: {sem_count['OBS']}\n"
+        f"  🔴 RECHAZAR:  {sem_count['RECH']}\n"
+        f"  🚨 CRÍTICO:   {sem_count['CRIT']}\n"
+    )
+    if sem_count["ERR"]:
+        texto += f"\n  ⚠ {sem_count['ERR']} con errores temporales — entra al lote y dale 'Re-procesar'.\n"
+    texto += (
+        f"\nVer lote:        {link_lote}\n"
+        f"Descargar Excel: {link_descarga}\n\n"
+        f"Tiempo total: {duracion_min} min\n"
+    )
+
+    enviar_email(
+        to=u.email,
+        subject=f"✅ Lote terminado · {job.get('total')} cédulas · JR Verifica EC",
+        html=html,
+        text=texto,
+    )
+    logger.info("notif lote terminado enviada job=%s to=%s", job["id"], u.email)
+
+
 async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
                        incluir_setec: bool = False,
                        incluir_fiscalia: bool = False,
@@ -470,6 +550,11 @@ async def ejecutar_job(job_id: str, items: list[dict], tipo: str,
         )
         job["estado"]      = "completado"
         job["terminado"]   = time.time()
+        # Notificar por email al usuario que disparó el lote (best-effort)
+        try:
+            _notificar_lote_terminado(job)
+        except Exception as e_mail:
+            logger.warning("notif lote terminado fallo job=%s: %s", job_id, e_mail)
     except Exception as e:
         job["estado"]    = "error"
         job["error"]     = f"{type(e).__name__}: {str(e)[:300]}"
