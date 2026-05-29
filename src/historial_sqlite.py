@@ -470,6 +470,21 @@ def borrar_entrada(id_entrada: str) -> bool:
     return cur.rowcount > 0
 
 
+def borrar_multiples(ids: list[str]) -> int:
+    """Elimina varias entradas por ID en una transacción. Devuelve cuántas borró."""
+    ids = [i.strip() for i in (ids or []) if i and i.strip()]
+    if not ids:
+        return 0
+    conn = _get_conn()
+    placeholders = ",".join("?" * len(ids))
+    with _write_lock:
+        cur = conn.execute(
+            f"DELETE FROM historial WHERE id IN ({placeholders})",
+            tuple(ids),
+        )
+    return cur.rowcount
+
+
 def borrar_por_cedula(cedula: str) -> int:
     """Elimina TODAS las entradas de una cédula. Devuelve cuántas borró."""
     cedula = (cedula or "").strip()

@@ -259,6 +259,78 @@
       transition: border-color .2s, box-shadow .2s;
     }
     .vr-inp:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(91,75,227,.12); }
+
+    /* ── Hamburger (sólo móvil) ─────────────────────────────────── */
+    .vr-hamburger {
+      display: none;
+      position: fixed; top: 14px; left: 14px; z-index: 70;
+      width: 42px; height: 42px; border-radius: 12px;
+      background: var(--rail); color: #fff; border: 1px solid rgba(255,255,255,.10);
+      cursor: pointer; align-items: center; justify-content: center;
+      box-shadow: var(--sh-md);
+    }
+    .vr-hamburger:hover { background: #1F1F2A; }
+    .vr-sidebar-backdrop {
+      display: none; position: fixed; inset: 0; background: rgba(13,14,20,.55);
+      backdrop-filter: blur(4px); z-index: 38;
+    }
+    .vr-sidebar-backdrop.open { display: block; animation: vfade .25s ease-out; }
+
+    /* ═══════════════════════════════════════════════════════════════
+       RESPONSIVE — Tablet (≤900px) y Móvil (≤640px)
+       ═══════════════════════════════════════════════════════════════ */
+    @media (max-width: 900px) {
+      /* Sidebar se vuelve drawer */
+      .vr-sidebar {
+        transform: translateX(-100%);
+        transition: transform .3s var(--ease);
+        width: min(280px, 84vw);
+      }
+      .vr-sidebar.open { transform: translateX(0); box-shadow: 0 20px 60px -10px rgba(0,0,0,.5); }
+      .vr-hamburger { display: flex; }
+      .vr-main { margin-left: 0 !important; }
+      .vr-page { padding: 68px 16px 24px; }
+      .vr-title { font-size: 24px; }
+      .vr-ph { flex-direction: column; align-items: stretch; gap: 12px; }
+      .vr-ph > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
+      .vr-ph .vr-btn { flex: 1 1 auto; min-width: 0; }
+      /* Modales más cerca del top */
+      .vr-overlay { align-items: flex-start; padding-top: 60px; }
+      .vr-modal { padding: 22px; max-width: 100%; }
+    }
+
+    @media (max-width: 700px) {
+      /* Grids inline → 2 columnas en mobile-ish */
+      [style*="grid-template-columns:repeat(4"],
+      [style*="grid-template-columns: repeat(4"] { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+      [style*="grid-template-columns:repeat(3"],
+      [style*="grid-template-columns: repeat(3"] { grid-template-columns: 1fr !important; }
+      /* Flex de 2 columnas lado a lado → en columna */
+      .vr-page [style*="display:flex"][style*="gap"][style*="1fr"] { flex-direction: column !important; }
+    }
+
+    @media (max-width: 640px) {
+      body { font-size: 13.5px; }
+      .vr-page { padding: 64px 12px 20px; }
+      .vr-title { font-size: 22px; }
+      .vr-sub  { font-size: 12.5px; }
+      .vr-card { border-radius: 14px; }
+      .vr-btn-md { padding: 9px 14px; font-size: 13.5px; }
+      .vr-btn-lg { padding: 11px 16px; font-size: 14px; }
+      /* Acciones del header en columna */
+      .vr-ph > div:last-child { gap: 6px; }
+      .vr-ph .vr-btn-sm { font-size: 12px; padding: 6px 10px; }
+      /* Tablas → scroll horizontal sin romper el card */
+      .vr-card table { font-size: 12.5px; }
+      /* Toast no se solape con el FAB de selección */
+      #vr-toast { bottom: 90px; }
+      /* Grids de 1 sola columna en móvil */
+      [style*="grid-template-columns:repeat(4"],
+      [style*="grid-template-columns: repeat(4"] { grid-template-columns: 1fr 1fr !important; }
+      /* Modales casi full screen */
+      .vr-modal { border-radius: 16px; }
+      .vr-overlay { padding: 12px; padding-top: 40px; }
+    }
   </style>
 </head>
 <body>
@@ -267,11 +339,21 @@
 {% set _path = request.url.path %}
 {% set _tab = request.query_params.get('tab', '') %}
 
+<!-- Hamburger (móvil) + backdrop -->
+{% if _u %}
+<button class="vr-hamburger" id="vr-hamburger" onclick="vrToggleSidebar()" aria-label="Menú">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+  </svg>
+</button>
+<div class="vr-sidebar-backdrop" id="vr-sidebar-backdrop" onclick="vrToggleSidebar()"></div>
+{% endif %}
+
 <!-- ════════════════════════════════════════════════════════════════
      SIDEBAR
      ════════════════════════════════════════════════════════════════ -->
 {% block sidebar %}
-<aside class="vr-sidebar">
+<aside class="vr-sidebar" id="vr-sidebar">
   <div class="vr-sidebar-glow"></div>
 
   <!-- Brand -->
@@ -436,6 +518,23 @@
     })
     .catch(() => { sub.textContent = '—'; });
 })();
+
+/* ── Sidebar drawer (móvil) ───────────────────────────────────── */
+function vrToggleSidebar() {
+  const sb = document.getElementById('vr-sidebar');
+  const bd = document.getElementById('vr-sidebar-backdrop');
+  if (!sb || !bd) return;
+  const open = sb.classList.toggle('open');
+  bd.classList.toggle('open', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+// Cerrar drawer automaticamente al navegar dentro del sidebar
+document.querySelectorAll('.vr-sidebar a').forEach(a => {
+  a.addEventListener('click', () => {
+    const sb = document.getElementById('vr-sidebar');
+    if (sb && sb.classList.contains('open')) vrToggleSidebar();
+  });
+});
 
 /* ── Toast helper ─────────────────────────────────────────────── */
 function vrToast(msg) {

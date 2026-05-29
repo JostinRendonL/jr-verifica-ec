@@ -34,6 +34,63 @@
 /* Semáforo edit inline */
 .sem-edit-panel { display: none; flex-direction: column; align-items: center; gap: 5px; margin-top: 6px; }
 .sem-edit-panel.open { display: flex; }
+
+/* Multi-select */
+.hist-chk {
+  width: 17px; height: 17px; border-radius: 5px;
+  border: 1.5px solid var(--line); background: var(--surface);
+  appearance: none; -webkit-appearance: none; cursor: pointer; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all .12s;
+}
+.hist-chk:hover { border-color: var(--primary); }
+.hist-chk:checked {
+  background: var(--primary); border-color: var(--primary);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
+  background-repeat: no-repeat; background-position: center;
+}
+.hist-tbl-row.selected { background: var(--primary-soft) !important; }
+.hist-tbl-row.selected td:first-child { box-shadow: inset 3px 0 0 var(--primary); }
+
+/* Floating action bar */
+.hist-fab {
+  position: fixed; bottom: 20px; left: 50%; transform: translate(-50%, 80px);
+  background: var(--rail); color: #fff;
+  padding: 12px 16px 12px 20px; border-radius: 16px;
+  display: flex; align-items: center; gap: 14px; z-index: 50;
+  box-shadow: var(--sh-lg);
+  transition: transform .35s var(--ease);
+  max-width: calc(100vw - 24px);
+}
+.hist-fab.show { transform: translate(-50%, 0); }
+.hist-fab-count {
+  font-family: var(--font-d); font-weight: 800; font-size: 15px;
+  background: rgba(255,255,255,.10); padding: 6px 11px; border-radius: 10px;
+  white-space: nowrap;
+}
+.hist-fab-btn {
+  background: var(--rech); color: #fff; border: none; cursor: pointer;
+  padding: 9px 14px; border-radius: 11px; font-weight: 700; font-size: 13.5px;
+  display: inline-flex; align-items: center; gap: 7px; font-family: var(--font-b);
+  transition: background .15s;
+}
+.hist-fab-btn:hover { background: #C0382B; }
+.hist-fab-clear {
+  background: transparent; color: rgba(255,255,255,.6); border: none; cursor: pointer;
+  font-size: 12.5px; font-weight: 500;
+}
+.hist-fab-clear:hover { color: #fff; }
+
+/* Tablet: ocultar columna operador */
+@media (max-width: 900px) {
+  .hist-col-op { display: none; }
+}
+/* Móvil: tabla compacta, ocultar fecha relativa */
+@media (max-width: 640px) {
+  .hist-tbl-row td, #hist-table th { padding: 10px 10px !important; }
+  .hist-col-fecha { display: none; }
+  .hist-actions { opacity: 1 !important; }
+}
 </style>
 
 <div class="vr-page">
@@ -108,16 +165,26 @@
       <table style="width:100%;border-collapse:collapse;" id="hist-table">
         <thead>
           <tr style="background:var(--surface-alt);">
-            {% for h in ['Fecha','Cédula','Nombre','Veredicto','Operador',''] %}
-            <th style="text-align:{% if loop.last %}right{% else %}left{% endif %};padding:13px 18px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">{{ h }}</th>
-            {% endfor %}
+            <th style="text-align:left;padding:13px 14px 13px 18px;width:38px;border-bottom:1px solid var(--line);">
+              <input type="checkbox" class="hist-chk" id="hist-chk-all" onclick="histToggleAll(this)" title="Seleccionar todos">
+            </th>
+            <th class="hist-col-fecha" style="text-align:left;padding:13px 14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">Fecha</th>
+            <th style="text-align:left;padding:13px 14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">Cédula</th>
+            <th style="text-align:left;padding:13px 14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">Nombre</th>
+            <th style="text-align:left;padding:13px 14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">Veredicto</th>
+            <th class="hist-col-op" style="text-align:left;padding:13px 14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">Operador</th>
+            <th style="text-align:right;padding:13px 18px 13px 14px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);"></th>
           </tr>
         </thead>
         <tbody>
           {% for e in entradas %}
-          <tr class="hist-tbl-row" data-cedula="{{ e.cedula }}" data-sem="{{ e.semaforo }}">
+          <tr class="hist-tbl-row" data-cedula="{{ e.cedula }}" data-sem="{{ e.semaforo }}" data-id="{{ e.id }}">
+            {# Checkbox #}
+            <td style="padding:13px 14px 13px 18px;">
+              <input type="checkbox" class="hist-chk hist-chk-row" data-id="{{ e.id }}" onclick="histToggleRow(this)">
+            </td>
             {# Fecha #}
-            <td style="padding:13px 18px;white-space:nowrap;font-size:12.5px;">
+            <td class="hist-col-fecha" style="padding:13px 14px;white-space:nowrap;font-size:12.5px;">
               {% set sg = e.edad_seg %}
               {% if sg < 60 %}
                 <span style="color:var(--apto);font-weight:600;display:flex;align-items:center;gap:6px;">
@@ -133,9 +200,9 @@
               {% endif %}
             </td>
             {# Cédula #}
-            <td style="padding:13px 18px;font-family:var(--font-m);font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">{{ e.cedula }}</td>
+            <td style="padding:13px 14px;font-family:var(--font-m);font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">{{ e.cedula }}</td>
             {# Nombre #}
-            <td style="padding:13px 18px;font-size:13.5px;max-width:200px;">
+            <td style="padding:13px 14px;font-size:13.5px;max-width:200px;">
               <div style="display:flex;align-items:center;gap:5px;" id="nom-row-{{ e.cedula }}">
                 <span id="nom-txt-{{ e.cedula }}" style="color:{% if e.nombre %}var(--text){% else %}var(--text3){% endif %};font-style:{% if not e.nombre %}italic{% else %}normal{% endif %};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ e.nombre or 'Sin nombre' }}</span>
                 <button onclick="editarNombreHistorial('{{ e.cedula }}','{{ e.nombre or '' }}')" style="color:var(--text3);background:none;border:none;cursor:pointer;display:flex;flex-shrink:0;" title="Editar nombre">
@@ -151,7 +218,7 @@
               </div>
             </td>
             {# Veredicto #}
-            <td style="padding:13px 18px;">
+            <td style="padding:13px 14px;">
               <div id="sem-row-{{ e.cedula }}">
                 <div style="display:flex;align-items:center;gap:5px;" id="sem-badge-{{ e.cedula }}">
                   {% set sem = e.semaforo %}
@@ -184,7 +251,7 @@
               </div>
             </td>
             {# Operador #}
-            <td style="padding:13px 18px;font-size:12.5px;color:var(--text2);">
+            <td class="hist-col-op" style="padding:13px 14px;font-size:12.5px;color:var(--text2);">
               {% if e.operador_nombre and e.operador_nombre != '—' %}
               <div style="display:flex;align-items:center;gap:7px;">
                 <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-hi));color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ e.operador_nombre[:1]|upper }}</div>
@@ -195,7 +262,7 @@
               {% endif %}
             </td>
             {# Acciones #}
-            <td style="padding:10px 18px;">
+            <td style="padding:10px 14px 10px 10px;">
               <div class="hist-actions">
                 <a href="/historial/{{ e.id }}" class="hist-icon-btn" title="Ver resultado">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -229,6 +296,20 @@
   </div>
   {% endif %}
 </div>
+
+<!-- FAB selección múltiple -->
+<div class="hist-fab" id="hist-fab">
+  <span class="hist-fab-count" id="hist-fab-count">0 seleccionados</span>
+  <button type="button" class="hist-fab-btn" onclick="histBorrarSeleccionados()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+    Borrar
+  </button>
+  <button type="button" class="hist-fab-clear" onclick="histDeselectAll()">Cancelar</button>
+</div>
+
+<form id="hist-form-bulk" method="POST" action="/historial/borrar-multiple" style="display:none;">
+  <input type="hidden" name="ids" id="hist-form-bulk-ids">
+</form>
 
 <!-- Modal Derecho al Olvido -->
 <div id="modal-olvido" class="vr-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
@@ -363,6 +444,53 @@ async function guardarSemaforo(ced, nivel) {
     cancelarSemaforo(ced);
     vrToast('Semáforo actualizado');
   }
+}
+
+/* ── Multi-select ──────────────────────────────────────────────── */
+const histSel = new Set();
+function histUpdateFab() {
+  const fab = document.getElementById('hist-fab');
+  const count = document.getElementById('hist-fab-count');
+  if (histSel.size === 0) { fab.classList.remove('show'); return; }
+  fab.classList.add('show');
+  count.textContent = histSel.size === 1 ? '1 seleccionado' : histSel.size + ' seleccionados';
+}
+function histToggleRow(cb) {
+  const id = cb.dataset.id;
+  const row = cb.closest('tr');
+  if (cb.checked) { histSel.add(id); row.classList.add('selected'); }
+  else            { histSel.delete(id); row.classList.remove('selected'); }
+  // Sincronizar master checkbox
+  const visibles = [...document.querySelectorAll('.hist-chk-row')].filter(c => c.closest('tr').style.display !== 'none');
+  const todasSel = visibles.length > 0 && visibles.every(c => c.checked);
+  document.getElementById('hist-chk-all').checked = todasSel;
+  histUpdateFab();
+}
+function histToggleAll(cb) {
+  document.querySelectorAll('.hist-chk-row').forEach(c => {
+    const row = c.closest('tr');
+    if (row.style.display === 'none') return;  // solo las visibles
+    c.checked = cb.checked;
+    const id = c.dataset.id;
+    if (cb.checked) { histSel.add(id); row.classList.add('selected'); }
+    else            { histSel.delete(id); row.classList.remove('selected'); }
+  });
+  histUpdateFab();
+}
+function histDeselectAll() {
+  document.querySelectorAll('.hist-chk-row').forEach(c => {
+    c.checked = false;
+    c.closest('tr').classList.remove('selected');
+  });
+  document.getElementById('hist-chk-all').checked = false;
+  histSel.clear();
+  histUpdateFab();
+}
+function histBorrarSeleccionados() {
+  if (histSel.size === 0) return;
+  if (!confirm(`¿Borrar ${histSel.size} entrada(s) del historial? Esta acción es irreversible.`)) return;
+  document.getElementById('hist-form-bulk-ids').value = [...histSel].join(',');
+  document.getElementById('hist-form-bulk').submit();
 }
 
 /* ── Derecho al olvido ─────────────────────────────────────────── */

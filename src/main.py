@@ -69,7 +69,8 @@ from src.processor import _calcular_semaforo
 from src.historial_sqlite import (
     buscar_cache, registrar, listar as listar_historial, obtener_resultado,
     total_entradas, CACHE_TTL_SEG, calcular_stats,
-    borrar_entrada, borrar_por_cedula, limpiar_todo, actualizar_nombre, actualizar_semaforo,
+    borrar_entrada, borrar_por_cedula, borrar_multiples, limpiar_todo,
+    actualizar_nombre, actualizar_semaforo,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -1256,6 +1257,19 @@ async def borrar_entrada_historial(entrada_id: str, jr_session: str | None = Coo
         return _redirect_login()
     borrar_entrada(entrada_id)
     return RedirectResponse(url="/historial?msg=borrada", status_code=303)
+
+
+@app.post("/historial/borrar-multiple")
+async def borrar_multiples_historial(
+    ids: str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Borra varias entradas del historial. `ids` viene como CSV: 'id1,id2,id3'."""
+    if not _autenticado(jr_session):
+        return _redirect_login()
+    lista_ids = [i for i in (ids or "").split(",") if i.strip()]
+    n = borrar_multiples(lista_ids)
+    return RedirectResponse(url=f"/historial?msg=borradas&n={n}", status_code=303)
 
 
 @app.post("/historial/cedula/{cedula}/nombre")
