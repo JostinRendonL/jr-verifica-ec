@@ -2,142 +2,158 @@
 {% block title %}Procesando · JR Verifica EC{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
-    <!-- Hero del job -->
-    <div class="relative mb-6 text-center">
-        <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-[400px] h-[200px] bg-brand-300/20 rounded-full blur-3xl -z-10"></div>
-        <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white mb-4 shadow-lift">
-            <i data-lucide="loader-2" class="icon-lg animate-spin"></i>
-        </div>
-        <h1 class="h-display text-3xl">Procesando lote</h1>
-        <p class="text-slate-500 mt-1.5 text-sm">Verificando todas las cédulas en paralelo</p>
+<div class="vr-page" style="max-width:680px;">
+
+  <!-- Page header -->
+  <div class="vr-ph" style="margin-bottom:24px;">
+    <div>
+      <div class="vr-eyebrow">Procesamiento en lote</div>
+      <h1 class="vr-title">Procesando lote</h1>
+      <p class="vr-sub">Verificando cédulas en paralelo · no cierres esta pestaña</p>
+    </div>
+    <div id="status-icon" style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--primary),#4B3BD6);display:flex;align-items:center;justify-content:center;box-shadow:var(--sh-iris);animation:vspin 1.2s linear infinite;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+    </div>
+  </div>
+
+  <!-- Progress card -->
+  <div class="vr-card" style="padding:28px;margin-bottom:16px;">
+
+    <!-- Progress bar -->
+    <div style="margin-bottom:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">
+        <span id="estado" style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--text);">Iniciando…</span>
+        <span style="font-family:var(--font-m);font-size:13px;color:var(--text3);">
+          <span id="procesados" style="color:var(--text);font-weight:700;">0</span>
+          <span style="color:var(--line);">/</span>
+          <span>{{ job.total }}</span>
+        </span>
+      </div>
+      <div style="height:8px;background:var(--line2);border-radius:99px;overflow:hidden;">
+        <div id="barra" style="height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--primary),#4B3BD6);transition:width .5s var(--ease);"></div>
+      </div>
+      <div style="text-align:right;margin-top:6px;font-family:var(--font-m);font-size:11px;color:var(--text3);">
+        <span id="porcentaje">0</span>%
+      </div>
     </div>
 
-    <div class="card overflow-hidden shadow-card">
-        <div class="p-7 space-y-7">
-            <!-- Progress -->
-            <div>
-                <div class="flex justify-between items-baseline mb-2.5">
-                    <span id="estado" class="text-sm font-bold text-slate-700">Iniciando...</span>
-                    <span class="text-xs text-slate-500"><span id="procesados" class="font-mono font-bold text-slate-900 text-base">0</span> <span class="text-slate-400">/</span> <span class="font-mono">{{ job.total }}</span></span>
-                </div>
-                <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                    <div id="barra" class="bg-gradient-to-r from-brand-500 via-brand-600 to-indigo-600 h-2.5 rounded-full transition-all duration-500 shimmer" style="width: 0%"></div>
-                </div>
-                <div class="text-right text-xs text-slate-400 mt-2"><span id="porcentaje" class="font-mono font-bold">0</span>%</div>
-            </div>
-
-            <!-- Info -->
-            <div class="grid grid-cols-3 gap-3">
-                <div class="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 p-4 text-center">
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Tipo</div>
-                    <div class="font-bold text-slate-900 flex items-center justify-center gap-1.5 text-sm">
-                        {% if job.tipo == "bachiller" %}
-                            <i data-lucide="graduation-cap" class="icon-sm text-brand-600"></i> Bachiller
-                        {% elif job.tipo == "satje" %}
-                            <i data-lucide="gavel" class="icon-sm text-brand-600"></i> Judicial
-                        {% else %}
-                            <i data-lucide="layers" class="icon-sm text-brand-600"></i> Completo
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 p-4 text-center">
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Cédulas</div>
-                    <div class="font-mono font-extrabold text-slate-900 text-lg">{{ job.total }}</div>
-                </div>
-                <div class="rounded-xl bg-gradient-to-br from-slate-50 to-white border border-slate-100 p-4 text-center">
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Workers</div>
-                    <div class="font-mono font-extrabold text-slate-900 text-lg">3</div>
-                </div>
-            </div>
-
-            <!-- Acciones cuando termina -->
-            <div id="acciones" class="hidden space-y-3">
-                <a href="/job/{{ job.id }}/descargar" class="btn-primary w-full !py-3.5 text-base">
-                    <i data-lucide="file-down" class="icon-sm"></i>
-                    Descargar resultados (.xlsx)
-                    <i data-lucide="arrow-right" class="icon-sm"></i>
-                </a>
-                <a href="/" class="btn-secondary w-full">
-                    <i data-lucide="arrow-left" class="icon-sm"></i>
-                    Volver al inicio
-                </a>
-            </div>
-
-            <!-- Mientras procesa -->
-            <div id="info-procesando" class="rounded-xl bg-gradient-to-br from-brand-50 to-indigo-50/50 border border-brand-100 p-4 flex items-start gap-3">
-                <div class="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="loader-2" class="icon-sm animate-spin"></i>
-                </div>
-                <div class="text-xs text-brand-900 leading-relaxed">
-                    <strong class="text-brand-900">Procesando en paralelo (3 cédulas simultáneas).</strong><br>
-                    No cierres esta pestaña — el progreso se actualiza automáticamente cada 2 segundos.
-                </div>
-            </div>
-
-            <!-- Error -->
-            <div id="error-box" class="hidden rounded-xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-                <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="x-circle" class="icon-sm"></i>
-                </div>
-                <div class="text-sm text-red-800">
-                    <strong>Error:</strong> <span id="error-msg"></span>
-                </div>
-            </div>
+    <!-- Info grid -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;">
+      <div style="background:var(--surface-alt);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Tipo</div>
+        <div style="font-family:var(--font-d);font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px;">
+          {% if job.tipo == "bachiller" %}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            Bachiller
+          {% elif job.tipo == "satje" %}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l9 4 9-4M3 6v12l9 4 9-4V6"/></svg>
+            Judicial
+          {% else %}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="6" height="6"/><rect x="9" y="3" width="6" height="6"/><rect x="16" y="3" width="6" height="6"/><rect x="2" y="10" width="6" height="6"/><rect x="9" y="10" width="6" height="6"/><rect x="16" y="10" width="6" height="6"/></svg>
+            Completo
+          {% endif %}
         </div>
-
-        <div class="bg-slate-50/50 px-7 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span class="font-mono">{{ job.id }}</span>
-            <span class="flex items-center gap-1.5">
-                <i data-lucide="shield-check" class="icon-xs text-emerald-600"></i>
-                Conexión cifrada
-            </span>
-        </div>
+      </div>
+      <div style="background:var(--surface-alt);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Cédulas</div>
+        <div style="font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--text);">{{ job.total }}</div>
+      </div>
+      <div style="background:var(--surface-alt);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;">
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">Workers</div>
+        <div style="font-family:var(--font-m);font-size:22px;font-weight:700;color:var(--text);">3</div>
+      </div>
     </div>
+
+    <!-- Processing notice -->
+    <div id="info-procesando" style="background:rgba(91,75,227,.06);border:1px solid rgba(91,75,227,.15);border-radius:14px;padding:14px 16px;display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:32px;height:32px;border-radius:10px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;animation:vpulse 2s ease-in-out infinite;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      </div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.6;">
+        <strong style="color:var(--text);">Procesando en paralelo (3 cédulas simultáneas).</strong><br>
+        El progreso se actualiza automáticamente cada 2 segundos.
+      </div>
+    </div>
+
+    <!-- Actions (hidden until done) -->
+    <div id="acciones" style="display:none;flex-direction:column;gap:10px;">
+      <div style="background:rgba(18,161,80,.06);border:1px solid rgba(18,161,80,.2);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+        <div style="width:32px;height:32px;border-radius:10px;background:rgba(18,161,80,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#12A150" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <span style="font-size:13px;font-weight:700;color:var(--apto);">Procesamiento completado</span>
+      </div>
+      <a href="/job/{{ job.id }}/descargar" class="vr-btn vr-btn-pri vr-btn-md" style="justify-content:center;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar resultados (.xlsx)
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+      <a href="/" class="vr-btn vr-btn-sec vr-btn-md" style="justify-content:center;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+        Nueva verificación
+      </a>
+    </div>
+
+    <!-- Error box -->
+    <div id="error-box" style="display:none;background:rgba(224,67,56,.07);border:1px solid rgba(224,67,56,.22);border-radius:14px;padding:14px 16px;align-items:flex-start;gap:12px;">
+      <div style="width:32px;height:32px;border-radius:10px;background:rgba(224,67,56,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E04338" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      </div>
+      <div style="font-size:13px;color:var(--rech);"><strong>Error:</strong> <span id="error-msg"></span></div>
+    </div>
+  </div>
+
+  <!-- Footer chip -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px;">
+    <span style="font-family:var(--font-m);font-size:11px;color:var(--text3);">{{ job.id }}</span>
+    <span style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--apto);font-weight:600;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Conexión cifrada
+    </span>
+  </div>
+
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
 const jobId = "{{ job.id }}";
 
 async function actualizar() {
-    try {
-        const r = await fetch(`/job/${jobId}/status`);
-        const data = await r.json();
+  try {
+    const r = await fetch(`/job/${jobId}/status`);
+    const data = await r.json();
+    if (data.error === "no_auth") { window.location.href = "/login"; return; }
+    if (data.error === "not_found") { document.getElementById("estado").textContent = "Job no encontrado"; return; }
 
-        if (data.error === "no_auth") { window.location.href = "/login"; return; }
-        if (data.error === "not_found") { document.getElementById("estado").textContent = "Job no encontrado"; return; }
+    document.getElementById("procesados").textContent = data.procesados;
+    document.getElementById("porcentaje").textContent = data.progreso;
+    document.getElementById("barra").style.width = data.progreso + "%";
 
-        document.getElementById("procesados").textContent = data.procesados;
-        document.getElementById("porcentaje").textContent = data.progreso;
-        document.getElementById("barra").style.width = data.progreso + "%";
+    const labels = { pendiente: "En cola…", procesando: "Procesando…", completado: "✓ Completado", error: "Error" };
+    document.getElementById("estado").textContent = labels[data.estado] || data.estado;
 
-        const labels = {
-            "pendiente":   "En cola...",
-            "procesando":  "Procesando...",
-            "completado":  "✓ Completado",
-            "error":       "Error",
-        };
-        document.getElementById("estado").textContent = labels[data.estado] || data.estado;
-
-        if (data.estado === "completado") {
-            document.getElementById("acciones").classList.remove("hidden");
-            document.getElementById("info-procesando").classList.add("hidden");
-            document.getElementById("estado").classList.add("text-emerald-600");
-            if (window.lucide) lucide.createIcons();
-            return;
-        }
-        if (data.estado === "error") {
-            document.getElementById("error-box").classList.remove("hidden");
-            document.getElementById("error-msg").textContent = data.error || "Error desconocido";
-            document.getElementById("info-procesando").classList.add("hidden");
-            if (window.lucide) lucide.createIcons();
-            return;
-        }
-
-        setTimeout(actualizar, 2000);
-    } catch (e) {
-        setTimeout(actualizar, 4000);
+    if (data.estado === "completado") {
+      document.getElementById("info-procesando").style.display = "none";
+      const acc = document.getElementById("acciones");
+      acc.style.display = "flex";
+      const icon = document.getElementById("status-icon");
+      icon.style.animation = "none";
+      icon.style.background = "linear-gradient(135deg,#12A150,#0B8C42)";
+      icon.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      return;
     }
+    if (data.estado === "error") {
+      document.getElementById("info-procesando").style.display = "none";
+      const eb = document.getElementById("error-box");
+      eb.style.display = "flex";
+      document.getElementById("error-msg").textContent = data.error || "Error desconocido";
+      return;
+    }
+    setTimeout(actualizar, 2000);
+  } catch(e) {
+    setTimeout(actualizar, 4000);
+  }
 }
 
 actualizar();

@@ -1,153 +1,391 @@
 {% extends "base.html" %}
 {% block title %}Acceso · JR Verifica EC{% endblock %}
 
-{% block navbar %}
-<nav class="border-b border-slate-200/70 bg-white/70 backdrop-blur-lg">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center">
-        <div class="flex items-center gap-2.5">
-            <img src="/static/logo.png" alt="JR Automata" class="h-9 w-9" onerror="this.style.display='none'">
-            <div class="flex flex-col leading-tight">
-                <span class="text-[15px] font-bold text-slate-900 tracking-tight">JR Verifica EC</span>
-                <span class="text-[10px] text-slate-500 font-medium tracking-wide">by JR Automata</span>
-            </div>
-        </div>
-    </div>
-</nav>
-{% endblock %}
+{% block sidebar %}{% endblock %}
 
 {% block content %}
-<div class="min-h-[75vh] flex items-center justify-center">
-    <div class="w-full max-w-md">
-        <!-- Hero -->
-        <div class="text-center mb-8 relative">
-            <div class="absolute inset-x-0 -top-10 h-40 bg-gradient-to-b from-brand-200/40 to-transparent blur-3xl"></div>
-            <div class="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white mb-5 shadow-lift">
-                <i data-lucide="shield-check" class="icon-xl"></i>
-            </div>
-            <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Bienvenido</h1>
-            <p class="text-sm text-slate-500 mt-1.5">Plataforma oficial de verificación de antecedentes</p>
-        </div>
+<style>
+  #vr-main { margin-left: 0 !important; }
 
-        <!-- Card -->
-        <div class="card p-7 shadow-card relative">
-            {% if bloqueado_segundos and bloqueado_segundos > 0 %}
-            <div class="mb-5 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-                <div class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="lock" class="icon-sm"></i>
-                </div>
-                <div class="text-sm text-red-800">
-                    <strong>Acceso bloqueado</strong> por demasiados intentos.<br>
-                    Reintenta en <span id="contador" class="font-mono font-bold">{{ bloqueado_segundos }}</span>s
-                </div>
-            </div>
-            <script>
-                let restantes = {{ bloqueado_segundos }};
-                const tick = setInterval(() => {
-                    restantes--;
-                    document.getElementById('contador').textContent = restantes;
-                    if (restantes <= 0) { clearInterval(tick); window.location.href = '/login'; }
-                }, 1000);
-            </script>
-            {% elif error %}
-            <div class="mb-5 p-3.5 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
-                <i data-lucide="x-circle" class="icon-sm text-red-600"></i>
-                <span class="text-sm text-red-700 font-medium">Email o contraseña incorrectos</span>
-            </div>
-            {% elif reseteada %}
-            <div class="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2.5">
-                <i data-lucide="check-circle" class="icon-sm text-emerald-600"></i>
-                <span class="text-sm text-emerald-700 font-medium">Contraseña actualizada. Inicia sesión con la nueva.</span>
-            </div>
-            {% endif %}
+  /* ── Canvas ──────────────────────────────────── */
+  .lg-wrap {
+    position: relative; min-height: 100vh; width: 100%; overflow: hidden;
+    background: #F4F5F8;
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
 
-            <form method="POST" action="/login" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Email</label>
-                    <div class="relative">
-                        <i data-lucide="mail" class="icon-sm absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input
-                            type="email" name="email" id="email-input" required autofocus
-                            autocomplete="username"
-                            class="input pl-10"
-                            placeholder="tu@empresa.com"
-                            {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}
-                        >
-                    </div>
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label>
-                    <div class="relative">
-                        <i data-lucide="key-round" class="icon-sm absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                        <input
-                            type="password" name="password" id="password-input" required
-                            autocomplete="current-password"
-                            class="input pl-10 pr-11"
-                            placeholder="••••••••"
-                            {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}
-                        >
-                        <button type="button" onclick="togglePassword()" tabindex="-1"
-                                class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
-                            <i data-lucide="eye" id="icon-eye" class="icon-sm"></i>
-                            <i data-lucide="eye-off" id="icon-eye-off" class="icon-sm hidden"></i>
-                        </button>
-                    </div>
-                </div>
-                <button type="submit" class="btn-primary w-full !py-3 text-base"
-                        {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}>
-                    Iniciar sesión
-                    <i data-lucide="arrow-right" class="icon-sm"></i>
-                </button>
-                <div class="text-center pt-1">
-                    <a href="/olvide-pass" class="text-xs text-slate-500 hover:text-brand-600 font-medium">
-                        ¿Olvidaste tu contraseña?
-                    </a>
-                </div>
-            </form>
+  /* ── Ambient iris glows ──────────────────────── */
+  .lg-glow-a {
+    position: absolute; top: -15%; left: -10%;
+    width: 520px; height: 520px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(91,75,227,.16), transparent 65%);
+    filter: blur(20px);
+    animation: vglow 14s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .lg-glow-b {
+    position: absolute; bottom: -20%; right: -10%;
+    width: 560px; height: 560px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(91,75,227,.13), transparent 65%);
+    filter: blur(20px);
+    animation: vglow 16s ease-in-out infinite reverse;
+    pointer-events: none;
+  }
 
-            <div class="mt-6 pt-5 border-t border-slate-100 text-center">
-                <p class="text-xs text-slate-400 font-medium uppercase tracking-wider mb-3">Confiado por equipos de RR.HH.</p>
-                <div class="flex items-center justify-center gap-5 opacity-70 grayscale">
-                    <span class="text-slate-500 font-bold text-sm">RUBASA</span>
-                    <span class="w-1 h-1 rounded-full bg-slate-300"></span>
-                    <span class="text-slate-500 font-bold text-sm tracking-wider">DENTAKLIN</span>
-                    <span class="w-1 h-1 rounded-full bg-slate-300"></span>
-                    <span class="text-slate-500 font-bold text-sm">+más</span>
-                </div>
-            </div>
-        </div>
+  /* ── Floating source logos ───────────────────── */
+  .lg-floater {
+    position: absolute; transform: translate(-50%,-50%); z-index: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .lg-floater-tile {
+    background: #fff; border: 1px solid #EBECF1;
+    box-shadow: 0 14px 30px -12px rgba(16,18,33,.18);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .lg-floater-label {
+    font-size: 10.5px; font-weight: 600; color: #8B90A3;
+    background: rgba(255,255,255,.7); padding: 2px 8px;
+    border-radius: 99px; white-space: nowrap; backdrop-filter: blur(4px);
+  }
 
-        <!-- Trust footer -->
-        <div class="mt-6 grid grid-cols-3 gap-3 text-center">
-            <div class="text-xs text-slate-500 flex flex-col items-center gap-1">
-                <i data-lucide="lock" class="icon-xs text-emerald-600"></i>
-                <span>Cifrado SSL</span>
-            </div>
-            <div class="text-xs text-slate-500 flex flex-col items-center gap-1">
-                <i data-lucide="badge-check" class="icon-xs text-emerald-600"></i>
-                <span>Fuentes oficiales</span>
-            </div>
-            <div class="text-xs text-slate-500 flex flex-col items-center gap-1">
-                <i data-lucide="zap" class="icon-xs text-emerald-600"></i>
-                <span>Resultados ~30s</span>
-            </div>
-        </div>
+  /* ── Brand top-left ──────────────────────────── */
+  .lg-brand {
+    position: absolute; top: 24px; left: 28px;
+    display: flex; align-items: center; gap: 11px; z-index: 3;
+  }
+  .lg-brand-tile {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: #fff; border: 1px solid #EBECF1;
+    display: flex; align-items: center; justify-content: center; padding: 6px;
+    box-shadow: 0 2px 4px rgba(16,18,33,.08);
+  }
+  .lg-brand-name {
+    font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 14px;
+    color: #0D0E14; line-height: 1; white-space: nowrap;
+  }
+  .lg-brand-name span { color: #5B4BE3; }
+  .lg-brand-sub { font-size: 10.5px; color: #8B90A3; margin-top: 2px; white-space: nowrap; }
+
+  /* ── Card ────────────────────────────────────── */
+  .lg-card {
+    position: relative; z-index: 2;
+    width: 100%; max-width: 430px;
+    animation: vcard .6s cubic-bezier(.22,.68,.18,1) both;
+  }
+  .lg-card-inner {
+    background: #fff; border-radius: 26px;
+    border: 1px solid #EBECF1;
+    box-shadow: 0 24px 48px -16px rgba(16,18,33,.22), 0 8px 16px -8px rgba(16,18,33,.10);
+    padding: 36px 34px 28px;
+  }
+
+  /* ── Logo emblem ─────────────────────────────── */
+  .lg-emblem-wrap { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 26px; }
+  .lg-emblem {
+    width: 76px; height: 76px; border-radius: 22px;
+    background: linear-gradient(150deg, #fff, #F4F4FB);
+    border: 1px solid #EBECF1;
+    box-shadow: 0 12px 26px -10px rgba(91,75,227,.30);
+    display: flex; align-items: center; justify-content: center; padding: 14px;
+    animation: vbreath 4s ease-in-out infinite;
+  }
+  .lg-title {
+    margin: 20px 0 0; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 30px; font-weight: 800; color: #0D0E14; letter-spacing: -.02em;
+  }
+  .lg-sub { margin: 7px 0 0; font-size: 13.5px; color: #565B6E; }
+
+  /* ── Form fields ─────────────────────────────── */
+  .lg-label { font-size: 12.5px; font-weight: 600; color: #565B6E; display: block; }
+  .lg-field { position: relative; margin-top: 8px; }
+  .lg-field-ico {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    color: #8B90A3; pointer-events: none; transition: color .2s;
+  }
+  .lg-inp {
+    width: 100%; box-sizing: border-box;
+    padding: 13px 44px 13px 42px;
+    font-size: 14.5px; border-radius: 13px; outline: none;
+    color: #0D0E14; font-family: 'Inter', sans-serif;
+    border: 1.5px solid #EBECF1;
+    transition: border-color .2s, box-shadow .2s; background: #fff;
+  }
+  .lg-inp:focus { border-color: #5B4BE3; box-shadow: 0 0 0 4px rgba(91,75,227,.12); }
+  .lg-inp:disabled { opacity: .5; cursor: not-allowed; }
+  .lg-inp.no-icon { padding-left: 14px; }
+  .lg-pw-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    width: 30px; height: 30px; border-radius: 8px; border: none;
+    background: transparent; color: #8B90A3; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: color .15s; padding: 0;
+  }
+  .lg-pw-toggle:hover { color: #565B6E; }
+
+  /* ── Submit button ───────────────────────────── */
+  .lg-btn {
+    width: 100%; margin-top: 22px; padding: 15px;
+    background: linear-gradient(135deg, #6E5BF0, #4B3BD6);
+    border: none; border-radius: 13px; cursor: pointer;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 15px; font-weight: 700; color: #fff;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+    transition: opacity .15s, transform .1s;
+    box-shadow: 0 6px 20px rgba(91,75,227,.35);
+  }
+  .lg-btn:hover:not(:disabled) { opacity: .93; transform: translateY(-1px); }
+  .lg-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+  /* ── Alert ───────────────────────────────────── */
+  .lg-alert {
+    border-radius: 12px; padding: 12px 14px; font-size: 13px; font-weight: 500;
+    display: flex; align-items: flex-start; gap: 9px; margin-bottom: 18px;
+  }
+  .lg-alert-err  { background: rgba(224,67,56,.08); border:1px solid rgba(224,67,56,.22); color:#C0392B; }
+  .lg-alert-ok   { background: rgba(18,161,80,.08); border:1px solid rgba(18,161,80,.22); color:#0B6B3A; }
+  .lg-alert-warn { background: rgba(224,140,11,.08); border:1px solid rgba(224,140,11,.22); color:#8A5606; }
+
+  /* ── Trusted by ──────────────────────────────── */
+  .lg-trust-wrap {
+    margin-top: 22px; padding-top: 20px;
+    border-top: 1px solid #F2F3F7; text-align: center;
+  }
+  .lg-trust-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .14em;
+    text-transform: uppercase; color: #8B90A3;
+  }
+  .lg-trust-logos {
+    display: flex; align-items: center; justify-content: center;
+    gap: 12px; margin-top: 12px;
+    color: #565B6E; font-weight: 700; font-size: 13.5px; letter-spacing: .02em;
+  }
+  .lg-trust-dot { color: #EBECF1; }
+
+  /* ── Trust badges below card ─────────────────── */
+  .lg-badges {
+    display: flex; justify-content: center; gap: 22px; margin-top: 22px;
+  }
+  .lg-badge {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: #565B6E; font-weight: 500;
+  }
+  .lg-badge svg { color: #12A150; }
+
+  /* ── Extra keyframes ─────────────────────────── */
+  @keyframes vglow {
+    0%,100% { transform: translate(0,0) scale(1); }
+    50%      { transform: translate(24px,18px) scale(1.08); }
+  }
+  @keyframes vcard {
+    from { opacity: 0; transform: translateY(18px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+  }
+  @keyframes vdrift {
+    0%,100% { transform: translate(-50%,-50%) translateY(0); }
+    50%      { transform: translate(-50%,-50%) translateY(-16px); }
+  }
+</style>
+
+<div class="lg-wrap">
+
+  <!-- Ambient iris glows -->
+  <div class="lg-glow-a"></div>
+  <div class="lg-glow-b"></div>
+
+  <!-- Brand chip — top left -->
+  <div class="lg-brand">
+    <div class="lg-brand-tile">
+      <img src="/static/logos/logo-jr-automata-mark.png" alt="JR Automata" style="width:100%;height:100%;object-fit:contain;"
+           onerror="this.outerHTML='<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'#5B4BE3\' stroke-width=\'2.2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\'/><polyline points=\'9 12 11 14 15 10\'/></svg>'">
     </div>
-</div>
+    <div>
+      <div class="lg-brand-name">JR Verifica<span>EC</span></div>
+      <div class="lg-brand-sub">by JR Automata</div>
+    </div>
+  </div>
+
+  <!-- Floating official logos -->
+  <!-- Min. Educación — top-left area -->
+  <div class="lg-floater" style="top:12%;left:8%;animation:vdrift 9s cubic-bezier(.22,.68,.18,1) 0s infinite;">
+    <div style="transform:rotate(-8deg);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="lg-floater-tile" style="width:64px;height:64px;border-radius:18px;padding:13px;">
+        <img src="/static/logos/logo-mineduc-mark.png" alt="Min. Educación" style="width:100%;height:100%;object-fit:contain;"
+             onerror="this.style.display='none'">
+      </div>
+      <span class="lg-floater-label">Min. Educación</span>
+    </div>
+  </div>
+
+  <!-- Consejo Judicatura — top-right area -->
+  <div class="lg-floater" style="top:20%;left:83%;animation:vdrift 11s cubic-bezier(.22,.68,.18,1) 1.2s infinite;">
+    <div style="transform:rotate(7deg);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="lg-floater-tile" style="width:72px;height:72px;border-radius:18px;padding:14px;">
+        <img src="/static/logos/logo-cj-mark.png" alt="Consejo Judicatura" style="width:100%;height:100%;object-fit:contain;"
+             onerror="this.style.display='none'">
+      </div>
+      <span class="lg-floater-label">Consejo Judicatura</span>
+    </div>
+  </div>
+
+  <!-- SETEC — bottom-left area -->
+  <div class="lg-floater" style="top:70%;left:12%;animation:vdrift 10s cubic-bezier(.22,.68,.18,1) 0.6s infinite;">
+    <div style="transform:rotate(6deg);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="lg-floater-tile" style="width:60px;height:60px;border-radius:18px;padding:12px;">
+        <img src="/static/logos/logo-setec-mark.png" alt="SETEC" style="width:100%;height:100%;object-fit:contain;"
+             onerror="this.style.display='none'">
+      </div>
+      <span class="lg-floater-label">SETEC</span>
+    </div>
+  </div>
+
+  <!-- Fiscalía — bottom-right area -->
+  <div class="lg-floater" style="top:74%;left:82%;animation:vdrift 12s cubic-bezier(.22,.68,.18,1) 1.8s infinite;">
+    <div style="transform:rotate(-6deg);display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <div class="lg-floater-tile" style="width:66px;height:66px;border-radius:18px;padding:13px;">
+        <img src="/static/logos/logo-fge-mark.png" alt="Fiscalía" style="width:100%;height:100%;object-fit:contain;"
+             onerror="this.style.display='none'">
+      </div>
+      <span class="lg-floater-label">Fiscalía</span>
+    </div>
+  </div>
+
+  <!-- Login card -->
+  <div class="lg-card">
+    <div class="lg-card-inner">
+
+      <!-- Logo emblem -->
+      <div class="lg-emblem-wrap">
+        <div class="lg-emblem">
+          <img src="/static/logos/logo-jr-automata-mark.png" alt="JR Automata" style="width:100%;height:100%;object-fit:contain;"
+               onerror="this.outerHTML='<svg width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'#5B4BE3\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\'/><polyline points=\'9 12 11 14 15 10\'/></svg>'">
+        </div>
+        <h1 class="lg-title">Bienvenido</h1>
+        <p class="lg-sub">Plataforma oficial de verificación de antecedentes</p>
+      </div>
+
+      <!-- Alerts -->
+      {% if bloqueado_segundos and bloqueado_segundos > 0 %}
+      <div class="lg-alert lg-alert-warn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <div>
+          <strong>Acceso bloqueado</strong> por demasiados intentos.<br>
+          Reintenta en <span id="contador" style="font-family:'JetBrains Mono',monospace;font-weight:700;">{{ bloqueado_segundos }}</span>s
+        </div>
+      </div>
+      <script>
+        let _rc = {{ bloqueado_segundos }};
+        const _rt = setInterval(() => {
+          _rc--;
+          const el = document.getElementById('contador');
+          if (el) el.textContent = _rc;
+          if (_rc <= 0) { clearInterval(_rt); window.location.href = '/login'; }
+        }, 1000);
+      </script>
+      {% elif error %}
+      <div class="lg-alert lg-alert-err">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        Email o contraseña incorrectos
+      </div>
+      {% elif reseteada %}
+      <div class="lg-alert lg-alert-ok">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><polyline points="20 6 9 17 4 12"/></svg>
+        Contraseña actualizada. Inicia sesión con la nueva.
+      </div>
+      {% endif %}
+
+      <!-- Email -->
+      <label class="lg-label" for="lg-email">Email</label>
+      <div class="lg-field">
+        <svg class="lg-field-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <input class="lg-inp" id="lg-email" type="email" name="email" required autofocus
+               autocomplete="username" placeholder="tu@empresa.com"
+               onfocus="this.previousElementSibling.style.color='#5B4BE3'"
+               onblur="this.previousElementSibling.style.color='#8B90A3'"
+               {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}
+               form="lg-form">
+      </div>
+
+      <!-- Password -->
+      <label class="lg-label" for="lg-pass" style="display:block;margin-top:16px;">Contraseña</label>
+      <div class="lg-field">
+        <svg class="lg-field-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+        <input class="lg-inp" id="lg-pass" type="password" name="password" required
+               autocomplete="current-password" placeholder="••••••••"
+               onfocus="this.previousElementSibling.style.color='#5B4BE3'"
+               onblur="this.previousElementSibling.style.color='#8B90A3'"
+               {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}
+               form="lg-form">
+        <button type="button" class="lg-pw-toggle" onclick="lgTogglePw()" tabindex="-1">
+          <svg id="lg-eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg id="lg-eyeoff" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+        </button>
+      </div>
+
+      <!-- Submit -->
+      <form id="lg-form" method="POST" action="/login" style="display:contents;">
+        <button type="submit" class="lg-btn" {% if bloqueado_segundos and bloqueado_segundos > 0 %}disabled{% endif %}>
+          Iniciar sesión
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </form>
+
+      <!-- Forgot password -->
+      <div style="text-align:center;margin-top:16px;">
+        <a href="/olvide-pass" style="font-size:13px;font-weight:600;color:#5B4BE3;">¿Olvidaste tu contraseña?</a>
+      </div>
+
+      <!-- Trusted by -->
+      <div class="lg-trust-wrap">
+        <div class="lg-trust-label">Confiado por equipos de RR.HH.</div>
+        <div class="lg-trust-logos">
+          <span>RUBASA</span>
+          <span class="lg-trust-dot">•</span>
+          <span>DENTAKLIN</span>
+          <span class="lg-trust-dot">•</span>
+          <span style="color:#8B90A3;font-weight:600;">+más</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trust badges -->
+    <div class="lg-badges">
+      <div class="lg-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Cifrado SSL
+      </div>
+      <div class="lg-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+        Fuentes oficiales
+      </div>
+      <div class="lg-badge">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Resultados ~30s
+      </div>
+    </div>
+
+  </div><!-- .lg-card -->
+</div><!-- .lg-wrap -->
 
 <script>
-function togglePassword() {
-    const input = document.getElementById('password-input');
-    const eye    = document.getElementById('icon-eye');
-    const eyeOff = document.getElementById('icon-eye-off');
-    if (input.type === 'password') {
-        input.type = 'text';
-        eye.classList.add('hidden');
-        eyeOff.classList.remove('hidden');
-    } else {
-        input.type = 'password';
-        eye.classList.remove('hidden');
-        eyeOff.classList.add('hidden');
-    }
+function lgTogglePw() {
+  const inp = document.getElementById('lg-pass');
+  const eye = document.getElementById('lg-eye');
+  const off = document.getElementById('lg-eyeoff');
+  if (inp.type === 'password') {
+    inp.type = 'text'; eye.style.display = 'none'; off.style.display = '';
+  } else {
+    inp.type = 'password'; eye.style.display = ''; off.style.display = 'none';
+  }
 }
+// Allow Enter key from both inputs to submit
+['lg-email','lg-pass'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('lg-form').submit(); });
+});
 </script>
 {% endblock %}

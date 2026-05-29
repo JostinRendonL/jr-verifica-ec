@@ -1,261 +1,438 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}JR Verifica EC{% endblock %}</title>
-    <link rel="icon" type="image/png" href="/static/logo.png">
-    <link rel="apple-touch-icon" href="/static/logo.png">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans:    ['Inter', 'ui-sans-serif', 'system-ui'],
-                        display: ['Inter', 'ui-sans-serif', 'system-ui'],
-                        mono:    ['JetBrains Mono', 'ui-monospace', 'monospace'],
-                    },
-                    colors: {
-                        brand: {
-                            50:  '#eef2ff',
-                            100: '#e0e7ff',
-                            200: '#c7d2fe',
-                            300: '#a5b4fc',
-                            500: '#6366f1',
-                            600: '#4f46e5',
-                            700: '#4338ca',
-                            900: '#312e81',
-                            950: '#1e1b4b',
-                        },
-                    },
-                    boxShadow: {
-                        'soft':    '0 1px 2px 0 rgba(15, 23, 42, 0.04), 0 1px 3px 0 rgba(15, 23, 42, 0.06)',
-                        'card':    '0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 4px 12px -2px rgba(15, 23, 42, 0.05)',
-                        'lift':    '0 4px 16px -4px rgba(79, 70, 229, 0.18), 0 10px 30px -10px rgba(15, 23, 42, 0.12)',
-                        'elevate': '0 16px 60px -20px rgba(79, 70, 229, 0.35), 0 8px 24px -8px rgba(15, 23, 42, 0.12)',
-                        'glow':    '0 0 0 1px rgba(99, 102, 241, 0.1), 0 8px 32px -8px rgba(99, 102, 241, 0.4)',
-                    },
-                }
-            }
-        }
-    </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-        }
-        ::selection { background-color: #c7d2fe; color: #1e1b4b; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}JR Verifica EC{% endblock %}</title>
+  <link rel="icon" type="image/png" href="/static/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       Verifica Console v2 — Design System
+       ═══════════════════════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #F4F5F8;
+      color: #0D0E14;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      font-size: 14px;
+    }
+    :root {
+      --canvas:       #F4F5F8;
+      --surface:      #FFFFFF;
+      --surface-alt:  #FBFBFD;
+      --rail:         #14141C;
+      --line:         #EBECF1;
+      --line2:        #F2F3F7;
+      --text:         #0D0E14;
+      --text2:        #565B6E;
+      --text3:        #8B90A3;
+      --primary:      #5B4BE3;
+      --primary-hi:   #4B3BD6;
+      --primary-soft: #ECEAFC;
+      --primary-ink:  #2C2480;
+      --font-d: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+      --font-b: 'Inter', system-ui, sans-serif;
+      --font-m: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      --ease:   cubic-bezier(.22,.68,.18,1);
+      --sh-sm:  0 2px 4px rgba(16,18,33,.05), 0 1px 2px rgba(16,18,33,.04);
+      --sh-md:  0 8px 24px -8px rgba(16,18,33,.14), 0 2px 6px rgba(16,18,33,.05);
+      --sh-lg:  0 24px 48px -16px rgba(16,18,33,.22), 0 8px 16px -8px rgba(16,18,33,.10);
+      --sh-iris:0 10px 24px -8px rgba(91,75,227,.45);
+      /* semáforo */
+      --apto:       #12A150; --apto-s: #E7F6EE; --apto-t: #0B6B3A;
+      --obs:        #E08C0B; --obs-s:  #FBF1DC; --obs-t:  #8A5606;
+      --rech:       #E04338; --rech-s: #FBE8E6; --rech-t: #9B2820;
+      --crit:       #7C1D14; --crit-s: #7C1D14; --crit-t: #FFFFFF;
+      --sin:        #8B90A3; --sin-s:  #EFF0F4; --sin-t:  #565B6E;
+    }
 
-        /* Background mesh sutil — halos indigo/purple en esquinas */
-        .app-bg {
-            background-color: #fafbff;
-            background-image:
-                radial-gradient(circle at 0% 0%,    rgba(99, 102, 241, 0.10) 0%, transparent 35%),
-                radial-gradient(circle at 100% 0%,  rgba(139, 92, 246, 0.07) 0%, transparent 35%),
-                radial-gradient(circle at 50% 100%, rgba(79, 70, 229, 0.05) 0%, transparent 45%);
-            min-height: 100vh;
-        }
+    /* Scrollbars */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D7D9E2; border-radius: 99px; border: 3px solid #F4F5F8; }
+    ::-webkit-scrollbar-thumb:hover { background: #C2C5D2; }
 
-        /* Grid pattern sutil */
-        .grid-bg {
-            background-image:
-                linear-gradient(rgba(99, 102, 241, 0.04) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(99, 102, 241, 0.04) 1px, transparent 1px);
-            background-size: 32px 32px;
-            background-position: -1px -1px;
-        }
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; }
+    input, select, textarea { font-family: inherit; }
+    svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 
-        /* Components */
-        .btn-primary {
-            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-            padding: 0.625rem 1rem; border-radius: 0.625rem;
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-            color: white; font-weight: 600; font-size: 0.875rem;
-            transition: all 200ms;
-            border: 1px solid transparent;
-            box-shadow: 0 1px 2px rgba(79, 70, 229, 0.2), 0 4px 12px -2px rgba(79, 70, 229, 0.3);
-        }
-        .btn-primary:hover {
-            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35), 0 12px 24px -8px rgba(79, 70, 229, 0.4);
-            transform: translateY(-1px);
-        }
-        .btn-primary:active { transform: translateY(0); }
-        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    .vr-sidebar {
+      position: fixed; left: 0; top: 0; height: 100vh; width: 244px; z-index: 40;
+      background: var(--rail);
+      border-right: 1px solid rgba(255,255,255,.06);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .vr-sidebar-glow {
+      position: absolute; top: -80px; left: -40px; width: 220px; height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(91,75,227,.35), transparent 70%);
+      filter: blur(20px); pointer-events: none;
+    }
+    .vr-brand {
+      position: relative; padding: 22px 20px 18px;
+      display: flex; align-items: center; gap: 11px;
+    }
+    .vr-brand-tile {
+      width: 36px; height: 36px; border-radius: 11px; flex-shrink: 0;
+      background: linear-gradient(135deg,#6E5BF0,#4B3BD6); box-shadow: var(--sh-iris);
+      display: flex; align-items: center; justify-content: center; color: #fff;
+    }
+    .vr-brand-name {
+      color: #fff; font-weight: 800; font-size: 15px;
+      font-family: var(--font-d); letter-spacing: -0.01em; line-height: 1;
+    }
+    .vr-brand-name span { color: #A99CFF; }
+    .vr-brand-sub { color: rgba(255,255,255,.4); font-size: 10.5px; margin-top: 3px; letter-spacing: .04em; }
+    .vr-cta { padding: 4px 16px 14px; }
+    .vr-cta-btn {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: rgba(255,255,255,.07); color: #fff;
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 10px; border-radius: 12px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: background .18s; font-family: var(--font-b);
+      text-decoration: none;
+    }
+    .vr-cta-btn:hover { background: rgba(255,255,255,.13); }
+    .vr-nav { position: relative; padding: 6px 14px; flex: 1; overflow: hidden; }
+    .vr-nav-pill {
+      position: absolute; left: 14px; right: 14px; top: 6px;
+      height: 40px; border-radius: 11px;
+      background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.08);
+      transition: transform .42s var(--ease); pointer-events: none;
+    }
+    .vr-nav-pill::before {
+      content: ''; position: absolute; left: 0; top: 9px; bottom: 9px;
+      width: 3px; border-radius: 3px; background: #A99CFF;
+    }
+    .vr-nav-group { display: flex; flex-direction: column; gap: 6px; position: relative; }
+    .vr-nav-item {
+      position: relative; z-index: 1; height: 40px;
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 14px; border-radius: 11px; border: none; cursor: pointer;
+      background: transparent; color: rgba(255,255,255,.5);
+      font-size: 13.5px; font-weight: 500; font-family: var(--font-b);
+      transition: color .2s; text-align: left;
+    }
+    .vr-nav-item:hover { color: rgba(255,255,255,.85); }
+    .vr-nav-item.active { color: #fff; font-weight: 600; }
+    .vr-nav-sep {
+      height: 18px; display: flex; align-items: flex-end; padding: 0 8px 6px;
+      margin-top: 6px;
+    }
+    .vr-nav-sep span {
+      color: rgba(255,255,255,.28); font-size: 10px; font-weight: 700;
+      letter-spacing: .18em; text-transform: uppercase;
+    }
+    .vr-plan { padding: 0 14px 12px; }
+    .vr-plan-chip {
+      background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px; padding: 12px 14px;
+    }
+    .vr-plan-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .vr-plan-label { color: rgba(255,255,255,.55); font-size: 11px; font-weight: 600; }
+    .vr-plan-pct { color: #A99CFF; font-size: 11px; font-weight: 700; font-family: var(--font-m); }
+    .vr-plan-track { height: 5px; background: rgba(255,255,255,.10); border-radius: 99px; overflow: hidden; }
+    .vr-plan-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,#6E5BF0,#A99CFF); }
+    .vr-plan-sub { color: rgba(255,255,255,.35); font-size: 10.5px; margin-top: 7px; }
+    .vr-user {
+      padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.06);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .vr-user-avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg,#3A3A4A,#22222C); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .vr-user-name {
+      color: rgba(255,255,255,.85); font-size: 12.5px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .vr-user-role { color: rgba(255,255,255,.35); font-size: 10.5px; }
+    .vr-logout { color: rgba(255,255,255,.3); display: flex; align-items: center; transition: color .15s; }
+    .vr-logout:hover { color: rgba(255,255,255,.65); }
 
-        .btn-secondary {
-            display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-            padding: 0.625rem 1rem; border-radius: 0.625rem;
-            background-color: white; color: #334155; font-weight: 600; font-size: 0.875rem;
-            border: 1px solid #e2e8f0;
-            transition: all 150ms;
-        }
-        .btn-secondary:hover { background-color: #f8fafc; border-color: #c7d2fe; color: #4338ca; }
+    /* ── Main area ───────────────────────────────────────────────── */
+    .vr-main { margin-left: 244px; min-height: 100vh; }
+    .vr-page { padding: 32px 36px; max-width: 1240px; margin: 0 auto; }
 
-        .btn-ghost {
-            display: inline-flex; align-items: center; gap: 0.4rem;
-            padding: 0.5rem 0.75rem; border-radius: 0.5rem;
-            color: #64748b; font-weight: 500; font-size: 0.875rem;
-            transition: all 150ms;
-        }
-        .btn-ghost:hover { background-color: #eef2ff; color: #4338ca; }
+    /* ── Page header ─────────────────────────────────────────────── */
+    .vr-ph { margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+    .vr-eyebrow { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .18em; color: var(--text3); margin-bottom: 6px; }
+    .vr-title { font-family: var(--font-d); font-size: 30px; font-weight: 800; color: var(--text); letter-spacing: -.02em; line-height: 1.1; }
+    .vr-sub { font-size: 13.5px; color: var(--text2); margin-top: 5px; }
 
-        .input {
-            width: 100%; padding: 0.625rem 0.875rem;
-            border: 1px solid #e2e8f0; border-radius: 0.625rem;
-            font-size: 0.875rem; color: #0f172a; background-color: white;
-            transition: all 150ms;
-        }
-        .input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15); }
+    /* ── Card ────────────────────────────────────────────────────── */
+    .vr-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--sh-sm); }
+    .vr-card-hover { transition: box-shadow .2s, transform .2s; }
+    .vr-card-hover:hover { box-shadow: var(--sh-md); transform: translateY(-1px); }
 
-        .card {
-            background-color: white;
-            border: 1px solid #e8ecf3;
-            border-radius: 0.875rem;
-            box-shadow: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
-            transition: box-shadow 200ms;
-        }
-        .card-hover:hover {
-            box-shadow: 0 4px 16px -4px rgba(79, 70, 229, 0.15), 0 10px 30px -10px rgba(15, 23, 42, 0.10);
-            transform: translateY(-1px);
-        }
-        .card-hover { transition: all 200ms; }
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .vr-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: var(--font-b); font-weight: 600; cursor: pointer;
+      transition: all .18s; border: none; white-space: nowrap;
+      text-decoration: none;
+    }
+    .vr-btn-md { padding: 10px 18px; font-size: 14px; border-radius: 11px; }
+    .vr-btn-sm { padding: 7px 13px; font-size: 13px; border-radius: 9px; gap: 6px; }
+    .vr-btn-lg { padding: 13px 22px; font-size: 15px; border-radius: 13px; gap: 9px; }
+    .vr-btn-full { width: 100%; }
+    .vr-btn-pri {
+      background: var(--primary); color: #fff;
+      box-shadow: 0 1px 2px rgba(91,75,227,.35);
+    }
+    .vr-btn-pri:hover { background: var(--primary-hi); box-shadow: var(--sh-iris); }
+    .vr-btn-pri:disabled { opacity: .55; cursor: not-allowed; box-shadow: none; transform: none; }
+    .vr-btn-sec {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--line); box-shadow: var(--sh-sm);
+    }
+    .vr-btn-sec:hover { border-color: #D7D9E2; }
+    .vr-btn-ghost { background: transparent; color: var(--text2); }
+    .vr-btn-ghost:hover { background: var(--line2); }
 
-        /* Badges */
-        .badge {
-            display: inline-flex; align-items: center; gap: 0.375rem;
-            padding: 0.25rem 0.625rem; border-radius: 9999px;
-            font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
-        }
-        .badge-dot { width: 0.5rem; height: 0.5rem; border-radius: 9999px; }
+    /* ── Semáforo badges ─────────────────────────────────────────── */
+    .vsem {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 99px;
+      font-size: 11px; font-weight: 700; letter-spacing: .04em;
+    }
+    .vsem-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .vsem-apto { background: var(--apto-s); color: var(--apto-t); }
+    .vsem-apto .vsem-dot { background: var(--apto); }
+    .vsem-obs  { background: var(--obs-s);  color: var(--obs-t);  }
+    .vsem-obs .vsem-dot  { background: var(--obs);  }
+    .vsem-rech { background: var(--rech-s); color: var(--rech-t); }
+    .vsem-rech .vsem-dot { background: var(--rech); }
+    .vsem-crit { background: var(--crit-s); color: var(--crit-t); }
+    .vsem-crit .vsem-dot { background: #fca5a5; }
+    .vsem-sin  { background: var(--sin-s);  color: var(--sin-t);  }
+    .vsem-sin .vsem-dot  { background: var(--sin);  }
 
-        .badge-apto    { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
-        .badge-apto .badge-dot { background: #10b981; }
-        .badge-obs     { background: #fefce8; color: #a16207; border: 1px solid #fde68a; }
-        .badge-obs .badge-dot  { background: #eab308; }
-        .badge-rech    { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-        .badge-rech .badge-dot { background: #ef4444; }
-        .badge-crit    { background: #450a0a; color: #fecaca; border: 1px solid #7f1d1d; }
-        .badge-crit .badge-dot { background: #fca5a5; box-shadow: 0 0 0 2px rgba(252, 165, 165, 0.4); animation: pulse-dot 2s ease-in-out infinite; }
-        .badge-sin     { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
-        .badge-sin .badge-dot  { background: #94a3b8; }
+    /* ── Animations ──────────────────────────────────────────────── */
+    @keyframes vpulse  { 0%,100%{opacity:1} 50%{opacity:.35} }
+    @keyframes vshimmer{ 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    @keyframes vfloat  { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-14px,16px)} }
+    @keyframes vbreath { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+    @keyframes vpop    { from{opacity:0;transform:scale(.85)} to{opacity:1;transform:scale(1)} }
+    @keyframes vfade   { from{opacity:0} to{opacity:1} }
+    @keyframes vbounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+    @keyframes vspin   { to{transform:rotate(360deg)} }
+    @keyframes vreveal { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
 
-        .badge-trend-up   { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.45rem; border-radius: 9999px; background: #ecfdf5; color: #047857; font-size: 0.7rem; font-weight: 700; }
-        .badge-trend-down { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.15rem 0.45rem; border-radius: 9999px; background: #fef2f2; color: #b91c1c; font-size: 0.7rem; font-weight: 700; }
+    /* ── Toast ───────────────────────────────────────────────────── */
+    #vr-toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); z-index: 80;
+      background: var(--rail); color: #fff; padding: 12px 18px; border-radius: 14px;
+      font-size: 13.5px; font-weight: 500; display: none; align-items: center; gap: 10px;
+      box-shadow: var(--sh-lg); max-width: 90vw;
+    }
+    #vr-toast.show { display: flex; animation: vpop .3s cubic-bezier(.2,1.1,.4,1) both; }
 
-        /* Nav */
-        .nav-link { color: #475569; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; font-size: 0.875rem; transition: all 150ms; display: inline-flex; align-items: center; gap: 0.4rem; }
-        .nav-link:hover { background-color: #eef2ff; color: #4338ca; }
-        .nav-link.active { background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%); color: #4338ca; box-shadow: 0 1px 0 0 rgba(255,255,255,0.5) inset, 0 1px 2px 0 rgba(79, 70, 229, 0.08); }
+    /* ── Modal overlay ───────────────────────────────────────────── */
+    .vr-overlay {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(13,14,20,.55); backdrop-filter: blur(5px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px; animation: vfade .2s ease-out;
+    }
+    .vr-modal {
+      background: var(--surface); border-radius: 22px;
+      max-width: 520px; width: 100%; padding: 28px;
+      box-shadow: var(--sh-lg); animation: vpop .3s cubic-bezier(.2,1,.4,1) both;
+    }
 
-        /* Icon sizes */
-        .icon-xs { width: 14px; height: 14px; }
-        .icon-sm { width: 16px; height: 16px; }
-        .icon-md { width: 20px; height: 20px; }
-        .icon-lg { width: 24px; height: 24px; }
-        .icon-xl { width: 32px; height: 32px; }
-
-        /* Display heading */
-        .h-display {
-            font-weight: 800; letter-spacing: -0.025em; line-height: 1.05;
-            background: linear-gradient(135deg, #0f172a 0%, #4338ca 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        /* Animations */
-        @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-        .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.08), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 2s linear infinite;
-        }
-
-        /* Print */
-        @media print {
-            nav, footer, .no-print { display: none !important; }
-            body, .app-bg { background: white !important; }
-        }
-    </style>
+    /* ── Input ───────────────────────────────────────────────────── */
+    .vr-inp {
+      width: 100%; padding: 12px 14px; font-size: 14px; color: var(--text);
+      background: var(--surface); border: 1.5px solid var(--line);
+      border-radius: 11px; outline: none; font-family: var(--font-b);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .vr-inp:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(91,75,227,.12); }
+  </style>
 </head>
-<body class="app-bg text-slate-900">
-    {% block navbar %}
-    <nav class="border-b border-slate-200/70 sticky top-0 z-40 bg-white/80 backdrop-blur-lg supports-[backdrop-filter]:bg-white/70">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <a href="/" class="flex items-center group">
-                <img src="/static/logo.png" alt="JR Verifica EC"
-                     class="h-10 w-auto max-w-[200px] object-contain transition-opacity group-hover:opacity-80"
-                     onerror="this.outerHTML='<span class=\'text-[15px] font-bold text-slate-900 tracking-tight\'>JR Verifica EC</span>'">
-            </a>
+<body>
 
-            {% set _u = request.state.usuario if request.state and request.state.usuario else None %}
-            {% if _u %}
-            <div class="flex items-center gap-1">
-                <a href="/" class="nav-link {% if request.url.path == '/' %}active{% endif %}">
-                    <i data-lucide="search" class="icon-sm"></i>
-                    <span class="hidden sm:inline">Buscar</span>
-                </a>
-                <a href="/dashboard" class="nav-link {% if request.url.path == '/dashboard' %}active{% endif %}">
-                    <i data-lucide="layout-dashboard" class="icon-sm"></i>
-                    <span class="hidden sm:inline">Dashboard</span>
-                </a>
-                <a href="/historial" class="nav-link {% if '/historial' in request.url.path %}active{% endif %}">
-                    <i data-lucide="history" class="icon-sm"></i>
-                    <span class="hidden sm:inline">Historial</span>
-                </a>
-                {% if _u.rol == 'admin' %}
-                <a href="/admin/usuarios" class="nav-link {% if '/admin/usuarios' in request.url.path %}active{% endif %}">
-                    <i data-lucide="users" class="icon-sm"></i>
-                    <span class="hidden sm:inline">Usuarios</span>
-                </a>
-                {% endif %}
-                <div class="w-px h-6 bg-slate-200 mx-2"></div>
-                {# Identidad del usuario logueado #}
-                <a href="/perfil" class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition group">
-                    <div class="h-7 w-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white text-xs font-bold flex items-center justify-center shadow-sm">
-                        {{ _u.nombre[:1] | upper }}
-                    </div>
-                    <div class="hidden md:flex flex-col leading-tight text-left">
-                        <span class="text-xs font-semibold text-slate-900">{{ _u.nombre }}</span>
-                        <span class="text-[10px] text-slate-500 uppercase tracking-wide">{{ _u.rol }}</span>
-                    </div>
-                </a>
-                <a href="/logout" class="btn-ghost" title="Cerrar sesión">
-                    <i data-lucide="log-out" class="icon-sm"></i>
-                </a>
-            </div>
-            {% endif %}
-        </div>
-    </nav>
-    {% endblock %}
+{% set _u = request.state.usuario if request.state and request.state.usuario else None %}
+{% set _path = request.url.path %}
+{% set _tab = request.query_params.get('tab', '') %}
 
-    <main class="max-w-7xl mx-auto px-6 py-10">
-        {% block content %}{% endblock %}
-    </main>
+<!-- ════════════════════════════════════════════════════════════════
+     SIDEBAR
+     ════════════════════════════════════════════════════════════════ -->
+{% block sidebar %}
+<aside class="vr-sidebar">
+  <div class="vr-sidebar-glow"></div>
 
-    <footer class="border-t border-slate-200/70 mt-24 no-print bg-white/50 backdrop-blur">
-        <div class="max-w-7xl mx-auto px-6 py-7 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-            <div class="flex items-center gap-2.5">
-                <img src="/static/logo.png" alt="" class="h-6 w-auto max-w-[100px] object-contain opacity-60" onerror="this.style.display='none'">
-                <span>© 2026 JR Automata · Inteligencia Administrativa & Automatización</span>
-            </div>
-            <div class="flex items-center gap-2 text-[11px]">
-                <i data-lucide="shield-check" class="icon-xs text-emerald-600"></i>
-                <span>Fuentes oficiales: Ministerio de Educación · Función Judicial (SATJE)</span>
-            </div>
-        </div>
-    </footer>
+  <!-- Brand -->
+  <div class="vr-brand">
+    <div class="vr-brand-tile">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        <polyline points="9 12 11 14 15 10"/>
+      </svg>
+    </div>
+    <div>
+      <div class="vr-brand-name">Verifica<span>EC</span></div>
+      <div class="vr-brand-sub">by JR Automata</div>
+    </div>
+  </div>
 
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script>
-        if (window.lucide) lucide.createIcons();
-    </script>
-    <!-- BUILD-2026-05-27-v2 -->
+  <!-- CTA -->
+  <div class="vr-cta">
+    <a href="/" class="vr-cta-btn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nueva verificación
+    </a>
+  </div>
+
+  <!-- Nav -->
+  <nav class="vr-nav">
+    <div class="vr-nav-pill" id="vr-pill"></div>
+    <div class="vr-nav-group" id="vr-nav-main">
+      <a href="/" class="vr-nav-item {% if _path == '/' and _tab != 'lote' %}active{% endif %}" data-navid="busqueda">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Búsqueda
+      </a>
+      <a href="/?tab=lote" class="vr-nav-item {% if _path == '/' and _tab == 'lote' %}active{% endif %}" data-navid="lote">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <path d="M8 13h8M8 17h5"/>
+        </svg>
+        Lote
+      </a>
+      <a href="/historial" class="vr-nav-item {% if '/historial' in _path %}active{% endif %}" data-navid="historial">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Historial
+      </a>
+      <a href="/dashboard" class="vr-nav-item {% if '/dashboard' in _path %}active{% endif %}" data-navid="panel">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="9" rx="1.5"/>
+          <rect x="14" y="3" width="7" height="5" rx="1.5"/>
+          <rect x="14" y="12" width="7" height="9" rx="1.5"/>
+          <rect x="3" y="16" width="7" height="5" rx="1.5"/>
+        </svg>
+        Panel
+      </a>
+    </div>
+
+    {% if _u and _u.rol == 'admin' %}
+    <div class="vr-nav-sep"><span>Admin</span></div>
+    <div class="vr-nav-group" id="vr-nav-admin">
+      <a href="/admin/usuarios" class="vr-nav-item {% if '/admin/usuarios' in _path %}active{% endif %}" data-navid="usuarios">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        Usuarios
+      </a>
+    </div>
+    {% endif %}
+  </nav>
+
+  <!-- Plan chip -->
+  {% if _u %}
+  <div class="vr-plan">
+    <div class="vr-plan-chip">
+      <div class="vr-plan-row">
+        <span class="vr-plan-label">Plan Empresa</span>
+        <span class="vr-plan-pct">72%</span>
+      </div>
+      <div class="vr-plan-track"><div class="vr-plan-fill" style="width:72%"></div></div>
+      <div class="vr-plan-sub">1,283 / 1,800 consultas</div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- User footer -->
+  {% if _u %}
+  <div class="vr-user">
+    <div class="vr-user-avatar">{{ _u.nombre[:2]|upper }}</div>
+    <div style="min-width:0;flex:1">
+      <div class="vr-user-name">{{ _u.nombre }}</div>
+      <div class="vr-user-role">{{ _u.rol|capitalize }}</div>
+    </div>
+    <a href="/logout" class="vr-logout" title="Cerrar sesión">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+        <polyline points="16 17 21 12 16 7"/>
+        <line x1="21" y1="12" x2="9" y2="12"/>
+      </svg>
+    </a>
+  </div>
+  {% endif %}
+</aside>
+{% endblock sidebar %}
+
+<!-- ════════════════════════════════════════════════════════════════
+     MAIN
+     ════════════════════════════════════════════════════════════════ -->
+<main class="vr-main" id="vr-main">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Toast -->
+<div id="vr-toast">
+  <span style="width:22px;height:22px;border-radius:50%;background:#12A150;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  </span>
+  <span id="vr-toast-msg"></span>
+</div>
+
+<script>
+/* ── Sliding nav pill indicator ───────────────────────────────── */
+(function() {
+  const STEP = 46;           // 40px item + 6px gap
+  const ADM_GAP = 40 + 6;   // section header + extra gap
+  const pill = document.getElementById('vr-pill');
+  if (!pill) return;
+  const mainItems  = document.querySelectorAll('#vr-nav-main .vr-nav-item');
+  const adminItems = document.querySelectorAll('#vr-nav-admin .vr-nav-item') || [];
+  const allItems   = [...mainItems, ...adminItems];
+  const activeEl   = document.querySelector('.vr-nav-item.active');
+  if (!activeEl) { pill.style.display = 'none'; return; }
+  const idx = allItems.indexOf(activeEl);
+  if (idx < 0) { pill.style.display = 'none'; return; }
+  let top;
+  if (idx < mainItems.length) {
+    top = idx * STEP;
+  } else {
+    top = mainItems.length * STEP + ADM_GAP + (idx - mainItems.length) * STEP;
+  }
+  pill.style.transform = `translateY(${top}px)`;
+})();
+
+/* ── Toast helper ─────────────────────────────────────────────── */
+function vrToast(msg) {
+  const t = document.getElementById('vr-toast');
+  const m = document.getElementById('vr-toast-msg');
+  if (!t || !m) return;
+  m.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window.__vrT);
+  window.__vrT = setTimeout(() => t.classList.remove('show'), 3200);
+}
+</script>
+
+{% block scripts %}{% endblock %}
 </body>
 </html>

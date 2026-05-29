@@ -1,297 +1,243 @@
 {% extends "base.html" %}
-{% block title %}Dashboard · JR Verifica EC{% endblock %}
+{% block title %}Panel · JR Verifica EC{% endblock %}
 
 {% block content %}
-<!-- Hero personalizado -->
-<div class="relative mb-8">
-    <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-brand-300/15 rounded-full blur-3xl -z-10"></div>
-    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+<style>
+.kpi-icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dist-bar-track { height: 7px; background: var(--line2); border-radius: 99px; overflow: hidden; }
+.dist-bar-fill  { height: 100%; border-radius: 99px; transition: width .8s var(--ease); }
+.act-bar { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; cursor: default; }
+.act-bar-fill { width: 100%; border-radius: 4px 4px 2px 2px; transition: height .7s var(--ease); background: linear-gradient(180deg,var(--primary),rgba(91,75,227,.75)); }
+.act-tooltip {
+  position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  margin-bottom: 6px; background: var(--rail); color: #fff; font-size: 10.5px;
+  font-family: var(--font-m); padding: 3px 8px; border-radius: 7px; white-space: nowrap; z-index: 2;
+  pointer-events: none;
+}
+</style>
+
+<div class="vr-page">
+  <!-- Page header -->
+  <div class="vr-ph">
+    <div>
+      <div class="vr-eyebrow">Executive dashboard</div>
+      <h1 class="vr-title">Panel de control</h1>
+      <p class="vr-sub">Rendimiento operativo de los últimos 30 días.</p>
+    </div>
+    <form method="GET" action="/dashboard">
+      <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Actualizar
+      </button>
+    </form>
+  </div>
+
+  <!-- KPIs -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px;">
+    <!-- Total -->
+    <div class="vr-card vr-card-hover" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span style="font-size:11.5px;font-weight:600;color:var(--text2);">Total verificaciones</span>
+        <div class="kpi-icon" style="background:rgba(91,75,227,.1);color:var(--primary);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
+      </div>
+      <div class="vr-count-up" data-target="{{ stats.total }}" style="font-family:var(--font-d);font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-top:14px;">{{ stats.total }}</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:4px;">{{ stats.mes }} este mes</div>
+    </div>
+    <!-- Horas ahorradas -->
+    <div class="vr-card vr-card-hover" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span style="font-size:11.5px;font-weight:600;color:var(--text2);">Horas ahorradas</span>
+        <div class="kpi-icon" style="background:rgba(79,107,237,.1);color:#4F6BED;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+      </div>
+      <div class="vr-count-up" data-target="{{ stats.horas_ahorradas }}" data-suffix=" h" style="font-family:var(--font-d);font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-top:14px;">{{ stats.horas_ahorradas }} h</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:4px;">vs. proceso manual</div>
+    </div>
+    <!-- Ahorro -->
+    <div class="vr-card vr-card-hover" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span style="font-size:11.5px;font-weight:600;color:var(--text2);">Ahorro estimado</span>
+        <div class="kpi-icon" style="background:rgba(18,161,80,.1);color:var(--apto);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+      </div>
+      <div class="vr-count-up" data-target="{{ stats.valor_ahorrado_usd }}" data-prefix="$" style="font-family:var(--font-d);font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-top:14px;">${{ stats.valor_ahorrado_usd }}</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:4px;">USD acumulado</div>
+    </div>
+    <!-- Hoy -->
+    <div class="vr-card vr-card-hover" style="padding:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <span style="font-size:11.5px;font-weight:600;color:var(--text2);">Hoy</span>
+        <div class="kpi-icon" style="background:rgba(224,140,11,.1);color:var(--obs);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+      </div>
+      <div class="vr-count-up" data-target="{{ stats.hoy }}" style="font-family:var(--font-d);font-size:28px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-top:14px;">{{ stats.hoy }}</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:4px;">{{ stats.semana }} esta semana</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.7fr 1fr;gap:16px;">
+    <!-- Activity chart -->
+    <div class="vr-card" style="padding:24px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px;">
         <div>
-            <p class="text-sm font-semibold text-brand-600 mb-2 flex items-center gap-2">
-                <span class="inline-block w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
-                <span id="greeting-time">Buenas tardes</span>, equipo de RR.HH.
-            </p>
-            <h1 class="h-display text-4xl sm:text-5xl">Panel de control</h1>
-            <p class="text-slate-500 mt-2.5 text-base">Resumen ejecutivo de actividad y métricas de uso</p>
+          <h3 style="margin:0;font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--text);">Actividad</h3>
+          <p style="margin:3px 0 0;font-size:12px;color:var(--text3);">Verificaciones por día · 30 días</p>
         </div>
-        <a href="/" class="btn-primary">
-            <i data-lucide="plus" class="icon-sm"></i>
-            Nueva verificación
-        </a>
+        <span id="act-peak" style="font-size:12px;color:var(--text3);font-family:var(--font-m);">pico —</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:150px;" id="act-chart">
+        <!-- Bars injected by JS -->
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:10.5px;color:var(--text3);font-family:var(--font-m);">
+        <span>hace 30 d</span><span>hoy</span>
+      </div>
     </div>
+
+    <!-- Distribution -->
+    <div class="vr-card" style="padding:24px;">
+      <h3 style="margin:0;font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px;">Distribución</h3>
+      <p style="margin:0 0 18px;font-size:12px;color:var(--text3);">Veredictos · histórico</p>
+
+      <!-- Donut -->
+      <div style="position:relative;width:140px;height:140px;margin:0 auto 18px;">
+        <svg width="140" height="140" viewBox="0 0 140 140" id="donut-svg" style="transform:rotate(-90deg)">
+          <circle cx="70" cy="70" r="52" fill="none" stroke="var(--line2)" stroke-width="16"/>
+          <!-- Segments added by JS -->
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="font-family:var(--font-d);font-size:26px;font-weight:800;color:var(--apto);letter-spacing:-.02em;" id="donut-pct">0%</div>
+          <div style="font-size:10.5px;color:var(--text3);font-weight:600;">aptos</div>
+        </div>
+      </div>
+
+      <!-- Distribution bars -->
+      <div style="display:flex;flex-direction:column;gap:11px;" id="dist-bars">
+        {% set total_sem = stats.niveles.values()|sum if stats.niveles else 1 %}
+        {% for nivel, count in stats.niveles.items() %}
+        {% set pct = (count * 100 // (total_sem if total_sem > 0 else 1)) %}
+        {% if nivel == 'APTO' %}{% set solid = '#12A150' %}
+        {% elif nivel == 'OBSERVACIÓN' %}{% set solid = '#E08C0B' %}
+        {% elif nivel == 'RECHAZAR' %}{% set solid = '#E04338' %}
+        {% elif nivel == 'CRÍTICO' %}{% set solid = '#7C1D14' %}
+        {% else %}{% set solid = '#8B90A3' %}
+        {% endif %}
+        <div data-pct="{{ pct }}" data-color="{{ solid }}">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+            <span style="display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--text2);">
+              <span style="width:9px;height:9px;border-radius:3px;background:{{ solid }};display:inline-block;"></span>
+              {{ nivel }}
+            </span>
+            <span style="font-size:12px;color:var(--text3);font-family:var(--font-m);">{{ count }} · {{ pct }}%</span>
+          </div>
+          <div class="dist-bar-track">
+            <div class="dist-bar-fill" data-pct="{{ pct }}" style="width:0%;background:{{ solid }};"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 </div>
+{% endblock %}
 
-<div class="space-y-6">
-    <!-- KPI cards con sparklines y tendencia -->
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="card p-5 card-hover relative overflow-hidden">
-            <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
-                        <i data-lucide="database" class="icon-sm"></i>
-                    </div>
-                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Total</span>
-                </div>
-            </div>
-            <div class="text-3xl font-extrabold text-slate-900 tracking-tight">{{ stats.total }}</div>
-            <div class="text-xs text-slate-500 mt-1">consultas históricas</div>
-            <canvas class="absolute bottom-0 left-0 right-0 h-12 opacity-30" data-spark="total"></canvas>
-        </div>
-
-        <div class="card p-5 card-hover relative overflow-hidden">
-            <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <i data-lucide="zap" class="icon-sm"></i>
-                    </div>
-                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Hoy</span>
-                </div>
-                {% if stats.hoy > 0 %}<span class="badge-trend-up"><i data-lucide="trending-up" class="icon-xs"></i> Activo</span>{% endif %}
-            </div>
-            <div class="text-3xl font-extrabold text-brand-600 tracking-tight">{{ stats.hoy }}</div>
-            <div class="text-xs text-slate-500 mt-1">últimas 24 horas</div>
-        </div>
-
-        <div class="card p-5 card-hover">
-            <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                        <i data-lucide="calendar" class="icon-sm"></i>
-                    </div>
-                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Semana</span>
-                </div>
-            </div>
-            <div class="text-3xl font-extrabold text-indigo-600 tracking-tight">{{ stats.semana }}</div>
-            <div class="text-xs text-slate-500 mt-1">últimos 7 días</div>
-        </div>
-
-        <div class="card p-5 card-hover">
-            <div class="flex items-start justify-between mb-3">
-                <div class="flex items-center gap-2">
-                    <div class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-                        <i data-lucide="calendar-days" class="icon-sm"></i>
-                    </div>
-                    <span class="text-[10px] uppercase tracking-wider font-bold text-slate-500">Mes</span>
-                </div>
-            </div>
-            <div class="text-3xl font-extrabold text-violet-600 tracking-tight">{{ stats.mes }}</div>
-            <div class="text-xs text-slate-500 mt-1">últimos 30 días</div>
-        </div>
-    </div>
-
-    <!-- ROI hero — más cargado, con 4 mini-stats -->
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white p-7 shadow-elevate">
-        <div class="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-        <div class="absolute bottom-0 left-0 w-72 h-72 bg-cyan-300/15 rounded-full -ml-24 -mb-24 blur-3xl"></div>
-
-        <div class="relative">
-            <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-6">
-                <div>
-                    <div class="flex items-center gap-2 text-emerald-100 text-xs font-bold uppercase tracking-wider mb-2">
-                        <i data-lucide="trending-up" class="icon-sm"></i>
-                        Ahorro acumulado
-                    </div>
-                    <div class="flex items-baseline gap-3">
-                        <span class="text-6xl font-extrabold tracking-tight">${{ stats.valor_ahorrado_usd }}</span>
-                        <span class="text-emerald-100 text-sm">USD</span>
-                    </div>
-                    <div class="text-emerald-100 text-sm mt-1.5">vs. verificación manual de RRHH</div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 pt-5 border-t border-white/20">
-                <div>
-                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Verificaciones</div>
-                    <div class="text-2xl font-bold tracking-tight">{{ stats.total }}</div>
-                </div>
-                <div>
-                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Horas ahorradas</div>
-                    <div class="text-2xl font-bold tracking-tight">{{ stats.horas_ahorradas }}h</div>
-                </div>
-                <div>
-                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Por consulta</div>
-                    <div class="text-2xl font-bold tracking-tight">~15min</div>
-                </div>
-                <div>
-                    <div class="text-emerald-100 text-[10px] uppercase tracking-wider font-bold mb-1">Precisión</div>
-                    <div class="text-2xl font-bold tracking-tight">100%</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Distribución + Tendencia -->
-    <div class="grid lg:grid-cols-5 gap-4">
-        <div class="lg:col-span-2 card p-6">
-            <div class="flex items-center justify-between mb-5">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="pie-chart" class="icon-sm text-slate-700"></i>
-                    <h3 class="font-bold text-slate-900 text-base">Distribución por nivel</h3>
-                </div>
-                <span class="text-xs text-slate-400">últimos 30 días</span>
-            </div>
-            <div class="space-y-4">
-                {% for nivel, count in stats.niveles.items() %}
-                {% if count > 0 %}
-                {% set pct = (count * 100 // (stats.total if stats.total > 0 else 1)) %}
-                <div>
-                    <div class="flex justify-between items-center text-sm mb-1.5">
-                        <span>
-                            {% if nivel == "APTO" %}<span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
-                            {% elif nivel == "OBSERVACIÓN" %}<span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
-                            {% elif nivel == "RECHAZAR" %}<span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
-                            {% elif nivel == "CRÍTICO" %}<span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>
-                            {% elif nivel == "SIN DATOS" %}<span class="badge badge-sin"><span class="badge-dot"></span>SIN DATOS</span>
-                            {% else %}<span class="badge badge-sin"><span class="badge-dot"></span>{{ nivel }}</span>{% endif %}
-                        </span>
-                        <span class="text-sm font-mono font-bold text-slate-700">{{ count }} <span class="text-slate-400 font-medium ml-1">({{ pct }}%)</span></span>
-                    </div>
-                    <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                        <div class="h-2 rounded-full transition-all duration-500
-                            {% if nivel == 'APTO' %}bg-gradient-to-r from-emerald-400 to-emerald-500
-                            {% elif nivel == 'OBSERVACIÓN' %}bg-gradient-to-r from-amber-400 to-amber-500
-                            {% elif nivel == 'RECHAZAR' %}bg-gradient-to-r from-red-400 to-red-500
-                            {% elif nivel == 'CRÍTICO' %}bg-gradient-to-r from-red-800 to-red-950
-                            {% else %}bg-slate-400{% endif %}"
-                            style="width: {{ pct }}%"></div>
-                    </div>
-                </div>
-                {% endif %}
-                {% endfor %}
-                {% if stats.total == 0 %}
-                <div class="text-center text-slate-400 py-12 text-sm flex flex-col items-center gap-2">
-                    <i data-lucide="pie-chart" class="icon-lg opacity-30"></i>
-                    Sin datos aún
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <div class="lg:col-span-3 card p-6">
-            <div class="flex items-center justify-between mb-5">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="activity" class="icon-sm text-slate-700"></i>
-                    <h3 class="font-bold text-slate-900 text-base">Volumen — últimos 30 días</h3>
-                </div>
-                <span class="text-xs text-slate-400">{{ stats.mes }} consultas</span>
-            </div>
-            <div class="relative h-[240px]">
-                <canvas id="chart-tendencia"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <!-- Top delitos + Top instituciones -->
-    <div class="grid lg:grid-cols-2 gap-4">
-        <div class="card p-6">
-            <div class="flex items-center justify-between mb-5">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
-                        <i data-lucide="alert-octagon" class="icon-sm"></i>
-                    </div>
-                    <h3 class="font-bold text-slate-900 text-base">Top delitos detectados</h3>
-                </div>
-            </div>
-            {% if stats.top_delitos %}
-            <ol class="space-y-1">
-                {% for delito, count in stats.top_delitos %}
-                <li class="flex items-center justify-between gap-3 text-sm py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 -mx-2 px-2 rounded transition">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="flex-shrink-0 font-mono font-bold text-xs text-slate-400 w-6">{{ "%02d"|format(loop.index) }}</span>
-                        <span class="text-slate-800 font-medium truncate">{{ delito }}</span>
-                    </div>
-                    <span class="font-mono font-bold text-red-700 text-sm">{{ count }}</span>
-                </li>
-                {% endfor %}
-            </ol>
-            {% else %}
-            <div class="text-center text-slate-400 py-12 text-sm flex flex-col items-center gap-2">
-                <i data-lucide="shield-check" class="icon-lg opacity-30"></i>
-                Sin delitos detectados aún
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="card p-6">
-            <div class="flex items-center justify-between mb-5">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
-                        <i data-lucide="building-2" class="icon-sm"></i>
-                    </div>
-                    <h3 class="font-bold text-slate-900 text-base">Top instituciones educativas</h3>
-                </div>
-            </div>
-            {% if stats.top_instituciones %}
-            <ol class="space-y-1">
-                {% for inst, count in stats.top_instituciones %}
-                <li class="flex items-center justify-between gap-3 text-sm py-3 border-b border-slate-100 last:border-0 hover:bg-slate-50/50 -mx-2 px-2 rounded transition">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <span class="flex-shrink-0 font-mono font-bold text-xs text-slate-400 w-6">{{ "%02d"|format(loop.index) }}</span>
-                        <span class="text-slate-800 font-medium truncate">{{ inst }}</span>
-                    </div>
-                    <span class="font-mono font-bold text-brand-700 text-sm">{{ count }}</span>
-                </li>
-                {% endfor %}
-            </ol>
-            {% else %}
-            <div class="text-center text-slate-400 py-12 text-sm flex flex-col items-center gap-2">
-                <i data-lucide="building-2" class="icon-lg opacity-30"></i>
-                Sin instituciones registradas
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% block scripts %}
 <script>
-// Saludo dinámico
-const hora = new Date().getHours();
-const saludo = hora < 12 ? 'Buenos días' : (hora < 19 ? 'Buenas tardes' : 'Buenas noches');
-document.getElementById('greeting-time').textContent = saludo;
+/* ── Count-up ──────────────────────────────────────────────────── */
+function countUp(el, target, prefix, suffix, dur) {
+  const start = performance.now();
+  function tick(now) {
+    const p = Math.min(1, (now - start) / dur);
+    const v = Math.round(target * (1 - Math.pow(1 - p, 3)));
+    el.textContent = (prefix||'') + v.toLocaleString('es-EC') + (suffix||'');
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+document.querySelectorAll('.vr-count-up').forEach(el => {
+  const t = parseInt(el.dataset.target) || 0;
+  countUp(el, t, el.dataset.prefix||'', el.dataset.suffix||'', 900);
+});
 
-const series = {{ stats.series_dia | tojson }};
-const ctx = document.getElementById('chart-tendencia').getContext('2d');
-const gradient = ctx.createLinearGradient(0, 0, 0, 220);
-gradient.addColorStop(0, 'rgba(99, 102, 241, 0.35)');
-gradient.addColorStop(1, 'rgba(99, 102, 241, 0)');
+/* ── Activity chart ────────────────────────────────────────────── */
+const actData = {{ stats.actividad_30d | tojson if stats.actividad_30d else '[]' }};
+const chartEl = document.getElementById('act-chart');
 
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: series.map(s => s.dia),
-        datasets: [{
-            label: 'Consultas',
-            data: series.map(s => s.consultas),
-            borderColor: '#4f46e5',
-            backgroundColor: gradient,
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: '#4f46e5',
-            pointBorderColor: '#fff',
-            pointBorderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 5,
-            borderWidth: 2.5,
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                backgroundColor: '#0f172a', padding: 12,
-                titleFont: { size: 12, weight: 'bold' },
-                bodyFont: { size: 12 },
-                displayColors: false, cornerRadius: 8,
-            }
-        },
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 }, border: { display: false } },
-            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9, family: 'JetBrains Mono' }, color: '#94a3b8' }, grid: { color: '#f1f5f9', drawBorder: false }, border: { display: false } }
-        }
-    }
+if (actData && actData.length > 0) {
+  const max = Math.max(...actData, 1);
+  document.getElementById('act-peak').textContent = 'pico ' + max;
+  let hovering = null;
+  actData.forEach((v, i) => {
+    const col = document.createElement('div');
+    col.className = 'act-bar';
+    const fill = document.createElement('div');
+    fill.className = 'act-bar-fill';
+    fill.style.height = '0%';
+    const tip = document.createElement('div');
+    tip.className = 'act-tooltip';
+    tip.textContent = `d-${actData.length - i}: ${v}`;
+    tip.style.display = 'none';
+    col.appendChild(tip);
+    col.appendChild(fill);
+    col.addEventListener('mouseenter', () => { tip.style.display='block'; fill.style.background=`#4B3BD6`; });
+    col.addEventListener('mouseleave', () => { tip.style.display='none'; fill.style.background=''; });
+    chartEl.appendChild(col);
+    setTimeout(() => {
+      fill.style.height = Math.max(3, Math.round((v / max) * 100)) + '%';
+    }, 360 + i * 22);
+  });
+} else {
+  chartEl.innerHTML = '<div style="width:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;">Sin datos de actividad</div>';
+}
+
+/* ── Donut chart ───────────────────────────────────────────────── */
+(function() {
+  const niveles = [
+    {% for nivel, count in stats.niveles.items() %}
+    {% set total_sem = stats.niveles.values()|sum if stats.niveles else 1 %}
+    {% if nivel == 'APTO' %}{% set solid = '#12A150' %}
+    {% elif nivel == 'OBSERVACIÓN' %}{% set solid = '#E08C0B' %}
+    {% elif nivel == 'RECHAZAR' %}{% set solid = '#E04338' %}
+    {% elif nivel == 'CRÍTICO' %}{% set solid = '#7C1D14' %}
+    {% else %}{% set solid = '#8B90A3' %}
+    {% endif %}
+    { color: '{{ solid }}', frac: {{ count / (total_sem if total_sem > 0 else 1) }} },
+    {% endfor %}
+  ];
+  const R = 52, C = 2 * Math.PI * R;
+  const svg = document.getElementById('donut-svg');
+  let acc = 0;
+  niveles.forEach((n, i) => {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', 70); circle.setAttribute('cy', 70); circle.setAttribute('r', R);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', n.color);
+    circle.setAttribute('stroke-width', 16);
+    circle.setAttribute('stroke-dasharray', `0 ${C}`);
+    circle.setAttribute('stroke-dashoffset', -(acc * C));
+    circle.style.transition = `stroke-dasharray .9s var(--ease) ${i * 90}ms`;
+    svg.appendChild(circle);
+    acc += n.frac;
+    setTimeout(() => {
+      circle.setAttribute('stroke-dasharray', `${n.frac * C} ${C}`);
+    }, 460);
+  });
+
+  // Apto percentage count-up
+  const aptoFrac = (niveles[0] && niveles[0].frac) || 0;
+  const aptoPct  = Math.round(aptoFrac * 100);
+  const pctEl    = document.getElementById('donut-pct');
+  countUp(pctEl, aptoPct, '', '%', 900);
+})();
+
+/* ── Distribution bars animate in ─────────────────────────────── */
+document.querySelectorAll('.dist-bar-fill').forEach((bar, i) => {
+  const pct = bar.dataset.pct || 0;
+  setTimeout(() => { bar.style.width = pct + '%'; }, 460 + i * 70);
 });
 </script>
 {% endblock %}

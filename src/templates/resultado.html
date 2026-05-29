@@ -4,485 +4,514 @@
 {% block content %}
 {% set b = resultado.bachiller or {} %}
 {% set s = resultado.satje or {} %}
+{% set setec = resultado.setec or {} %}
+{% set fiscalia = resultado.fiscalia or {} %}
 {% set sem = resultado.semaforo or "" %}
 
-{# Configuración visual según veredicto #}
-{% set hero_gradient = "from-slate-600 via-slate-700 to-slate-900" %}
-{% set hero_glow = "from-slate-400/30" %}
-{% set verdict_icon = "circle-help" %}
 {% if 'APTO' in sem %}
-    {% set hero_gradient = "from-emerald-500 via-emerald-600 to-teal-700" %}
-    {% set hero_glow = "from-emerald-300/40" %}
-    {% set verdict_icon = "check-circle-2" %}
+  {% set sem_grad = 'linear-gradient(135deg,#12A150 0%,#0B8C42 60%,#086B33 100%)' %}
+  {% set sem_glow = 'rgba(18,161,80,.22)' %}
+  {% set sem_icon_svg = '<polyline points="20 6 9 17 4 12"/>' %}
 {% elif 'OBSERVACIÓN' in sem %}
-    {% set hero_gradient = "from-amber-500 via-amber-600 to-orange-700" %}
-    {% set hero_glow = "from-amber-300/40" %}
-    {% set verdict_icon = "alert-circle" %}
+  {% set sem_grad = 'linear-gradient(135deg,#E08C0B 0%,#C47A09 60%,#8A5606 100%)' %}
+  {% set sem_glow = 'rgba(224,140,11,.22)' %}
+  {% set sem_icon_svg = '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>' %}
 {% elif 'CRÍTICO' in sem %}
-    {% set hero_gradient = "from-red-900 via-red-950 to-slate-950" %}
-    {% set hero_glow = "from-red-500/40" %}
-    {% set verdict_icon = "alert-octagon" %}
+  {% set sem_grad = 'linear-gradient(135deg,#7C1D14 0%,#5C150F 60%,#3D0D09 100%)' %}
+  {% set sem_glow = 'rgba(124,29,20,.30)' %}
+  {% set sem_icon_svg = '<polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' %}
 {% elif 'RECHAZAR' in sem %}
-    {% set hero_gradient = "from-red-500 via-red-600 to-red-800" %}
-    {% set hero_glow = "from-red-300/40" %}
-    {% set verdict_icon = "x-circle" %}
+  {% set sem_grad = 'linear-gradient(135deg,#E04338 0%,#C0392B 60%,#921E16 100%)' %}
+  {% set sem_glow = 'rgba(224,67,56,.22)' %}
+  {% set sem_icon_svg = '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>' %}
+{% else %}
+  {% set sem_grad = 'linear-gradient(135deg,#565B6E 0%,#3E4253 100%)' %}
+  {% set sem_glow = 'rgba(86,91,110,.18)' %}
+  {% set sem_icon_svg = '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' %}
 {% endif %}
 
-<div class="max-w-4xl mx-auto space-y-5">
+<style>
+.res-source-card { margin-bottom: 14px; }
+.res-source-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.res-source-icon {
+  width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.res-status-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 16px; border-radius: 14px;
+  border: 1px solid; margin-bottom: 0;
+}
+.res-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-top: 14px; padding-left: 50px; }
+.res-field-key { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 4px; }
+.res-field-val { font-size: 13px; font-weight: 700; color: var(--text); }
+.res-counter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.res-counter { border-radius: 14px; padding: 16px; text-align: center; border: 1px solid; }
+.res-crime-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+.res-crime-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: var(--surface); border: 1px solid; border-radius: 10px;
+  padding: 10px 14px; font-size: 12.5px;
+}
+.res-cert-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  border: 1px solid rgba(124,58,237,.15); background: rgba(124,58,237,.04);
+  border-radius: 10px; padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--text2);
+}
+.res-cert-dot { width: 20px; height: 20px; border-radius: 50%; background: #7C3AED; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+</style>
 
-    {% if desde_cache %}
-    <div class="card p-3 px-4 flex items-center justify-between gap-3 no-print bg-brand-50/40 border-brand-100">
-        <div class="flex items-center gap-2.5 text-sm">
-            <div class="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center">
-                <i data-lucide="database" class="icon-xs"></i>
-            </div>
-            <span class="text-slate-700">
-                <strong class="text-slate-900">Resultado desde caché.</strong>
-                {% if edad_seg %}
-                    Consultado hace {% if edad_seg < 3600 %}{{ (edad_seg // 60) }} min{% elif edad_seg < 86400 %}{{ (edad_seg // 3600) }}h{% else %}{{ (edad_seg // 86400) }} días{% endif %}.
-                {% endif %}
-            </span>
-        </div>
-        <form method="POST" action="/buscar" class="inline" onsubmit="mostrarLoaderReverificar()">
-            <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
-            <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
-            <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
-            <input type="hidden" name="setec_check" value="{% if resultado.setec %}1{% endif %}">
-            <input type="hidden" name="fiscalia_check" value="{% if resultado.fiscalia %}1{% endif %}">
-            <input type="hidden" name="forzar" value="1">
-            <button type="submit" class="btn-secondary !py-1.5 !px-3 text-xs">
-                <i data-lucide="refresh-cw" class="icon-xs"></i>
-                Re-verificar
-            </button>
-        </form>
-    </div>
-    {% endif %}
+<div class="vr-page" style="max-width:800px;">
 
-    <!-- Hero dramático con veredicto -->
-    <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br {{ hero_gradient }} text-white shadow-elevate">
-        <div class="absolute -top-32 -right-32 w-96 h-96 bg-gradient-to-br {{ hero_glow }} to-transparent rounded-full blur-3xl"></div>
-        <div class="absolute -bottom-32 -left-32 w-96 h-96 bg-white/5 rounded-full blur-3xl"></div>
-
-        <div class="relative p-8 sm:p-10">
-            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6 mb-6">
-                <div>
-                    <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-3">Veredicto oficial</div>
-                    <div class="flex items-center gap-4">
-                        <div class="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center flex-shrink-0 ring-1 ring-white/20">
-                            <i data-lucide="{{ verdict_icon }}" class="w-8 h-8"></i>
-                        </div>
-                        <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">{{ sem or 'Consulta' }}</span>
-                    </div>
-                </div>
-                <div class="text-left sm:text-right">
-                    <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-2">Cédula</div>
-                    <div class="font-mono text-2xl font-bold">{{ resultado.cedula }}</div>
-                </div>
-            </div>
-
-            <div class="pt-6 border-t border-white/15">
-                <div class="text-[11px] font-bold uppercase tracking-[0.2em] text-white/60 mb-1.5">Nombre oficial</div>
-                <div id="nombre-display" class="flex items-center gap-3">
-                    {% if resultado.nombre %}
-                    <div class="text-xl sm:text-2xl font-bold tracking-tight" id="nombre-texto">{{ resultado.nombre }}</div>
-                    {% else %}
-                    <div class="text-base font-medium text-white/50 italic" id="nombre-texto">No disponible</div>
-                    {% endif %}
-                    <button onclick="mostrarEditorNombre()" class="text-white/50 hover:text-white/90 transition-colors no-print" title="Editar nombre">
-                        <i data-lucide="pencil" class="w-4 h-4"></i>
-                    </button>
-                </div>
-                <div id="nombre-editor" class="hidden flex items-center gap-2 mt-1">
-                    <input id="nombre-input" type="text" value="{{ resultado.nombre or '' }}"
-                        placeholder="Escribe el nombre completo..."
-                        class="bg-white/15 border border-white/30 rounded-lg px-3 py-1.5 text-sm text-white placeholder-white/40 focus:outline-none focus:border-white/60 w-72">
-                    <button onclick="guardarNombre('{{ resultado.cedula }}')"
-                        class="bg-white/20 hover:bg-white/30 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors">
-                        Guardar
-                    </button>
-                    <button onclick="cancelarEditorNombre()" class="text-white/50 hover:text-white/80 text-xs px-2 py-1.5">
-                        Cancelar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bachiller -->
-    {% if b %}
-    <div class="card p-6 sm:p-7 card-hover">
-        <div class="flex items-center gap-2.5 mb-5">
-            <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                <i data-lucide="graduation-cap" class="icon-md"></i>
-            </div>
-            <div>
-                <h3 class="text-base font-bold text-slate-900">Bachiller</h3>
-                <p class="text-xs text-slate-500">Ministerio de Educación del Ecuador</p>
-            </div>
-        </div>
-
-        {% if b.estado == "ENCONTRADO" %}
-        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-5">
-            <div class="flex items-start gap-3 mb-5">
-                <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
-                    <i data-lucide="check" class="icon-sm"></i>
-                </div>
-                <div>
-                    <div class="font-bold text-emerald-900 text-base">Título confirmado oficialmente</div>
-                    <div class="text-xs text-emerald-700 mt-0.5 flex items-center gap-1.5">
-                        <i data-lucide="badge-check" class="icon-xs"></i>
-                        Registro oficial verificado
-                    </div>
-                </div>
-            </div>
-            <div class="grid sm:grid-cols-2 gap-x-6 gap-y-4 pl-12">
-                {% if b.titulo %}
-                <div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Título</div>
-                    <div class="text-sm font-bold text-slate-900">{{ b.titulo }}</div>
-                </div>
-                {% endif %}
-                {% if b.especialidad %}
-                <div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Especialidad</div>
-                    <div class="text-sm font-bold text-slate-900">{{ b.especialidad }}</div>
-                </div>
-                {% endif %}
-                {% if b.institucion %}
-                <div class="sm:col-span-2">
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Institución</div>
-                    <div class="text-sm font-bold text-slate-900">{{ b.institucion }}</div>
-                </div>
-                {% endif %}
-                {% if b.fecha_grado %}
-                <div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-emerald-700/80 mb-1">Año de grado</div>
-                    <div class="text-sm font-bold text-slate-900 font-mono">{{ b.fecha_grado[:4] }}</div>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        {% elif b.estado == "NO_ENCONTRADO" %}
-        <div class="rounded-xl border border-amber-200 bg-gradient-to-br from-amber-50 to-amber-50/30 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-amber-500/30">
-                <i data-lucide="alert-triangle" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-amber-900 text-base">Sin registro oficial</div>
-                <div class="text-sm text-amber-800 mt-0.5">No existe título de bachiller registrado para esta cédula en el Ministerio.</div>
-            </div>
-        </div>
-        {% else %}
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-slate-400 text-white flex items-center justify-center flex-shrink-0">
-                <i data-lucide="x" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-slate-700">Error de consulta</div>
-                <div class="text-sm text-slate-600 mt-0.5">{{ b.detalle or "No se pudo completar la consulta" }}</div>
-            </div>
-        </div>
+  <!-- Cache banner -->
+  {% if desde_cache %}
+  <div style="background:rgba(91,75,227,.06);border:1px solid rgba(91,75,227,.18);border-radius:12px;padding:11px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;" class="no-print">
+    <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text2);">
+      <div style="width:28px;height:28px;border-radius:9px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      </div>
+      <span><strong style="color:var(--text);">Resultado desde caché.</strong>
+        {% if edad_seg %}
+          Consultado hace {% if edad_seg < 3600 %}{{ (edad_seg // 60) }} min{% elif edad_seg < 86400 %}{{ (edad_seg // 3600) }}h{% else %}{{ (edad_seg // 86400) }} días{% endif %}.
         {% endif %}
+      </span>
+    </div>
+    <form method="POST" action="/buscar" onsubmit="mostrarLoaderReverificar()">
+      <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
+      <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
+      <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
+      <input type="hidden" name="setec_check" value="{% if setec %}1{% endif %}">
+      <input type="hidden" name="fiscalia_check" value="{% if fiscalia %}1{% endif %}">
+      <input type="hidden" name="forzar" value="1">
+      <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Re-verificar
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Veredicto hero -->
+  <div style="border-radius:20px;overflow:hidden;margin-bottom:16px;background:{{ sem_grad }};color:#fff;position:relative;box-shadow:0 16px 48px -12px {{ sem_glow }};">
+    <div style="position:absolute;top:-60px;right:-60px;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.08);filter:blur(40px);pointer-events:none;"></div>
+    <div style="position:absolute;bottom:-60px;left:-60px;width:200px;height:200px;border-radius:50%;background:rgba(0,0,0,.08);filter:blur(40px);pointer-events:none;"></div>
+    <div style="position:relative;padding:32px 36px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap;margin-bottom:24px;">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;opacity:.65;margin-bottom:14px;">Veredicto oficial</div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:52px;height:52px;border-radius:16px;background:rgba(255,255,255,.18);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ sem_icon_svg }}</svg>
+            </div>
+            <span style="font-family:var(--font-d);font-size:36px;font-weight:800;letter-spacing:-.03em;">{{ sem or 'Consulta' }}</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;opacity:.65;margin-bottom:6px;">Cédula</div>
+          <div style="font-family:var(--font-m);font-size:22px;font-weight:700;">{{ resultado.cedula }}</div>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid rgba(255,255,255,.18);padding-top:20px;">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;opacity:.65;margin-bottom:8px;">Nombre oficial</div>
+        <div id="nombre-display" style="display:flex;align-items:center;gap:12px;">
+          <span style="font-family:var(--font-d);font-size:20px;font-weight:800;letter-spacing:-.02em;" id="nombre-texto">
+            {{ resultado.nombre or 'No disponible' }}
+          </span>
+          <button onclick="mostrarEditorNombre()" title="Editar nombre" class="no-print"
+                  style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.55);padding:4px;display:flex;transition:color .15s;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+        <div id="nombre-editor" style="display:none;align-items:center;gap:8px;margin-top:6px;">
+          <input id="nombre-input" type="text" value="{{ resultado.nombre or '' }}"
+            placeholder="Escribe el nombre completo…"
+            style="background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:8px 12px;font-size:13px;color:#fff;outline:none;width:280px;font-family:var(--font-b);"
+            onfocus="this.style.borderColor='rgba(255,255,255,.7)'" onblur="this.style.borderColor='rgba(255,255,255,.35)'">
+          <button onclick="guardarNombre('{{ resultado.cedula }}')"
+                  style="background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.3);border-radius:9px;padding:7px 14px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-d);transition:background .15s;">
+            Guardar
+          </button>
+          <button onclick="cancelarEditorNombre()"
+                  style="background:none;border:none;color:rgba(255,255,255,.55);font-size:12px;cursor:pointer;padding:6px;">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bachiller ─────────────────────────────────────────────── -->
+  {% if b %}
+  <div class="vr-card res-source-card" style="padding:24px;">
+    <div class="res-source-head">
+      <div class="res-source-icon" style="background:var(--primary-soft);color:var(--primary);">
+        <img src="/static/logos/logo-mineduc-mark.png" width="24" height="24" alt="Mineduc"
+             onerror="this.outerHTML='<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M22 10v6M2 10l10-5 10 5-10 5z\'/><path d=\'M6 12v5c3 3 9 3 12 0v-5\'/></svg>'">
+      </div>
+      <div>
+        <div style="font-family:var(--font-d);font-size:15px;font-weight:800;color:var(--text);">Bachiller</div>
+        <div style="font-size:11px;color:var(--text3);">Ministerio de Educación del Ecuador</div>
+      </div>
+    </div>
+
+    {% if b.estado == "ENCONTRADO" %}
+    <div class="res-status-row" style="background:rgba(18,161,80,.06);border-color:rgba(18,161,80,.2);">
+      <div style="width:36px;height:36px;border-radius:11px;background:#12A150;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(18,161,80,.3);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:14px;color:var(--apto-t);">Título confirmado oficialmente</div>
+        <div style="font-size:11px;color:var(--apto);margin-top:3px;display:flex;align-items:center;gap:5px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          Registro oficial verificado
+        </div>
+        <div class="res-row" style="padding-left:0;margin-top:16px;">
+          {% if b.titulo %}
+          <div>
+            <div class="res-field-key" style="color:var(--apto);">Título</div>
+            <div class="res-field-val">{{ b.titulo }}</div>
+          </div>
+          {% endif %}
+          {% if b.especialidad %}
+          <div>
+            <div class="res-field-key" style="color:var(--apto);">Especialidad</div>
+            <div class="res-field-val">{{ b.especialidad }}</div>
+          </div>
+          {% endif %}
+          {% if b.institucion %}
+          <div style="grid-column:span 2;">
+            <div class="res-field-key" style="color:var(--apto);">Institución</div>
+            <div class="res-field-val">{{ b.institucion }}</div>
+          </div>
+          {% endif %}
+          {% if b.fecha_grado %}
+          <div>
+            <div class="res-field-key" style="color:var(--apto);">Año de grado</div>
+            <div class="res-field-val" style="font-family:var(--font-m);">{{ b.fecha_grado[:4] }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% elif b.estado == "NO_ENCONTRADO" %}
+    <div class="res-status-row" style="background:rgba(224,140,11,.06);border-color:rgba(224,140,11,.2);">
+      <div style="width:36px;height:36px;border-radius:11px;background:#E08C0B;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(224,140,11,.3);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:14px;color:var(--obs-t);">Sin registro oficial</div>
+        <div style="font-size:12px;color:var(--obs);margin-top:3px;">No existe título de bachiller registrado en el Ministerio.</div>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);">
+      <div style="width:36px;height:36px;border-radius:11px;background:var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">Error de consulta</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ b.detalle or "No se pudo completar la consulta" }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ── SATJE ─────────────────────────────────────────────────── -->
+  {% if s %}
+  <div class="vr-card res-source-card" style="padding:24px;">
+    <div class="res-source-head">
+      <div class="res-source-icon" style="background:var(--primary-soft);color:var(--primary);">
+        <img src="/static/logos/logo-consejo-judicatura.png" width="24" height="24" alt="SATJE"
+             onerror="this.outerHTML='<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M3 6l9 4 9-4M3 6v12l9 4 9-4V6\'/></svg>'">
+      </div>
+      <div>
+        <div style="font-family:var(--font-d);font-size:15px;font-weight:800;color:var(--text);">Procesos Judiciales</div>
+        <div style="font-size:11px;color:var(--text3);">SATJE — Función Judicial del Ecuador</div>
+      </div>
+    </div>
+
+    {% if s.estado == "SIN_PROCESOS" %}
+    <div class="res-status-row" style="background:rgba(18,161,80,.06);border-color:rgba(18,161,80,.2);">
+      <div style="width:36px;height:36px;border-radius:11px;background:#12A150;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(18,161,80,.3);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:14px;color:var(--apto-t);">Sin procesos judiciales</div>
+        <div style="font-size:12px;color:var(--apto);margin-top:3px;">No tiene causas activas como demandado ni como actor.</div>
+      </div>
+    </div>
+
+    {% elif s.estado == "TIENE_PROCESOS" %}
+    <div class="res-counter-grid" style="margin-bottom:12px;">
+      <div class="res-counter"
+           style="{% if s.total_demandado > 0 %}background:rgba(224,67,56,.06);border-color:rgba(224,67,56,.2);{% else %}background:var(--surface-alt);border-color:var(--line);{% endif %}">
+        <div style="font-family:var(--font-m);font-size:32px;font-weight:800;{% if s.total_demandado > 0 %}color:var(--rech);{% else %}color:var(--text3);{% endif %}">{{ s.total_demandado }}</div>
+        <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;{% if s.total_demandado > 0 %}color:var(--rech);{% else %}color:var(--text3);{% endif %};margin-top:4px;">Como demandado</div>
+      </div>
+      <div class="res-counter"
+           style="{% if s.total_actor > 0 %}background:rgba(224,140,11,.06);border-color:rgba(224,140,11,.2);{% else %}background:var(--surface-alt);border-color:var(--line);{% endif %}">
+        <div style="font-family:var(--font-m);font-size:32px;font-weight:800;{% if s.total_actor > 0 %}color:var(--obs);{% else %}color:var(--text3);{% endif %}">{{ s.total_actor }}</div>
+        <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;{% if s.total_actor > 0 %}color:var(--obs);{% else %}color:var(--text3);{% endif %};margin-top:4px;">Como actor</div>
+      </div>
+    </div>
+
+    {% if s.delitos %}
+    <div style="background:rgba(224,67,56,.06);border:1px solid rgba(224,67,56,.2);border-radius:14px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <div style="width:32px;height:32px;border-radius:10px;background:#E04338;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 10px rgba(224,67,56,.3);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div style="font-weight:800;font-size:14px;color:var(--rech-t);">Delitos detectados</div>
+      </div>
+      <div class="res-crime-list">
+        {% for d in s.delitos %}
+        <div class="res-crime-item" style="border-color:rgba(224,67,56,.18);">
+          <span style="width:6px;height:6px;border-radius:50%;background:#E04338;flex-shrink:0;margin-top:5px;"></span>
+          <span style="font-weight:600;color:var(--rech-t);">{{ d }}</span>
+        </div>
+        {% endfor %}
+      </div>
     </div>
     {% endif %}
 
-    <!-- SATJE -->
-    {% if s %}
-    <div class="card p-6 sm:p-7 card-hover">
-        <div class="flex items-center gap-2.5 mb-5">
-            <div class="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center">
-                <i data-lucide="gavel" class="icon-md"></i>
-            </div>
-            <div>
-                <h3 class="text-base font-bold text-slate-900">Procesos Judiciales</h3>
-                <p class="text-xs text-slate-500">SATJE — Función Judicial del Ecuador</p>
-            </div>
-        </div>
+    {% else %}
+    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);">
+      <div style="width:36px;height:36px;border-radius:11px;background:var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">Error de consulta</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ s.detalle or "No se pudo completar la consulta" }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
 
-        {% if s.estado == "SIN_PROCESOS" %}
-        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-50/30 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
-                <i data-lucide="shield-check" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-emerald-900 text-base">Sin procesos judiciales</div>
-                <div class="text-sm text-emerald-800 mt-0.5">No tiene causas activas como demandado ni como actor en la Función Judicial.</div>
-            </div>
-        </div>
-        {% elif s.estado == "TIENE_PROCESOS" %}
-        <div class="space-y-4">
-            <div class="grid grid-cols-2 gap-3">
-                <div class="rounded-xl p-5 text-center {% if s.total_demandado > 0 %}bg-gradient-to-br from-red-50 to-red-50/30 border border-red-200 shadow-sm{% else %}bg-slate-50 border border-slate-200{% endif %}">
-                    <div class="text-4xl font-extrabold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-400{% endif %} tracking-tight font-mono">{{ s.total_demandado }}</div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold {% if s.total_demandado > 0 %}text-red-700{% else %}text-slate-500{% endif %} mt-2">Como demandado</div>
-                </div>
-                <div class="rounded-xl p-5 text-center {% if s.total_actor > 0 %}bg-gradient-to-br from-amber-50 to-amber-50/30 border border-amber-200 shadow-sm{% else %}bg-slate-50 border border-slate-200{% endif %}">
-                    <div class="text-4xl font-extrabold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-400{% endif %} tracking-tight font-mono">{{ s.total_actor }}</div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold {% if s.total_actor > 0 %}text-amber-700{% else %}text-slate-500{% endif %} mt-2">Como actor</div>
-                </div>
-            </div>
+  <!-- ── SETEC ─────────────────────────────────────────────────── -->
+  {% if setec %}
+  <div class="vr-card res-source-card" style="padding:24px;">
+    <div class="res-source-head">
+      <div class="res-source-icon" style="background:rgba(124,58,237,.1);color:#7C3AED;">
+        <img src="/static/logos/logo-setec-mark.png" width="24" height="24" alt="SETEC"
+             onerror="this.outerHTML='<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><circle cx=\'12\' cy=\'8\' r=\'7\'/><polyline points=\'8.21 13.89 7 23 12 20 17 23 15.79 13.88\'/></svg>'">
+      </div>
+      <div>
+        <div style="font-family:var(--font-d);font-size:15px;font-weight:800;color:var(--text);">Capacitaciones Oficiales</div>
+        <div style="font-size:11px;color:var(--text3);">SETEC — Ministerio de Trabajo del Ecuador</div>
+      </div>
+    </div>
 
-            {% if s.delitos %}
-            <div class="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-red-50/30 p-5">
-                <div class="flex items-center gap-2.5 mb-4">
-                    <div class="w-8 h-8 rounded-lg bg-red-500 text-white flex items-center justify-center shadow-md shadow-red-500/30">
-                        <i data-lucide="alert-octagon" class="icon-sm"></i>
-                    </div>
-                    <div class="font-bold text-red-900 text-base">Delitos detectados</div>
-                </div>
-                <ul class="space-y-2 pl-11">
-                    {% for d in s.delitos %}
-                    <li class="flex items-start gap-2.5 text-sm text-red-900">
-                        <span class="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 flex-shrink-0"></span>
-                        <span class="font-medium">{{ d }}</span>
-                    </li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% endif %}
+    {% if setec.estado == "TIENE_CERTIFICADOS" %}
+    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;">
+      <span style="font-family:var(--font-m);font-size:28px;font-weight:800;color:#7C3AED;">{{ setec.total }}</span>
+      <span style="font-size:11px;font-weight:700;color:#7C3AED;text-transform:uppercase;letter-spacing:.06em;">certificación{{ "es" if setec.total != 1 else "" }} registrada{{ "s" if setec.total != 1 else "" }}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      {% for curso in setec.cursos %}
+      <div class="res-cert-item">
+        <div class="res-cert-dot">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </div>
-        {% else %}
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-slate-400 text-white flex items-center justify-center flex-shrink-0">
-                <i data-lucide="x" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-slate-700">Error de consulta</div>
-                <div class="text-sm text-slate-600 mt-0.5">{{ s.detalle or "No se pudo completar la consulta" }}</div>
-            </div>
+        {{ curso }}
+      </div>
+      {% endfor %}
+    </div>
+
+    {% elif setec.estado == "SIN_CERTIFICADOS" %}
+    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);">
+      <div style="width:36px;height:36px;border-radius:11px;background:var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">Sin certificaciones registradas</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">No tiene cursos registrados en el SETEC.</div>
+      </div>
+    </div>
+
+    {% else %}
+    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);">
+      <div style="width:36px;height:36px;border-radius:11px;background:var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">Portal no disponible</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ setec.detalle or "No se pudo consultar el SETEC en este momento." }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ── Fiscalía SIAF ──────────────────────────────────────────── -->
+  {% if fiscalia %}
+  <div class="vr-card res-source-card" style="padding:24px;">
+    <div class="res-source-head">
+      <div class="res-source-icon" style="{% if fiscalia.tiene_antecedentes %}background:rgba(224,67,56,.1);color:var(--rech);{% else %}background:var(--surface-alt);color:var(--text3);{% endif %}">
+        <img src="/static/logos/logo-fge-mark.png" width="24" height="24" alt="Fiscalía"
+             onerror="this.outerHTML='<svg width=\'20\' height=\'20\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'currentColor\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'><path d=\'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z\'/><path d=\'M12 8v4\'/><path d=\'M12 16h.01\'/></svg>'">
+      </div>
+      <div>
+        <div style="font-family:var(--font-d);font-size:15px;font-weight:800;color:var(--text);">Noticias del Delito</div>
+        <div style="font-size:11px;color:var(--text3);">SIAF — Fiscalía General del Estado</div>
+      </div>
+    </div>
+
+    {% if fiscalia.estado == "SOSPECHOSO" %}
+    <div style="background:rgba(224,67,56,.06);border:1px solid rgba(224,67,56,.2);border-radius:14px;padding:14px 16px;margin-bottom:10px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="width:36px;height:36px;border-radius:11px;background:#E04338;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 10px rgba(224,67,56,.3);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
-        {% endif %}
+        <div>
+          <div style="font-weight:800;font-size:14px;color:var(--rech-t);">Aparece como sospechoso en {{ fiscalia.como_sospechoso }} noticia(s)</div>
+          <div style="font-size:12px;color:var(--rech);margin-top:3px;">{{ fiscalia.detalle }}</div>
+        </div>
+      </div>
+    </div>
+    {% if fiscalia.noticias %}
+    <div class="res-crime-list">
+      {% for n in fiscalia.noticias %}
+      {% if n.rol in ["SOSPECHOSO","IMPUTADO","PROCESADO","ACUSADO","SENTENCIADO","INVESTIGADO"] %}
+      <div class="res-crime-item" style="border-color:rgba(224,67,56,.18);">
+        <div style="width:20px;height:20px;border-radius:50%;background:#E04338;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </div>
+        <div>
+          <span style="font-weight:700;color:var(--rech-t);">{{ n.delito or "Delito no especificado" }}</span>
+          <span style="color:var(--text3);font-size:11px;margin-left:8px;">{{ n.fecha }}</span>
+          {% if n.lugar %}<span style="color:var(--text3);font-size:11px;margin-left:4px;">· {{ n.lugar }}</span>{% endif %}
+          <span style="display:inline-block;margin-left:8px;background:rgba(224,67,56,.12);color:var(--rech);font-size:10px;font-weight:700;padding:2px 7px;border-radius:99px;">{{ n.rol }}</span>
+        </div>
+      </div>
+      {% endif %}
+      {% endfor %}
     </div>
     {% endif %}
 
-    <!-- SETEC -->
-    {% set setec = resultado.setec or {} %}
-    {% if setec %}
-    <div class="card p-6 sm:p-7 card-hover">
-        <div class="flex items-center gap-2.5 mb-5">
-            <div class="w-9 h-9 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
-                <i data-lucide="award" class="icon-md"></i>
-            </div>
-            <div>
-                <h3 class="text-base font-bold text-slate-900">Capacitaciones Oficiales</h3>
-                <p class="text-xs text-slate-500">SETEC — Ministerio de Trabajo del Ecuador</p>
-            </div>
-        </div>
+    {% elif fiscalia.estado == "DENUNCIANTE" %}
+    <div class="res-status-row" style="background:rgba(224,140,11,.06);border-color:rgba(224,140,11,.2);">
+      <div style="width:36px;height:36px;border-radius:11px;background:rgba(224,140,11,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E08C0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:13px;color:var(--obs-t);">Aparece como denunciante / víctima</div>
+        <div style="font-size:12px;color:var(--obs);margin-top:2px;">{{ fiscalia.detalle }} — No implica responsabilidad penal.</div>
+      </div>
+    </div>
 
-        {% if setec.estado == "TIENE_CERTIFICADOS" %}
-        <div class="space-y-3">
-            <div class="flex items-center gap-2 mb-1">
-                <div class="text-2xl font-extrabold text-violet-700 font-mono">{{ setec.total }}</div>
-                <div class="text-xs font-bold text-violet-600 uppercase tracking-wider">certificación{{ "es" if setec.total != 1 else "" }} registrada{{ "s" if setec.total != 1 else "" }}</div>
-            </div>
-            <ul class="space-y-2">
-                {% for curso in setec.cursos %}
-                <li class="flex items-start gap-2.5 rounded-lg border border-violet-100 bg-violet-50/50 px-4 py-2.5">
-                    <div class="w-5 h-5 rounded-full bg-violet-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <i data-lucide="check" class="icon-xs"></i>
-                    </div>
-                    <span class="text-sm font-semibold text-slate-800">{{ curso }}</span>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
+    {% elif fiscalia.estado == "SIN_ANTECEDENTES" %}
+    <div class="res-status-row" style="background:rgba(18,161,80,.06);border-color:rgba(18,161,80,.2);">
+      <div style="width:36px;height:36px;border-radius:11px;background:#12A150;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(18,161,80,.3);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:800;font-size:14px;color:var(--apto-t);">Sin antecedentes en Fiscalía</div>
+        <div style="font-size:12px;color:var(--apto);margin-top:3px;">No se encontraron noticias del delito para esta cédula.</div>
+      </div>
+    </div>
 
-        {% elif setec.estado == "SIN_CERTIFICADOS" %}
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center flex-shrink-0">
-                <i data-lucide="minus-circle" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-slate-700">Sin certificaciones registradas</div>
-                <div class="text-sm text-slate-500 mt-0.5">No tiene cursos registrados en el SETEC.</div>
-            </div>
-        </div>
-
-        {% else %}
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-slate-300 text-slate-500 flex items-center justify-center flex-shrink-0">
-                <i data-lucide="alert-circle" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-slate-600">Portal no disponible</div>
-                <div class="text-sm text-slate-500 mt-0.5">{{ setec.detalle or "No se pudo consultar el SETEC en este momento." }}</div>
-            </div>
-        </div>
-        {% endif %}
+    {% else %}
+    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);">
+      <div style="width:36px;height:36px;border-radius:11px;background:var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">Portal no disponible</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ fiscalia.detalle or "No se pudo consultar la Fiscalía en este momento." }}</div>
+      </div>
     </div>
     {% endif %}
+  </div>
+  {% endif %}
 
-    <!-- Fiscalía SIAF -->
-    {% set fiscalia = resultado.fiscalia or {} %}
-    {% if fiscalia %}
-    <div class="card p-6 sm:p-7 card-hover">
-        <div class="flex items-center gap-2.5 mb-5">
-            <div class="w-9 h-9 rounded-xl {% if fiscalia.tiene_antecedentes %}bg-red-50 text-red-600{% else %}bg-slate-50 text-slate-500{% endif %} flex items-center justify-center">
-                <i data-lucide="shield-alert" class="icon-md"></i>
-            </div>
-            <div>
-                <h3 class="text-base font-bold text-slate-900">Noticias del Delito</h3>
-                <p class="text-xs text-slate-500">SIAF — Fiscalía General del Estado del Ecuador</p>
-            </div>
-        </div>
+  <!-- Actions -->
+  <div style="display:flex;gap:12px;padding-top:4px;margin-bottom:32px;" class="no-print">
+    <a href="/" class="vr-btn vr-btn-sec vr-btn-md" style="flex:1;justify-content:center;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Buscar otra
+    </a>
+    <a href="/pdf?cedula={{ resultado.cedula }}&bachiller={% if b %}1{% endif %}&satje={% if s %}1{% endif %}&setec_check={% if setec %}1{% endif %}&fiscalia_check={% if fiscalia %}1{% endif %}"
+       class="vr-btn vr-btn-pri vr-btn-md" style="flex:1;justify-content:center;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar PDF oficial
+    </a>
+  </div>
 
-        {% if fiscalia.estado == "SOSPECHOSO" %}
-        <div class="rounded-xl border border-red-200 bg-red-50 p-5 mb-4">
-            <div class="flex items-center gap-3 mb-3">
-                <div class="w-9 h-9 rounded-xl bg-red-500 text-white flex items-center justify-center flex-shrink-0">
-                    <i data-lucide="alert-triangle" class="icon-sm"></i>
-                </div>
-                <div>
-                    <div class="font-bold text-red-800">Aparece como sospechoso en {{ fiscalia.como_sospechoso }} noticia(s)</div>
-                    <div class="text-sm text-red-600 mt-0.5">{{ fiscalia.detalle }}</div>
-                </div>
-            </div>
-            {% if fiscalia.noticias %}
-            <ul class="space-y-2 mt-3">
-                {% for n in fiscalia.noticias %}
-                {% if n.rol in ["SOSPECHOSO","IMPUTADO","PROCESADO","ACUSADO","SENTENCIADO","INVESTIGADO"] %}
-                <li class="flex items-start gap-2.5 rounded-lg border border-red-200 bg-white px-4 py-3">
-                    <div class="w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <i data-lucide="x" class="icon-xs"></i>
-                    </div>
-                    <div class="text-sm">
-                        <span class="font-bold text-red-800">{{ n.delito or "Delito no especificado" }}</span>
-                        <span class="text-slate-500 ml-2">{{ n.fecha }}</span>
-                        {% if n.lugar %}<span class="text-slate-400 ml-2">· {{ n.lugar }}</span>{% endif %}
-                        <span class="ml-2 text-xs font-semibold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">{{ n.rol }}</span>
-                    </div>
-                </li>
-                {% endif %}
-                {% endfor %}
-            </ul>
-            {% endif %}
-        </div>
-
-        {% elif fiscalia.estado == "DENUNCIANTE" %}
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
-                <i data-lucide="info" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-amber-800">Aparece como denunciante/víctima</div>
-                <div class="text-sm text-amber-700 mt-0.5">{{ fiscalia.detalle }} — No implica responsabilidad penal.</div>
-            </div>
-        </div>
-
-        {% elif fiscalia.estado == "SIN_ANTECEDENTES" %}
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0">
-                <i data-lucide="shield-check" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-emerald-800">Sin antecedentes en Fiscalía</div>
-                <div class="text-sm text-emerald-700 mt-0.5">No se encontraron noticias del delito para esta cédula.</div>
-            </div>
-        </div>
-
-        {% else %}
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-slate-300 text-slate-500 flex items-center justify-center flex-shrink-0">
-                <i data-lucide="alert-circle" class="icon-sm"></i>
-            </div>
-            <div>
-                <div class="font-bold text-slate-600">Portal no disponible</div>
-                <div class="text-sm text-slate-500 mt-0.5">{{ fiscalia.detalle or "No se pudo consultar la Fiscalía en este momento." }}</div>
-            </div>
-        </div>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- Acciones -->
-    <div class="flex flex-col sm:flex-row gap-3 pt-2 no-print">
-        <a href="/" class="btn-secondary flex-1 !py-3">
-            <i data-lucide="arrow-left" class="icon-sm"></i>
-            Buscar otra
-        </a>
-        <form method="POST" action="/pdf" class="flex-1">
-            <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
-            <input type="hidden" name="bachiller" value="{% if b %}1{% endif %}">
-            <input type="hidden" name="satje" value="{% if s %}1{% endif %}">
-            <input type="hidden" name="setec_check" value="{% if resultado.setec %}1{% endif %}">
-            <input type="hidden" name="fiscalia_check" value="{% if resultado.fiscalia %}1{% endif %}">
-            <button type="submit" class="btn-primary w-full !py-3">
-                <i data-lucide="file-down" class="icon-sm"></i>
-                Descargar PDF oficial
-            </button>
-        </form>
-    </div>
 </div>
 
-<!-- Loader overlay re-verificar -->
-<div id="loader-overlay" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div class="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl max-w-md w-full p-8 border border-white/50">
-        <div class="flex flex-col items-center text-center">
-            <div class="relative w-16 h-16 mb-5">
-                <div class="absolute inset-0 border-4 border-brand-100 rounded-full"></div>
-                <div class="absolute inset-0 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                    <i data-lucide="shield-check" class="icon-md text-brand-600"></i>
-                </div>
-            </div>
-            <h3 class="text-lg font-bold text-slate-900 mb-1">Re-verificando en fuentes oficiales</h3>
-            <p class="text-sm text-slate-500 mb-6">Ignorando caché y consultando de nuevo. Puede tardar entre 20 y 60 segundos.</p>
-            <div class="w-full space-y-2 text-left text-sm">
-                <div id="rv-paso-1" class="loader-step active"><span class="loader-dot"></span><span>Conectando al Ministerio de Educación</span></div>
-                <div id="rv-paso-2" class="loader-step"><span class="loader-dot"></span><span>Resolviendo verificación</span></div>
-                <div id="rv-paso-3" class="loader-step"><span class="loader-dot"></span><span>Consultando Función Judicial</span></div>
-                <div id="rv-paso-4" class="loader-step"><span class="loader-dot"></span><span>Generando reporte</span></div>
-            </div>
-        </div>
+<!-- Re-verificar loader overlay -->
+<div id="loader-overlay" style="display:none;position:fixed;inset:0;background:rgba(13,14,20,.7);backdrop-filter:blur(10px);z-index:999;align-items:center;justify-content:center;padding:24px;" class="no-print">
+  <div style="background:var(--surface);border-radius:22px;box-shadow:var(--sh-lg);max-width:420px;width:100%;padding:36px 32px;text-align:center;">
+    <div style="width:60px;height:60px;border-radius:18px;background:var(--primary-soft);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;animation:vpulse 1.8s ease-in-out infinite;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
     </div>
+    <div style="font-family:var(--font-d);font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;">Re-verificando en fuentes oficiales</div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:24px;line-height:1.6;">Ignorando caché y consultando de nuevo. Puede tardar entre 20 y 60 segundos.</p>
+    <div style="display:flex;flex-direction:column;gap:10px;text-align:left;">
+      <div class="rv-paso active" id="rv-paso-1"><span class="rv-dot"></span><span>Conectando al Ministerio de Educación</span></div>
+      <div class="rv-paso" id="rv-paso-2"><span class="rv-dot"></span><span>Resolviendo verificación</span></div>
+      <div class="rv-paso" id="rv-paso-3"><span class="rv-dot"></span><span>Consultando Función Judicial</span></div>
+      <div class="rv-paso" id="rv-paso-4"><span class="rv-dot"></span><span>Generando reporte</span></div>
+    </div>
+  </div>
 </div>
 
 <style>
-.loader-step { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0; color: #94a3b8; transition: color 200ms; }
-.loader-step.active { color: #4f46e5; font-weight: 600; }
-.loader-step.done   { color: #10b981; }
-.loader-dot { width: 0.625rem; height: 0.625rem; border-radius: 9999px; background-color: #e2e8f0; flex-shrink: 0; transition: all 200ms; }
-.loader-step.active .loader-dot { background-color: #4f46e5; box-shadow: 0 0 0 4px rgba(79,70,229,0.18); animation: pulse-dot 1.4s ease-in-out infinite; }
-.loader-step.done   .loader-dot { background-color: #10b981; }
-@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .rv-paso { display: flex; align-items: center; gap: 12px; padding: 5px 0; font-size: 13px; color: var(--text3); font-weight: 500; transition: color .2s; }
+  .rv-paso.active { color: var(--primary); font-weight: 700; }
+  .rv-paso.done { color: var(--apto); }
+  .rv-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line2); flex-shrink: 0; transition: all .2s; }
+  .rv-paso.active .rv-dot { background: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); animation: vpulse 1.4s ease-in-out infinite; }
+  .rv-paso.done .rv-dot { background: var(--apto); }
+  @media print { .no-print { display: none !important; } }
 </style>
+{% endblock %}
 
+{% block scripts %}
 <script>
 function mostrarLoaderReverificar() {
-    document.getElementById('loader-overlay').classList.remove('hidden');
-    if (window.lucide) lucide.createIcons();
-    function marcar(n) {
-        var paso = document.getElementById('rv-paso-' + n);
-        var prev = document.getElementById('rv-paso-' + (n-1));
-        if (paso) paso.classList.add('active');
-        if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
-    }
-    setTimeout(function(){ marcar(2); }, 6000);
-    setTimeout(function(){ marcar(3); }, 16000);
-    setTimeout(function(){ marcar(4); }, 28000);
+  const ol = document.getElementById('loader-overlay');
+  ol.style.display = 'flex';
+  function marcar(n) {
+    const paso = document.getElementById('rv-paso-' + n);
+    const prev = document.getElementById('rv-paso-' + (n-1));
+    if (paso) paso.classList.add('active');
+    if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
+  }
+  setTimeout(() => marcar(2), 6000);
+  setTimeout(() => marcar(3), 16000);
+  setTimeout(() => marcar(4), 28000);
 }
-
 function mostrarEditorNombre() {
-    document.getElementById('nombre-display').classList.add('hidden');
-    document.getElementById('nombre-editor').classList.remove('hidden');
-    document.getElementById('nombre-input').focus();
+  document.getElementById('nombre-display').style.display = 'none';
+  const ed = document.getElementById('nombre-editor');
+  ed.style.display = 'flex';
+  document.getElementById('nombre-input').focus();
 }
 function cancelarEditorNombre() {
-    document.getElementById('nombre-editor').classList.add('hidden');
-    document.getElementById('nombre-display').classList.remove('hidden');
+  document.getElementById('nombre-editor').style.display = 'none';
+  document.getElementById('nombre-display').style.display = 'flex';
 }
 async function guardarNombre(cedula) {
-    const nombre = document.getElementById('nombre-input').value.trim();
-    if (!nombre) return;
-    const fd = new FormData();
-    fd.append('nombre', nombre);
-    const r = await fetch('/historial/cedula/' + cedula + '/nombre', { method: 'POST', body: fd });
-    const data = await r.json();
-    if (data.ok) {
-        document.getElementById('nombre-texto').textContent = nombre;
-        document.getElementById('nombre-texto').className = 'text-xl sm:text-2xl font-bold tracking-tight';
-        cancelarEditorNombre();
-    }
+  const nombre = document.getElementById('nombre-input').value.trim();
+  if (!nombre) return;
+  const fd = new FormData();
+  fd.append('nombre', nombre);
+  const r = await fetch('/historial/cedula/' + cedula + '/nombre', { method: 'POST', body: fd });
+  const data = await r.json();
+  if (data.ok) {
+    document.getElementById('nombre-texto').textContent = nombre;
+    cancelarEditorNombre();
+    document.getElementById('nombre-display').style.display = 'flex';
+  }
 }
 </script>
 {% endblock %}

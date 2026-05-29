@@ -1,61 +1,92 @@
 {% extends "base.html" %}
-{% block title %}Crear nueva contraseña · JR Verifica EC{% endblock %}
+{% block title %}Nueva contraseña · JR Verifica EC{% endblock %}
+
+{% block sidebar %}{% endblock %}
 
 {% block content %}
-<div class="min-h-[70vh] flex items-center justify-center py-12">
-  <div class="w-full max-w-md px-4">
+<style>
+  #vr-main { margin-left: 0 !important; }
+  .auth-wrap {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: var(--canvas); padding: 32px 16px; position: relative; overflow: hidden;
+  }
+  .auth-wrap::before {
+    content: ''; position: absolute; top: -160px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(91,75,227,.1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .auth-card { width: 100%; max-width: 400px; position: relative; z-index: 1; }
+  .auth-icon { width: 56px; height: 56px; border-radius: 16px; background: var(--primary-soft); display: inline-flex; align-items: center; justify-content: center; color: var(--primary); }
+  .auth-title { font-family: var(--font-d); font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -.03em; margin-top: 14px; }
+  .auth-form-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px 24px 20px; box-shadow: var(--sh-md); }
+  .auth-label { display: block; font-size: 11px; font-weight: 700; color: var(--text2); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 7px; }
+  .auth-inp { width: 100%; box-sizing: border-box; padding: 11px 13px; background: var(--surface-alt); border: 1.5px solid var(--line2); border-radius: 12px; font-family: var(--font-b); font-size: 14px; color: var(--text); outline: none; transition: border-color .15s, box-shadow .15s; }
+  .auth-inp:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+  .auth-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, var(--primary) 0%, #4B3BD6 100%); border: none; border-radius: 12px; cursor: pointer; font-family: var(--font-d); font-size: 14px; font-weight: 700; color: #fff; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .15s, transform .1s; margin-top: 16px; box-shadow: 0 4px 14px rgba(91,75,227,.28); }
+  .auth-btn:hover { opacity: .92; transform: translateY(-1px); }
+  .auth-alert-err { background: rgba(224,67,56,.08); border: 1px solid rgba(224,67,56,.25); color: #E04338; border-radius: 12px; padding: 11px 14px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
+  .auth-back { display: block; text-align: center; margin-top: 18px; font-size: 12px; color: var(--text3); font-weight: 600; transition: color .15s; }
+  .auth-back:hover { color: var(--primary); }
+  .auth-expired { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 32px 24px; box-shadow: var(--sh-md); text-align: center; }
+</style>
 
-    <div class="text-center mb-7">
-      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-50 text-brand-600 mb-4">
-        <i data-lucide="lock" class="h-6 w-6"></i>
+<div class="auth-wrap">
+  <div class="auth-card">
+
+    <div style="text-align:center;margin-bottom:28px;">
+      <div class="auth-icon" style="margin:0 auto;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
       </div>
-      <h1 class="text-2xl font-extrabold tracking-tight text-slate-900">Nueva contraseña</h1>
+      <h1 class="auth-title">Nueva contraseña</h1>
     </div>
 
     {% if not valido %}
-    <div class="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-      <i data-lucide="x-circle" class="h-10 w-10 text-red-500 mx-auto mb-3"></i>
-      <h2 class="text-base font-bold text-red-900 mb-2">Enlace inválido o expirado</h2>
-      <p class="text-sm text-red-700 mb-5">
-        Por seguridad los enlaces de recuperación duran 1 hora y solo se pueden usar una vez.
-      </p>
-      <a href="/olvide-pass" class="btn-primary inline-flex !py-2 !px-4 text-sm">
-        Solicitar uno nuevo
+    <div class="auth-expired">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#E04338" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:16px;">
+        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+      <div style="font-family:var(--font-d);font-size:17px;font-weight:800;color:var(--text);margin-bottom:8px;">Enlace inválido o expirado</div>
+      <p style="font-size:13px;color:var(--text3);line-height:1.6;margin-bottom:20px;">Por seguridad, los enlaces de recuperación duran 1 hora y solo pueden usarse una vez.</p>
+      <a href="/olvide-pass" style="display:inline-flex;align-items:center;gap:7px;padding:10px 20px;background:linear-gradient(135deg,var(--primary),#4B3BD6);color:#fff;border-radius:11px;font-family:var(--font-d);font-size:13px;font-weight:700;">
+        Solicitar nuevo enlace
       </a>
     </div>
     {% else %}
-    <div class="bg-white border border-slate-200 rounded-2xl p-6">
+    <div class="auth-form-card">
       {% if error == 'no_coinciden' %}
-      <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-        Las contraseñas no coinciden.
+      <div class="auth-alert-err">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        Las contraseñas no coinciden
       </div>
       {% elif error and error != 'expirado' %}
-      <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+      <div class="auth-alert-err">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
         {{ error }}
       </div>
       {% endif %}
 
-      <form method="POST" action="/reset-pass/{{ token }}" class="space-y-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Nueva contraseña</label>
-          <input type="password" name="nueva_password" required minlength="8" autofocus
-                 class="input w-full" placeholder="Mínimo 8 caracteres">
+      <form method="POST" action="/reset-pass/{{ token }}">
+        <div style="margin-bottom:16px;">
+          <label class="auth-label">Nueva contraseña</label>
+          <input class="auth-inp" type="password" name="nueva_password" required minlength="8" autofocus placeholder="Mínimo 8 caracteres">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Confirmar contraseña</label>
-          <input type="password" name="confirmar_password" required minlength="8"
-                 class="input w-full" placeholder="Repítela">
+          <label class="auth-label">Confirmar contraseña</label>
+          <input class="auth-inp" type="password" name="confirmar_password" required minlength="8" placeholder="Repítela">
         </div>
-        <button type="submit" class="btn-primary w-full !py-2.5">
+        <button type="submit" class="auth-btn">
           Actualizar contraseña
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </button>
       </form>
     </div>
     {% endif %}
 
-    <div class="text-center mt-5">
-      <a href="/login" class="text-xs text-slate-500 hover:text-brand-600">← Volver al login</a>
-    </div>
+    <a href="/login" class="auth-back">← Volver al inicio de sesión</a>
+
   </div>
 </div>
 {% endblock %}

@@ -2,437 +2,379 @@
 {% block title %}Historial · JR Verifica EC{% endblock %}
 
 {% block content %}
-<!-- Hero -->
-<div class="relative mb-8">
-    <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[280px] bg-brand-300/15 rounded-full blur-3xl -z-10"></div>
-    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-            <p class="text-sm font-semibold text-brand-600 mb-2 flex items-center gap-2">
-                <i data-lucide="history" class="icon-sm"></i>
-                Auditoría
-            </p>
-            <h1 class="h-display text-4xl sm:text-5xl">Historial</h1>
-            <p class="text-slate-500 mt-2.5 text-base">Todas las verificaciones realizadas por tu organización</p>
-        </div>
-        <div class="flex items-center gap-2 flex-wrap">
-            <button type="button" onclick="abrirModalOlvido()"
-                    class="btn-secondary !text-amber-700 hover:!bg-amber-50 hover:!border-amber-200"
-                    title="LOPDP Art. 14 — borrar todo rastro de una persona del sistema">
-                <i data-lucide="user-x" class="icon-sm"></i>
-                Derecho al olvido
-            </button>
-            {% if entradas %}
-            <form method="POST" action="/historial/limpiar" onsubmit="return confirm('¿Borrar TODO el caché y el historial? Esta acción es irreversible. Las próximas consultas re-fetcharán desde las fuentes oficiales.')">
-                <button type="submit" class="btn-secondary !text-red-600 hover:!bg-red-50 hover:!border-red-200">
-                    <i data-lucide="trash-2" class="icon-sm"></i>
-                    Limpiar caché
-                </button>
-            </form>
-            {% endif %}
-            <a href="/" class="btn-primary">
-                <i data-lucide="plus" class="icon-sm"></i>
-                Nueva búsqueda
-            </a>
-        </div>
+<style>
+.hist-filter-chip {
+  padding: 5px 11px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: var(--font-b); border: 1px solid var(--line);
+  background: var(--surface); color: var(--text2); transition: all .15s;
+  text-decoration: none; display: inline-block;
+}
+.hist-filter-chip:hover { border-color: #D7D9E2; }
+.hist-filter-chip.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
+.hist-filter-chip.chip-apto.active  { border-color: var(--apto); background: var(--apto-s); color: var(--apto-t); }
+.hist-filter-chip.chip-obs.active   { border-color: var(--obs);  background: var(--obs-s);  color: var(--obs-t);  }
+.hist-filter-chip.chip-rech.active  { border-color: var(--rech); background: var(--rech-s); color: var(--rech-t); }
+.hist-filter-chip.chip-crit.active  { border-color: var(--crit); background: var(--crit-s); color: var(--crit-t); }
+.hist-filter-chip.chip-sin.active   { border-color: var(--sin);  background: var(--sin-s);  color: var(--sin-t);  }
+
+.hist-tbl-row { background: var(--surface); border-bottom: 1px solid var(--line2); transition: background .15s; }
+.hist-tbl-row:hover { background: var(--surface-alt); }
+.hist-tbl-row:last-child { border-bottom: none; }
+.hist-actions { display: flex; gap: 4px; justify-content: flex-end; opacity: .45; transition: opacity .15s; }
+.hist-tbl-row:hover .hist-actions { opacity: 1; }
+.hist-icon-btn {
+  width: 30px; height: 30px; border-radius: 9px; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--text3); transition: all .15s;
+}
+.hist-icon-btn:hover { background: var(--line2); color: var(--text); }
+.hist-icon-btn.danger:hover { background: rgba(224,67,56,.12); color: var(--rech); }
+.hist-icon-btn.warn:hover   { background: rgba(224,140,11,.12); color: var(--obs); }
+
+/* Semáforo edit inline */
+.sem-edit-panel { display: none; flex-direction: column; align-items: center; gap: 5px; margin-top: 6px; }
+.sem-edit-panel.open { display: flex; }
+</style>
+
+<div class="vr-page">
+  <!-- Page header -->
+  <div class="vr-ph">
+    <div>
+      <div class="vr-eyebrow">Registro de actividad</div>
+      <h1 class="vr-title">Historial</h1>
+      <p class="vr-sub">Todas las consultas realizadas · <strong style="color:var(--text);">{{ total|default(entradas|length) }}</strong> registros</p>
     </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button type="button" onclick="document.getElementById('modal-olvido').style.display='flex'"
+        class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--obs-t);border-color:rgba(224,140,11,.35);">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>
+        Derecho al olvido
+      </button>
+      {% if entradas %}
+      <form method="POST" action="/historial/limpiar" onsubmit="return confirm('¿Borrar TODO el caché y el historial? Esta acción es irreversible.')">
+        <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--rech-t);border-color:rgba(224,67,56,.35);">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+          Limpiar caché
+        </button>
+      </form>
+      {% endif %}
+      <a href="/" class="vr-btn vr-btn-pri vr-btn-sm">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Nueva
+      </a>
+    </div>
+  </div>
+
+  {% if request.query_params.get('msg') %}
+  {% set msg = request.query_params.get('msg') %}
+  {% set n = request.query_params.get('n', '') %}
+  <div style="margin-bottom:16px;padding:14px 18px;border-radius:14px;background:var(--apto-s);border:1px solid rgba(18,161,80,.25);display:flex;align-items:center;gap:12px;font-size:13.5px;color:var(--apto-t);">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    {% if msg == 'limpio' %}Caché limpiado. Se borraron {{ n }} entradas.
+    {% elif msg == 'borrada' %}Entrada eliminada del historial.
+    {% elif msg == 'borradas' %}Se eliminaron {{ n }} entrada(s) de esa cédula.
+    {% elif msg == 'olvido' %}<strong>Derecho al olvido ejecutado</strong> para cédula <code style="font-family:var(--font-m);background:rgba(18,161,80,.15);padding:2px 6px;border-radius:5px;">{{ request.query_params.get('cedula', '') }}</code>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Filter bar -->
+  <div class="vr-card" style="padding:14px;margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+    <div style="position:relative;flex:1;min-width:220px;">
+      <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text3);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </span>
+      <input type="text" id="hist-q" value="{{ filtro_cedula }}" placeholder="Buscar por cédula…"
+        class="vr-inp" style="padding-left:38px;font-family:var(--font-m);font-size:14px;"
+        oninput="histFilter()" maxlength="10">
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <svg width="15" height="15" style="color:var(--text3);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;" id="hist-chips">
+        <button class="hist-filter-chip active" data-sem="" onclick="histChip(this,'')">Todos</button>
+        <button class="hist-filter-chip chip-apto {% if filtro_semaforo == 'APTO' %}active{% endif %}" data-sem="APTO" onclick="histChip(this,'APTO')">APTO</button>
+        <button class="hist-filter-chip chip-obs {% if filtro_semaforo == 'OBSERVACIÓN' %}active{% endif %}" data-sem="OBSERVACIÓN" onclick="histChip(this,'OBSERVACIÓN')">OBSERVACIÓN</button>
+        <button class="hist-filter-chip chip-rech {% if filtro_semaforo == 'RECHAZAR' %}active{% endif %}" data-sem="RECHAZAR" onclick="histChip(this,'RECHAZAR')">RECHAZAR</button>
+        <button class="hist-filter-chip chip-crit {% if filtro_semaforo == 'CRÍTICO' %}active{% endif %}" data-sem="CRÍTICO" onclick="histChip(this,'CRÍTICO')">CRÍTICO</button>
+        <button class="hist-filter-chip chip-sin {% if filtro_semaforo == 'SIN DATOS' %}active{% endif %}" data-sem="SIN DATOS" onclick="histChip(this,'SIN DATOS')">SIN DATOS</button>
+      </div>
+    </div>
+    <span style="margin-left:auto;font-size:12.5px;color:var(--text3);" id="hist-count">{{ entradas|length }} de {{ total|default(entradas|length) }}</span>
+  </div>
+
+  <!-- Table -->
+  {% if entradas %}
+  <div class="vr-card" style="overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;" id="hist-table">
+        <thead>
+          <tr style="background:var(--surface-alt);">
+            {% for h in ['Fecha','Cédula','Nombre','Veredicto','Operador',''] %}
+            <th style="text-align:{% if loop.last %}right{% else %}left{% endif %};padding:13px 18px;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--line);">{{ h }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entradas %}
+          <tr class="hist-tbl-row" data-cedula="{{ e.cedula }}" data-sem="{{ e.semaforo }}">
+            {# Fecha #}
+            <td style="padding:13px 18px;white-space:nowrap;font-size:12.5px;">
+              {% set sg = e.edad_seg %}
+              {% if sg < 60 %}
+                <span style="color:var(--apto);font-weight:600;display:flex;align-items:center;gap:6px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:var(--apto);display:inline-block;animation:vpulse 1.5s ease-in-out infinite;"></span>
+                  hace {{ sg }}s
+                </span>
+              {% elif sg < 3600 %}
+                <span style="color:var(--text2);">hace {{ (sg // 60) }} min</span>
+              {% elif sg < 86400 %}
+                <span style="color:var(--text2);">hace {{ (sg // 3600) }}h</span>
+              {% else %}
+                <span style="color:var(--text3);">hace {{ (sg // 86400) }}d</span>
+              {% endif %}
+            </td>
+            {# Cédula #}
+            <td style="padding:13px 18px;font-family:var(--font-m);font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;">{{ e.cedula }}</td>
+            {# Nombre #}
+            <td style="padding:13px 18px;font-size:13.5px;max-width:200px;">
+              <div style="display:flex;align-items:center;gap:5px;" id="nom-row-{{ e.cedula }}">
+                <span id="nom-txt-{{ e.cedula }}" style="color:{% if e.nombre %}var(--text){% else %}var(--text3){% endif %};font-style:{% if not e.nombre %}italic{% else %}normal{% endif %};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ e.nombre or 'Sin nombre' }}</span>
+                <button onclick="editarNombreHistorial('{{ e.cedula }}','{{ e.nombre or '' }}')" style="color:var(--text3);background:none;border:none;cursor:pointer;display:flex;flex-shrink:0;" title="Editar nombre">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+              </div>
+              <div style="display:none;align-items:center;gap:5px;margin-top:4px;" id="nom-edit-{{ e.cedula }}">
+                <input id="nom-inp-{{ e.cedula }}" type="text" value="{{ e.nombre or '' }}" placeholder="Nombre completo…"
+                  style="border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:12px;outline:none;font-family:var(--font-b);width:140px;"
+                  onkeydown="if(event.key==='Enter')guardarNombreHistorial('{{ e.cedula }}')">
+                <button onclick="guardarNombreHistorial('{{ e.cedula }}')" style="font-size:11px;background:var(--primary);color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:600;">OK</button>
+                <button onclick="cancelarNombreHistorial('{{ e.cedula }}')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;">✕</button>
+              </div>
+            </td>
+            {# Veredicto #}
+            <td style="padding:13px 18px;">
+              <div id="sem-row-{{ e.cedula }}">
+                <div style="display:flex;align-items:center;gap:5px;" id="sem-badge-{{ e.cedula }}">
+                  {% set sem = e.semaforo %}
+                  {% if 'APTO' in sem %}
+                    <span class="vsem vsem-apto"><span class="vsem-dot"></span>APTO</span>
+                  {% elif 'OBSERVACIÓN' in sem %}
+                    <span class="vsem vsem-obs"><span class="vsem-dot"></span>OBSERVACIÓN</span>
+                  {% elif 'CRÍTICO' in sem %}
+                    <span class="vsem vsem-crit"><span class="vsem-dot"></span>CRÍTICO</span>
+                  {% elif 'RECHAZAR' in sem %}
+                    <span class="vsem vsem-rech"><span class="vsem-dot"></span>RECHAZAR</span>
+                  {% elif sem %}
+                    <span class="vsem vsem-sin"><span class="vsem-dot"></span>{{ sem }}</span>
+                  {% else %}
+                    <span style="color:var(--text3);font-size:12px;">—</span>
+                  {% endif %}
+                  <button onclick="abrirSemaforo('{{ e.cedula }}')" style="color:var(--text3);background:none;border:none;cursor:pointer;display:flex;" title="Cambiar semáforo">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
+                <div class="sem-edit-panel" id="sem-edit-{{ e.cedula }}">
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+                    <button onclick="guardarSemaforo('{{ e.cedula }}','APTO')" style="font-size:10px;padding:3px 7px;border-radius:6px;border:none;background:var(--apto-s);color:var(--apto-t);font-weight:700;cursor:pointer;">APTO</button>
+                    <button onclick="guardarSemaforo('{{ e.cedula }}','OBSERVACION')" style="font-size:10px;padding:3px 7px;border-radius:6px;border:none;background:var(--obs-s);color:var(--obs-t);font-weight:700;cursor:pointer;">OBS</button>
+                    <button onclick="guardarSemaforo('{{ e.cedula }}','RECHAZAR')" style="font-size:10px;padding:3px 7px;border-radius:6px;border:none;background:var(--rech-s);color:var(--rech-t);font-weight:700;cursor:pointer;">RECH</button>
+                    <button onclick="guardarSemaforo('{{ e.cedula }}','CRITICO')" style="font-size:10px;padding:3px 7px;border-radius:6px;border:none;background:var(--crit-s);color:var(--crit-t);font-weight:700;cursor:pointer;">CRÍT</button>
+                  </div>
+                  <button onclick="cancelarSemaforo('{{ e.cedula }}')" style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;">cancelar</button>
+                </div>
+              </div>
+            </td>
+            {# Operador #}
+            <td style="padding:13px 18px;font-size:12.5px;color:var(--text2);">
+              {% if e.operador_nombre and e.operador_nombre != '—' %}
+              <div style="display:flex;align-items:center;gap:7px;">
+                <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--primary),var(--primary-hi));color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">{{ e.operador_nombre[:1]|upper }}</div>
+                <span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ e.operador_email }}">{{ e.operador_nombre }}</span>
+              </div>
+              {% else %}
+              <span style="font-size:10.5px;color:var(--text3);font-style:italic;">sistema</span>
+              {% endif %}
+            </td>
+            {# Acciones #}
+            <td style="padding:10px 18px;">
+              <div class="hist-actions">
+                <a href="/historial/{{ e.id }}" class="hist-icon-btn" title="Ver resultado">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </a>
+                <a href="/historial/{{ e.id }}/pdf" class="hist-icon-btn" title="Descargar PDF">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+                <form method="POST" action="/historial/{{ e.id }}/borrar" style="display:inline;" onsubmit="return confirm('¿Borrar esta entrada?')">
+                  <button type="submit" class="hist-icon-btn danger" title="Borrar entrada">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                  </button>
+                </form>
+                <button type="button" onclick="abrirModalOlvido('{{ e.cedula }}')" class="hist-icon-btn warn" title="Derecho al olvido">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="vr-card" style="padding:64px;text-align:center;">
+    <div style="width:64px;height:64px;border-radius:20px;background:var(--line2);color:var(--text3);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    </div>
+    <div style="font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--text);">Sin resultados</div>
+    <div style="font-size:13.5px;color:var(--text2);margin-top:6px;">No hay entradas que coincidan con tu búsqueda.</div>
+  </div>
+  {% endif %}
 </div>
 
 <!-- Modal Derecho al Olvido -->
-<div id="modal-olvido" class="hidden fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onclick="if(event.target.id==='modal-olvido')cerrarModalOlvido()">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-7 border border-white/50">
-        <div class="flex items-start gap-4 mb-5">
-            <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0">
-                <i data-lucide="user-x" class="icon-lg"></i>
-            </div>
-            <div class="flex-1">
-                <h3 class="text-lg font-bold text-slate-900">Derecho al olvido</h3>
-                <p class="text-sm text-slate-500 mt-1">
-                    LOPDP Art. 14 — Esta acción borra <strong>todo rastro</strong> de la persona:
-                    historial de consultas + códigos de verificación de PDFs emitidos.
-                    <br><span class="text-red-600 font-semibold">Es irreversible.</span>
-                </p>
-            </div>
-        </div>
-
-        <form method="POST" action="/derecho-al-olvido" class="space-y-4"
-              onsubmit="return confirmarOlvido(event)">
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
-                    Cédula del titular
-                </label>
-                <input type="text" name="cedula" id="olvido-cedula" required pattern="[0-9]{10}"
-                       placeholder="0000000000" maxlength="10"
-                       class="input font-mono text-lg tracking-wide"
-                       oninput="this.value = this.value.replace(/[^0-9]/g, '')">
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">
-                    Motivo (evidencia legal)
-                </label>
-                <input type="text" name="motivo" required
-                       placeholder="Solicitud del titular vía email del 2026-05-24"
-                       value="Solicitud del titular"
-                       class="input">
-                <p class="text-xs text-slate-400 mt-1">
-                    Quedará registrado en logs para evidencia de cumplimiento.
-                </p>
-            </div>
-            <div class="flex gap-2 pt-2">
-                <button type="button" onclick="cerrarModalOlvido()" class="btn-secondary flex-1">
-                    Cancelar
-                </button>
-                <button type="submit" class="btn-primary flex-1 !bg-amber-600 hover:!bg-amber-700">
-                    <i data-lucide="user-x" class="icon-sm"></i>
-                    Ejecutar borrado
-                </button>
-            </div>
-        </form>
+<div id="modal-olvido" class="vr-overlay" style="display:none;" onclick="if(event.target===this)this.style.display='none'">
+  <div class="vr-modal">
+    <div style="display:flex;gap:15px;margin-bottom:20px;">
+      <div style="width:50px;height:50px;border-radius:15px;background:var(--obs-s);color:var(--obs);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>
+      </div>
+      <div>
+        <h3 style="font-family:var(--font-d);font-size:19px;font-weight:700;color:var(--text);margin:0;">Derecho al olvido</h3>
+        <p style="font-size:13px;color:var(--text2);margin:6px 0 0;line-height:1.5;">Borra <strong>todo rastro</strong> de la persona: historial + códigos de verificación de PDFs emitidos. <span style="color:var(--rech-t);font-weight:600;">Es irreversible.</span></p>
+      </div>
     </div>
+
+    <form id="form-olvido" method="POST" action="/historial/olvido" onsubmit="return confirmarOlvido(event)">
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:7px;">Cédula del titular</label>
+        <input id="olvido-cedula" name="cedula" type="text" maxlength="10" placeholder="0000000000"
+          class="vr-inp" style="font-family:var(--font-m);font-size:15px;font-weight:600;"
+          oninput="this.value=this.value.replace(/\D/g,'').slice(0,10);document.getElementById('btn-olvido').disabled=this.value.length!==10">
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text2);margin-bottom:7px;">Motivo (evidencia legal)</label>
+        <input id="olvido-motivo" name="motivo" type="text" value="Solicitud del titular (LOPDP Art. 14)"
+          class="vr-inp" style="font-size:14px;">
+        <p style="font-size:11px;color:var(--text3);margin-top:6px;">Quedará registrado en logs de cumplimiento.</p>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;">
+        <button type="button" class="vr-btn vr-btn-sec vr-btn-md" style="flex:1;" onclick="document.getElementById('modal-olvido').style.display='none'">Cancelar</button>
+        <button type="submit" id="btn-olvido" class="vr-btn vr-btn-md" style="flex:1;background:var(--obs);color:#fff;" disabled>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/></svg>
+          Ejecutar borrado
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
 <script>
-function abrirModalOlvido(cedulaPredeterminada = '') {
-    const modal = document.getElementById('modal-olvido');
-    modal.classList.remove('hidden');
-    const input = document.getElementById('olvido-cedula');
-    input.value = cedulaPredeterminada;
-    setTimeout(() => input.focus(), 100);
-    if (window.lucide) lucide.createIcons();
+/* ── Filter ────────────────────────────────────────────────────── */
+let activeChip = '{{ filtro_semaforo }}';
+
+function histChip(btn, sem) {
+  document.querySelectorAll('#hist-chips .hist-filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeChip = sem;
+  histFilter();
 }
-function cerrarModalOlvido() {
-    document.getElementById('modal-olvido').classList.add('hidden');
+
+function histFilter() {
+  const q = document.getElementById('hist-q').value.replace(/\D/g,'');
+  const rows = document.querySelectorAll('#hist-table tbody tr');
+  let shown = 0;
+  rows.forEach(r => {
+    const ced = r.dataset.cedula || '';
+    const sem = r.dataset.sem || '';
+    const matchQ   = !q || ced.includes(q);
+    const matchSem = !activeChip || sem === activeChip;
+    const show = matchQ && matchSem;
+    r.style.display = show ? '' : 'none';
+    if (show) shown++;
+  });
+  const total = rows.length;
+  document.getElementById('hist-count').textContent = shown + ' de ' + total;
+}
+
+/* Initialize chips from server state */
+(function() {
+  const sem = '{{ filtro_semaforo }}';
+  document.querySelectorAll('#hist-chips .hist-filter-chip').forEach(b => {
+    b.classList.remove('active');
+    if (b.dataset.sem === sem) b.classList.add('active');
+  });
+  if (!sem) document.querySelector('#hist-chips .hist-filter-chip[data-sem=""]').classList.add('active');
+})();
+
+/* ── Nombre editing ────────────────────────────────────────────── */
+function editarNombreHistorial(ced, nombre) {
+  document.getElementById('nom-row-'  + ced).style.display = 'none';
+  const edit = document.getElementById('nom-edit-' + ced);
+  edit.style.display = 'flex';
+  const inp = document.getElementById('nom-inp-' + ced);
+  inp.value = nombre; inp.focus();
+}
+function cancelarNombreHistorial(ced) {
+  document.getElementById('nom-row-'  + ced).style.display = 'flex';
+  document.getElementById('nom-edit-' + ced).style.display = 'none';
+}
+async function guardarNombreHistorial(ced) {
+  const nombre = document.getElementById('nom-inp-' + ced).value.trim();
+  const fd = new FormData(); fd.append('nombre', nombre);
+  const r = await fetch('/historial/cedula/' + ced + '/nombre', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.ok) {
+    const txt = document.getElementById('nom-txt-' + ced);
+    txt.textContent = nombre || 'Sin nombre';
+    txt.style.color      = nombre ? 'var(--text)' : 'var(--text3)';
+    txt.style.fontStyle  = nombre ? 'normal' : 'italic';
+    cancelarNombreHistorial(ced);
+    vrToast('Nombre actualizado');
+  }
+}
+
+/* ── Semáforo editing ──────────────────────────────────────────── */
+function abrirSemaforo(ced) {
+  document.querySelectorAll('.sem-edit-panel.open').forEach(p => p.classList.remove('open'));
+  document.getElementById('sem-edit-' + ced).classList.add('open');
+}
+function cancelarSemaforo(ced) {
+  document.getElementById('sem-edit-' + ced).classList.remove('open');
+}
+const SEM_BADGE = {
+  'APTO':        '<span class="vsem vsem-apto"><span class="vsem-dot"></span>APTO</span>',
+  'OBSERVACIÓN': '<span class="vsem vsem-obs"><span class="vsem-dot"></span>OBSERVACIÓN</span>',
+  'RECHAZAR':    '<span class="vsem vsem-rech"><span class="vsem-dot"></span>RECHAZAR</span>',
+  'CRÍTICO':     '<span class="vsem vsem-crit"><span class="vsem-dot"></span>CRÍTICO</span>',
+  'OBSERVACION': '<span class="vsem vsem-obs"><span class="vsem-dot"></span>OBSERVACIÓN</span>',
+  'CRITICO':     '<span class="vsem vsem-crit"><span class="vsem-dot"></span>CRÍTICO</span>',
+};
+async function guardarSemaforo(ced, nivel) {
+  const fd = new FormData(); fd.append('semaforo', nivel);
+  const r = await fetch('/historial/cedula/' + ced + '/semaforo', { method: 'POST', body: fd });
+  const d = await r.json();
+  if (d.ok) {
+    const badge = document.getElementById('sem-badge-' + ced);
+    const btn = badge.querySelector('button');
+    const badgeHtml = SEM_BADGE[nivel] || '<span class="vsem vsem-sin"><span class="vsem-dot"></span>' + nivel + '</span>';
+    badge.innerHTML = badgeHtml + btn.outerHTML;
+    cancelarSemaforo(ced);
+    vrToast('Semáforo actualizado');
+  }
+}
+
+/* ── Derecho al olvido ─────────────────────────────────────────── */
+function abrirModalOlvido(ced) {
+  document.getElementById('olvido-cedula').value = ced || '';
+  document.getElementById('btn-olvido').disabled = !ced || ced.length !== 10;
+  document.getElementById('modal-olvido').style.display = 'flex';
 }
 function confirmarOlvido(e) {
-    const ced = document.getElementById('olvido-cedula').value;
-    if (!/^\d{10}$/.test(ced)) {
-        alert('Cédula debe tener exactamente 10 dígitos.');
-        e.preventDefault();
-        return false;
-    }
-    return confirm(
-        `⚠️ DERECHO AL OLVIDO\n\n` +
-        `Vas a borrar TODO rastro de la cédula ${ced}:\n` +
-        `• Todas las consultas del historial\n` +
-        `• Todos los códigos de PDFs emitidos\n\n` +
-        `Esta acción es IRREVERSIBLE. ¿Continuar?`
-    );
-}
-</script>
-
-{% if request.query_params.get('msg') %}
-<div class="mb-4 card p-4 flex items-center gap-3 border-emerald-200 bg-emerald-50/60">
-    <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-        <i data-lucide="check-circle" class="icon-sm"></i>
-    </div>
-    <div class="text-sm text-emerald-900">
-        {% set msg = request.query_params.get('msg') %}
-        {% set n = request.query_params.get('n', '') %}
-        {% if msg == 'limpio' %}
-            Caché limpiado. Se borraron {{ n }} entradas.
-        {% elif msg == 'borrada' %}
-            Entrada eliminada del historial.
-        {% elif msg == 'borradas' %}
-            Se eliminaron {{ n }} entrada(s) de esa cédula.
-        {% elif msg == 'olvido' %}
-            <strong>Derecho al olvido ejecutado</strong> para cédula
-            <code class="font-mono bg-emerald-100 px-1.5 py-0.5 rounded">{{ request.query_params.get('cedula', '') }}</code>:
-            {{ request.query_params.get('n_hist', '0') }} entrada(s) del historial y
-            {{ request.query_params.get('n_ver', '0') }} código(s) de verificación eliminados (LOPDP Art. 14).
-        {% endif %}
-    </div>
-</div>
-{% endif %}
-
-<div class="space-y-5">
-    <!-- Stats inline -->
-    <div class="card p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center">
-                <i data-lucide="database" class="icon-xs"></i>
-            </div>
-            <span class="text-slate-600">Total:</span>
-            <strong class="text-slate-900 font-mono">{{ total }}</strong>
-        </div>
-        <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
-        <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                <i data-lucide="clock" class="icon-xs"></i>
-            </div>
-            <span class="text-slate-600">Caché:</span>
-            <strong class="text-slate-900 font-mono">{{ ttl_horas }}h</strong>
-        </div>
-        <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
-        <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
-                <i data-lucide="eye" class="icon-xs"></i>
-            </div>
-            <span class="text-slate-600">Mostrando:</span>
-            <strong class="text-slate-900 font-mono">{{ entradas|length }}</strong>
-        </div>
-    </div>
-
-    <!-- Filtros -->
-    <div class="card p-5">
-        <form method="GET" action="/historial" class="flex flex-col sm:flex-row gap-3 items-end">
-            <div class="flex-1">
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Cédula</label>
-                <div class="relative">
-                    <i data-lucide="search" class="icon-sm absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" name="cedula" value="{{ filtro_cedula }}" placeholder="Buscar por cédula..." class="input pl-9 font-mono">
-                </div>
-            </div>
-            <div class="flex-1">
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wider">Nivel</label>
-                <select name="semaforo" class="input">
-                    <option value="">Todos los niveles</option>
-                    <option value="APTO"        {% if filtro_semaforo == "APTO" %}selected{% endif %}>APTO</option>
-                    <option value="OBSERVACIÓN" {% if filtro_semaforo == "OBSERVACIÓN" %}selected{% endif %}>OBSERVACIÓN</option>
-                    <option value="RECHAZAR"    {% if filtro_semaforo == "RECHAZAR" %}selected{% endif %}>RECHAZAR</option>
-                    <option value="CRÍTICO"     {% if filtro_semaforo == "CRÍTICO" %}selected{% endif %}>CRÍTICO</option>
-                    <option value="SIN DATOS"   {% if filtro_semaforo == "SIN DATOS" %}selected{% endif %}>SIN DATOS</option>
-                </select>
-            </div>
-            <button type="submit" class="btn-primary">
-                <i data-lucide="filter" class="icon-sm"></i>
-                Filtrar
-            </button>
-            {% if filtro_cedula or filtro_semaforo %}
-            <a href="/historial" class="btn-ghost">Limpiar</a>
-            {% endif %}
-        </form>
-    </div>
-
-    <!-- Tabla -->
-    {% if entradas %}
-    <div class="card overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full table-fixed">
-                <colgroup>
-                    <col class="w-28">
-                    <col class="w-32">
-                    <col>
-                    <col class="w-28">
-                    <col class="w-32">
-                    <col class="w-32">
-                    <col class="w-40">
-                </colgroup>
-                <thead class="bg-gradient-to-b from-slate-50 to-white border-b border-slate-200">
-                    <tr>
-                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Fecha</th>
-                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Cédula</th>
-                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nombre</th>
-                        <th class="px-5 py-3.5 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Tipo</th>
-                        <th class="px-5 py-3.5 text-center text-[11px] font-bold text-slate-600 uppercase tracking-wider">Nivel</th>
-                        <th class="px-5 py-3.5 text-left text-[11px] font-bold text-slate-600 uppercase tracking-wider">Operador</th>
-                        <th class="px-5 py-3.5 text-right text-[11px] font-bold text-slate-600 uppercase tracking-wider">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    {% for e in entradas %}
-                    <tr class="hover:bg-slate-50/70 transition group">
-                        <td class="px-5 py-4 text-sm whitespace-nowrap">
-                            {% set sg = e.edad_seg %}
-                            {% if sg < 60 %}
-                                <span class="text-emerald-600 font-medium flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> hace {{ sg }}s</span>
-                            {% elif sg < 3600 %}
-                                <span class="text-slate-700">hace {{ (sg // 60) }} min</span>
-                            {% elif sg < 86400 %}
-                                <span class="text-slate-600">hace {{ (sg // 3600) }}h</span>
-                            {% else %}
-                                <span class="text-slate-400">hace {{ (sg // 86400) }}d</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-5 py-4 font-mono text-sm font-bold text-slate-900 whitespace-nowrap">{{ e.cedula }}</td>
-                        <td class="px-5 py-4 text-sm text-slate-700 font-medium max-w-0">
-                            <div class="flex items-center gap-1.5" id="nombre-row-{{ e.cedula }}">
-                                <span id="nombre-txt-{{ e.cedula }}" class="truncate">{{ e.nombre or "—" }}</span>
-                                <button onclick="editarNombreHistorial('{{ e.cedula }}', '{{ e.nombre or '' }}')"
-                                    class="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0" title="Editar nombre">
-                                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-                                </button>
-                            </div>
-                            <div class="hidden items-center gap-1.5 mt-1" id="nombre-edit-{{ e.cedula }}">
-                                <input id="nombre-inp-{{ e.cedula }}" type="text" value="{{ e.nombre or '' }}"
-                                    placeholder="Nombre completo..."
-                                    class="border border-slate-200 rounded px-2 py-1 text-xs w-44 focus:outline-none focus:border-brand-400">
-                                <button onclick="guardarNombreHistorial('{{ e.cedula }}')"
-                                    class="text-xs bg-brand-600 hover:bg-brand-700 text-white px-2 py-1 rounded font-medium">OK</button>
-                                <button onclick="cancelarNombreHistorial('{{ e.cedula }}')"
-                                    class="text-xs text-slate-400 hover:text-slate-600 px-1">✕</button>
-                            </div>
-                        </td>
-                        <td class="px-5 py-4 text-center">
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider rounded">
-                                {% if e.tipo == "completo" %}
-                                    <i data-lucide="layers" class="icon-xs"></i>Completo
-                                {% elif e.tipo == "bachiller" %}
-                                    <i data-lucide="graduation-cap" class="icon-xs"></i>Bachiller
-                                {% else %}
-                                    <i data-lucide="gavel" class="icon-xs"></i>Judicial
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td class="px-5 py-4 text-center">
-                            {% set sem = e.semaforo %}
-                            <div class="inline-flex flex-col items-center gap-1" id="sem-row-{{ e.cedula }}">
-                                <div class="flex items-center gap-1">
-                                    {% if 'APTO' in sem %}
-                                        <span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>
-                                    {% elif 'OBSERVACIÓN' in sem %}
-                                        <span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>
-                                    {% elif 'CRÍTICO' in sem %}
-                                        <span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>
-                                    {% elif 'RECHAZAR' in sem %}
-                                        <span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>
-                                    {% elif sem %}
-                                        <span class="badge badge-sin"><span class="badge-dot"></span>{{ sem }}</span>
-                                    {% else %}
-                                        <span class="text-slate-300 text-xs">—</span>
-                                    {% endif %}
-                                    <button onclick="abrirSemaforo('{{ e.cedula }}')"
-                                        class="text-slate-300 hover:text-slate-500 transition-colors flex-shrink-0" title="Cambiar semáforo manualmente">
-                                        <i data-lucide="pencil" class="w-3 h-3"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <!-- Selector inline de semáforo -->
-                            <div class="hidden flex-col items-center gap-1 mt-1" id="sem-edit-{{ e.cedula }}">
-                                <div class="flex flex-wrap justify-center gap-1">
-                                    <button onclick="guardarSemaforo('{{ e.cedula }}','APTO')"
-                                        class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-bold hover:bg-emerald-200">APTO</button>
-                                    <button onclick="guardarSemaforo('{{ e.cedula }}','OBSERVACION')"
-                                        class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-bold hover:bg-amber-200">OBS</button>
-                                    <button onclick="guardarSemaforo('{{ e.cedula }}','RECHAZAR')"
-                                        class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-bold hover:bg-red-200">RECH</button>
-                                    <button onclick="guardarSemaforo('{{ e.cedula }}','CRITICO')"
-                                        class="text-[10px] px-1.5 py-0.5 rounded bg-red-900/20 text-red-900 font-bold hover:bg-red-900/30">CRÍT</button>
-                                </div>
-                                <button onclick="cancelarSemaforo('{{ e.cedula }}')"
-                                    class="text-[10px] text-slate-400 hover:text-slate-600">cancelar</button>
-                            </div>
-                        </td>
-                        <td class="px-5 py-4 text-sm">
-                            {% if e.operador_nombre and e.operador_nombre != '—' %}
-                              <div class="flex items-center gap-2">
-                                <div class="h-6 w-6 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                                  {{ e.operador_nombre[:1] | upper }}
-                                </div>
-                                <span class="text-xs font-medium text-slate-700 truncate" title="{{ e.operador_email }}">{{ e.operador_nombre }}</span>
-                              </div>
-                            {% else %}
-                              <span class="text-[10px] text-slate-400 italic">sistema (pre-migración)</span>
-                            {% endif %}
-                        </td>
-                        <td class="px-5 py-4 text-right whitespace-nowrap">
-                            <a href="/historial/{{ e.id }}" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition opacity-70 group-hover:opacity-100">
-                                <i data-lucide="eye" class="icon-xs"></i>Ver
-                            </a>
-                            <span class="text-slate-200 mx-1.5">·</span>
-                            <a href="/historial/{{ e.id }}/pdf" class="inline-flex items-center gap-1 text-brand-600 hover:text-brand-700 font-semibold text-sm transition opacity-70 group-hover:opacity-100">
-                                <i data-lucide="file-down" class="icon-xs"></i>PDF
-                            </a>
-                            <span class="text-slate-200 mx-1.5">·</span>
-                            <form method="POST" action="/historial/{{ e.id }}/borrar" class="inline" onsubmit="return confirm('¿Borrar esta entrada del caché? La próxima consulta de esta cédula será nueva.')">
-                                <button type="submit" class="inline-flex items-center gap-1 text-red-500 hover:text-red-700 font-semibold text-sm transition opacity-60 group-hover:opacity-100" title="Borrar entrada y forzar re-consulta">
-                                    <i data-lucide="trash-2" class="icon-xs"></i>
-                                </button>
-                            </form>
-                            <span class="text-slate-200 mx-1.5">·</span>
-                            <button type="button" onclick="abrirModalOlvido('{{ e.cedula }}')"
-                                    class="inline-flex items-center gap-1 text-amber-600 hover:text-amber-800 font-semibold text-sm transition opacity-60 group-hover:opacity-100"
-                                    title="Derecho al olvido — borrar TODO rastro de esta cédula (LOPDP)">
-                                <i data-lucide="user-x" class="icon-xs"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% else %}
-    <div class="card p-16 text-center">
-        <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 text-slate-400 mb-5">
-            <i data-lucide="inbox" class="icon-xl"></i>
-        </div>
-        <h3 class="text-xl font-bold text-slate-700 mb-2">Sin resultados</h3>
-        <p class="text-sm text-slate-500 max-w-sm mx-auto">
-            {% if filtro_cedula or filtro_semaforo %}
-            Ninguna búsqueda coincide con los filtros aplicados. Limpia los filtros para ver todo.
-            {% else %}
-            Aún no hay verificaciones registradas. Haz tu primera búsqueda para empezar.
-            {% endif %}
-        </p>
-        {% if not filtro_cedula and not filtro_semaforo %}
-        <a href="/" class="btn-primary mt-5">
-            <i data-lucide="search" class="icon-sm"></i>
-            Hacer primera búsqueda
-        </a>
-        {% endif %}
-    </div>
-    {% endif %}
-</div>
-
-<script>
-function editarNombreHistorial(cedula, nombreActual) {
-    document.getElementById('nombre-row-' + cedula).classList.add('hidden');
-    var ed = document.getElementById('nombre-edit-' + cedula);
-    ed.classList.remove('hidden');
-    ed.classList.add('flex');
-    document.getElementById('nombre-inp-' + cedula).focus();
-}
-function cancelarNombreHistorial(cedula) {
-    document.getElementById('nombre-edit-' + cedula).classList.add('hidden');
-    document.getElementById('nombre-edit-' + cedula).classList.remove('flex');
-    document.getElementById('nombre-row-' + cedula).classList.remove('hidden');
-}
-async function guardarNombreHistorial(cedula) {
-    const nombre = document.getElementById('nombre-inp-' + cedula).value.trim();
-    if (!nombre) return;
-    const fd = new FormData();
-    fd.append('nombre', nombre);
-    const r = await fetch('/historial/cedula/' + cedula + '/nombre', { method: 'POST', body: fd });
-    const data = await r.json();
-    if (data.ok) {
-        document.getElementById('nombre-txt-' + cedula).textContent = nombre;
-        cancelarNombreHistorial(cedula);
-    }
-}
-
-// ── Semáforo manual ────────────────────────────────────────────────────────
-function abrirSemaforo(cedula) {
-    document.getElementById('sem-row-' + cedula).classList.add('hidden');
-    const ed = document.getElementById('sem-edit-' + cedula);
-    ed.classList.remove('hidden');
-    ed.classList.add('flex');
-}
-function cancelarSemaforo(cedula) {
-    document.getElementById('sem-edit-' + cedula).classList.add('hidden');
-    document.getElementById('sem-edit-' + cedula).classList.remove('flex');
-    document.getElementById('sem-row-' + cedula).classList.remove('hidden');
-}
-const _BADGE_HTML = {
-    'APTO':       '<span class="badge badge-apto"><span class="badge-dot"></span>APTO</span>',
-    'OBSERVACION':'<span class="badge badge-obs"><span class="badge-dot"></span>OBSERVACIÓN</span>',
-    'RECHAZAR':   '<span class="badge badge-rech"><span class="badge-dot"></span>RECHAZAR</span>',
-    'CRITICO':    '<span class="badge badge-crit"><span class="badge-dot"></span>CRÍTICO</span>',
-};
-async function guardarSemaforo(cedula, nivel) {
-    const fd = new FormData();
-    fd.append('semaforo', nivel);
-    const r = await fetch('/historial/cedula/' + cedula + '/semaforo', { method: 'POST', body: fd });
-    const data = await r.json();
-    if (data.ok) {
-        // Actualizar badge en la fila
-        const row = document.getElementById('sem-row-' + cedula);
-        const div = row.querySelector('.flex.items-center.gap-1');
-        // Reemplazar todo menos el botón del lápiz
-        const btn = div.querySelector('button');
-        div.innerHTML = (_BADGE_HTML[nivel] || nivel) + ' ';
-        div.appendChild(btn);
-        if (window.lucide) lucide.createIcons({ nodes: [btn] });
-        cancelarSemaforo(cedula);
-    }
+  const ced = document.getElementById('olvido-cedula').value;
+  if (!/^\d{10}$/.test(ced)) { e.preventDefault(); return false; }
+  return confirm(`⚠️ DERECHO AL OLVIDO\n\nVas a borrar TODO rastro de la cédula ${ced}.\nEsta acción es IRREVERSIBLE. ¿Continuar?`);
 }
 </script>
 {% endblock %}

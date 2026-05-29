@@ -1,122 +1,153 @@
 {% extends "base.html" %}
 {% block title %}Verificación · JR Verifica EC{% endblock %}
 
-{% block navbar %}
-<nav class="border-b border-slate-200/70 bg-white/70 backdrop-blur-lg">
-    <div class="max-w-7xl mx-auto px-6 h-16 flex items-center">
-        <a href="/" class="flex items-center group">
-            <img src="/static/logo.png" alt="JR Verifica EC"
-                 class="h-10 w-auto max-w-[200px] object-contain transition-opacity group-hover:opacity-80"
-                 onerror="this.outerHTML='<span class=\'text-[15px] font-bold text-slate-900 tracking-tight\'>JR Verifica EC</span>'">
-        </a>
-    </div>
-</nav>
-{% endblock %}
+{% block sidebar %}{% endblock %}
 
 {% block content %}
-<div class="max-w-xl mx-auto mt-8">
-    <div class="relative">
-        <div class="absolute -top-10 left-1/2 -translate-x-1/2 w-[500px] h-[250px] {% if valido %}bg-emerald-300/20{% else %}bg-red-300/20{% endif %} rounded-full blur-3xl -z-10"></div>
+<style>
+  #vr-main { margin-left: 0 !important; }
+  .vfy-wrap {
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: var(--canvas); padding: 32px 16px;
+  }
+  .vfy-card { width: 100%; max-width: 520px; }
+  .vfy-hero {
+    border-radius: 20px 20px 0 0; padding: 40px 32px; text-align: center;
+    position: relative; overflow: hidden; color: #fff;
+  }
+  .vfy-hero-glow {
+    position: absolute; top: -60px; right: -60px;
+    width: 200px; height: 200px; border-radius: 50%;
+    background: rgba(255,255,255,.1); filter: blur(40px);
+    pointer-events: none;
+  }
+  .vfy-icon {
+    width: 72px; height: 72px; border-radius: 22px;
+    background: rgba(255,255,255,.18); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.25);
+    display: inline-flex; align-items: center; justify-content: center;
+    margin-bottom: 18px; box-shadow: 0 8px 24px rgba(0,0,0,.15);
+  }
+  .vfy-title { font-family: var(--font-d); font-size: 26px; font-weight: 800; letter-spacing: -.03em; }
+  .vfy-sub { font-size: 13px; opacity: .75; margin-top: 6px; }
+  .vfy-body {
+    background: var(--surface); border: 1px solid var(--line);
+    border-top: none; border-radius: 0 0 20px 20px;
+    padding: 28px 28px 24px; box-shadow: var(--sh-md);
+  }
+  .vfy-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 11px 0; border-bottom: 1px solid var(--line);
+  }
+  .vfy-row:last-child { border-bottom: none; }
+  .vfy-key { font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; }
+  .vfy-val { font-size: 13px; font-weight: 700; color: var(--text); text-align: right; max-width: 60%; }
+  .vfy-mono { font-family: var(--font-m); }
+  .vfy-note {
+    background: var(--surface-alt); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 16px;
+    display: flex; align-items: flex-start; gap: 10px;
+    margin-top: 18px; font-size: 12px; color: var(--text3); line-height: 1.65;
+  }
+  .vfy-footer { text-align: center; margin-top: 20px; font-size: 11px; color: var(--text3); display: flex; align-items: center; justify-content: center; gap: 6px; }
+</style>
 
-        {% if valido %}
-        <!-- AUTÉNTICO -->
-        <div class="card overflow-hidden shadow-elevate">
-            <div class="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-700 text-white p-9 text-center">
-                <div class="absolute -top-20 -right-20 w-60 h-60 bg-white/10 rounded-full blur-3xl"></div>
-                <div class="absolute -bottom-20 -left-20 w-60 h-60 bg-cyan-300/15 rounded-full blur-3xl"></div>
-                <div class="relative">
-                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white/15 backdrop-blur ring-1 ring-white/30 mb-5 shadow-lg">
-                        <i data-lucide="badge-check" class="w-12 h-12"></i>
-                    </div>
-                    <h1 class="text-3xl font-extrabold tracking-tight">Documento auténtico</h1>
-                    <p class="text-emerald-100 text-sm mt-2">Reporte verificado generado por JR Verifica EC</p>
-                </div>
-            </div>
+<div class="vfy-wrap">
+  <div class="vfy-card">
 
-            <div class="p-7 space-y-5">
-                <div class="grid grid-cols-2 gap-5 pb-5 border-b border-slate-100">
-                    <div>
-                        <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1">Código</div>
-                        <div class="font-mono font-bold text-slate-900 text-sm break-all">{{ codigo }}</div>
-                    </div>
-                    <div>
-                        <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1">Generado</div>
-                        <div class="font-bold text-slate-900 text-sm">{{ fecha }}</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Cédula verificada</div>
-                    <div class="font-mono text-2xl font-bold text-slate-900">{{ info.cedula }}</div>
-                </div>
-
-                {% if info.nombre %}
-                <div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-1.5">Nombre oficial</div>
-                    <div class="font-bold text-slate-900 text-lg">{{ info.nombre }}</div>
-                </div>
-                {% endif %}
-
-                {% if info.semaforo %}
-                <div>
-                    <div class="text-[10px] uppercase tracking-wider font-bold text-slate-500 mb-2">Veredicto</div>
-                    {% set sem = info.semaforo %}
-                    {% if 'APTO' in sem %}<span class="badge badge-apto text-sm !px-3 !py-1.5"><span class="badge-dot !w-2 !h-2"></span>APTO</span>
-                    {% elif 'OBSERVACIÓN' in sem %}<span class="badge badge-obs text-sm !px-3 !py-1.5"><span class="badge-dot !w-2 !h-2"></span>OBSERVACIÓN</span>
-                    {% elif 'CRÍTICO' in sem %}<span class="badge badge-crit text-sm !px-3 !py-1.5"><span class="badge-dot !w-2 !h-2"></span>CRÍTICO</span>
-                    {% elif 'RECHAZAR' in sem %}<span class="badge badge-rech text-sm !px-3 !py-1.5"><span class="badge-dot !w-2 !h-2"></span>RECHAZAR</span>
-                    {% else %}<span class="badge badge-sin text-sm !px-3 !py-1.5"><span class="badge-dot !w-2 !h-2"></span>{{ sem }}</span>{% endif %}
-                </div>
-                {% endif %}
-
-                <div class="border-t border-slate-100 pt-5 rounded-xl bg-slate-50/70 -mx-2 px-4 py-4">
-                    <div class="flex gap-2.5 text-xs text-slate-600 leading-relaxed">
-                        <i data-lucide="info" class="icon-sm flex-shrink-0 mt-0.5 text-slate-500"></i>
-                        <span>
-                            Este documento confirma que la cédula <strong class="text-slate-900">{{ info.cedula }}</strong>
-                            fue consultada a través de las fuentes oficiales del Estado ecuatoriano (Ministerio de Educación
-                            y/o Función Judicial) en la fecha indicada. El reporte completo solo está disponible para
-                            usuarios autorizados.
-                        </span>
-                    </div>
-                </div>
-            </div>
+    {% if valido %}
+    <!-- AUTÉNTICO -->
+    <div class="vfy-hero" style="background:linear-gradient(135deg,#12A150 0%,#0B8C42 50%,#086B33 100%);">
+      <div class="vfy-hero-glow"></div>
+      <div style="position:relative;">
+        <div class="vfy-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
         </div>
-        {% else %}
-        <!-- NO VÁLIDO -->
-        <div class="card overflow-hidden shadow-elevate">
-            <div class="relative overflow-hidden bg-gradient-to-br from-red-500 via-red-600 to-red-800 text-white p-9 text-center">
-                <div class="absolute -top-20 -right-20 w-60 h-60 bg-white/10 rounded-full blur-3xl"></div>
-                <div class="relative">
-                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white/15 backdrop-blur ring-1 ring-white/30 mb-5 shadow-lg">
-                        <i data-lucide="shield-x" class="w-12 h-12"></i>
-                    </div>
-                    <h1 class="text-3xl font-extrabold tracking-tight">Código no válido</h1>
-                    <p class="text-red-100 text-sm mt-2">No corresponde a ningún reporte oficial</p>
-                </div>
-            </div>
-
-            <div class="p-7 text-center space-y-5">
-                <div>
-                    <div class="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">Código consultado</div>
-                    <div class="font-mono font-bold text-slate-900 text-base bg-slate-50 inline-block px-4 py-2 rounded-lg break-all">{{ codigo }}</div>
-                </div>
-
-                <div class="rounded-xl bg-slate-50 p-4 text-left flex gap-2.5">
-                    <i data-lucide="info" class="icon-sm flex-shrink-0 mt-0.5 text-slate-500"></i>
-                    <span class="text-sm text-slate-600 leading-relaxed">
-                        Si recibiste este PDF y crees que es legítimo, verifica que hayas escaneado el código QR
-                        correctamente. Los códigos generados por JR Verifica EC son siempre válidos en este sistema.
-                    </span>
-                </div>
-            </div>
-        </div>
-        {% endif %}
+        <h1 class="vfy-title">Documento auténtico</h1>
+        <p class="vfy-sub">Reporte verificado generado por JR Verifica EC</p>
+      </div>
     </div>
 
-    <p class="text-center text-xs text-slate-400 mt-6 flex items-center justify-center gap-2">
-        <i data-lucide="shield" class="icon-xs"></i>
-        Servicio de verificación de autenticidad — JR Automata © 2026
-    </p>
+    <div class="vfy-body">
+      <div class="vfy-row">
+        <span class="vfy-key">Código</span>
+        <span class="vfy-val vfy-mono" style="font-size:11px;word-break:break-all;">{{ codigo }}</span>
+      </div>
+      <div class="vfy-row">
+        <span class="vfy-key">Generado</span>
+        <span class="vfy-val">{{ fecha }}</span>
+      </div>
+      <div class="vfy-row">
+        <span class="vfy-key">Cédula verificada</span>
+        <span class="vfy-val vfy-mono" style="font-size:18px;font-weight:800;letter-spacing:.04em;">{{ info.cedula }}</span>
+      </div>
+      {% if info.nombre %}
+      <div class="vfy-row">
+        <span class="vfy-key">Nombre oficial</span>
+        <span class="vfy-val">{{ info.nombre }}</span>
+      </div>
+      {% endif %}
+      {% if info.semaforo %}
+      <div class="vfy-row">
+        <span class="vfy-key">Veredicto</span>
+        <span>
+          {% set sem = info.semaforo %}
+          {% if 'APTO' in sem %}<span class="vsem vsem-apto">APTO</span>
+          {% elif 'OBSERVACIÓN' in sem %}<span class="vsem vsem-obs">OBSERVACIÓN</span>
+          {% elif 'CRÍTICO' in sem %}<span class="vsem vsem-crit">CRÍTICO</span>
+          {% elif 'RECHAZAR' in sem %}<span class="vsem vsem-rech">RECHAZAR</span>
+          {% else %}<span class="vsem vsem-sin">{{ sem }}</span>{% endif %}
+        </span>
+      </div>
+      {% endif %}
+
+      <div class="vfy-note">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Este documento confirma que la cédula <strong style="color:var(--text);">{{ info.cedula }}</strong>
+        fue consultada a través de las fuentes oficiales del Estado ecuatoriano en la fecha indicada.
+        El reporte completo solo está disponible para usuarios autorizados.</span>
+      </div>
+    </div>
+
+    {% else %}
+    <!-- NO VÁLIDO -->
+    <div class="vfy-hero" style="background:linear-gradient(135deg,#E04338 0%,#C0392B 50%,#921E16 100%);">
+      <div class="vfy-hero-glow"></div>
+      <div style="position:relative;">
+        <div class="vfy-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/>
+          </svg>
+        </div>
+        <h1 class="vfy-title">Código no válido</h1>
+        <p class="vfy-sub">No corresponde a ningún reporte oficial</p>
+      </div>
+    </div>
+
+    <div class="vfy-body">
+      <div class="vfy-row">
+        <span class="vfy-key">Código consultado</span>
+        <span class="vfy-val vfy-mono" style="font-size:11px;word-break:break-all;">{{ codigo }}</span>
+      </div>
+
+      <div class="vfy-note" style="margin-top:14px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Si recibiste este PDF y crees que es legítimo, verifica que hayas escaneado el código QR
+        correctamente. Los códigos generados por JR Verifica EC son siempre válidos en este sistema.</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="vfy-footer">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Servicio de verificación de autenticidad — JR Automata © 2026
+    </div>
+
+  </div>
 </div>
 {% endblock %}

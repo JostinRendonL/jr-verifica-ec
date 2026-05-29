@@ -1,759 +1,864 @@
 {% extends "base.html" %}
-{% block title %}Verificación de Antecedentes · JR Verifica EC{% endblock %}
-
-{# ── Override del navbar de base.html para usar el nuevo diseño ── #}
-{% block navbar %}
-<nav class="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/85 backdrop-blur-md transition-all duration-300">
-  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-    <div class="flex h-16 items-center justify-between">
-
-      {# Logo del producto #}
-      <a href="/" class="flex items-center group">
-        <img src="/static/logo.png" alt="JR Verifica EC"
-             class="h-10 w-auto max-w-[200px] object-contain transition-opacity group-hover:opacity-80"
-             onerror="this.outerHTML='<span class=\'text-[15px] font-bold text-slate-900 tracking-tight\'>JR Verifica EC</span>'">
-      </a>
-
-      {% set _u = request.state.usuario if request.state and request.state.usuario else None %}
-      {% if _u %}
-      <div class="flex items-center gap-6">
-        <div class="hidden md:flex items-center gap-1">
-          <a href="/" class="px-3 py-2 text-sm font-medium {% if request.url.path == '/' %}text-slate-900 border-b-2 border-brand-600{% else %}text-slate-500 hover:text-slate-800{% endif %} transition-colors" {% if request.url.path == '/' %}aria-current="page"{% endif %}>Buscar</a>
-          <a href="/dashboard" class="px-3 py-2 text-sm font-medium {% if request.url.path == '/dashboard' %}text-slate-900 border-b-2 border-brand-600{% else %}text-slate-500 hover:text-slate-800{% endif %} transition-colors" {% if request.url.path == '/dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
-          <a href="/historial" class="px-3 py-2 text-sm font-medium {% if '/historial' in request.url.path %}text-slate-900 border-b-2 border-brand-600{% else %}text-slate-500 hover:text-slate-800{% endif %} transition-colors" {% if '/historial' in request.url.path %}aria-current="page"{% endif %}>Historial</a>
-          {% if _u.rol == 'admin' %}
-          <a href="/admin/usuarios" class="px-3 py-2 text-sm font-medium {% if '/admin/usuarios' in request.url.path %}text-slate-900 border-b-2 border-brand-600{% else %}text-slate-500 hover:text-slate-800{% endif %} transition-colors">Usuarios</a>
-          {% endif %}
-        </div>
-        <div class="flex items-center gap-3 border-l border-slate-200 pl-6">
-          <a href="/perfil" class="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-slate-100 transition" title="Mi perfil">
-            <div class="h-7 w-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-white text-xs font-bold flex items-center justify-center">
-              {{ _u.nombre[:1] | upper }}
-            </div>
-            <div class="hidden md:flex flex-col leading-tight">
-              <span class="text-xs font-semibold text-slate-900">{{ _u.nombre }}</span>
-              <span class="text-[9px] text-slate-500 uppercase tracking-wide">{{ _u.rol }}</span>
-            </div>
-          </a>
-          <a href="/logout" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-red-600 transition-colors py-2 px-1" aria-label="Cerrar sesión">
-            <i data-lucide="log-out" class="h-4 w-4"></i>
-          </a>
-        </div>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-</nav>
-{% endblock %}
+{% block title %}Verificación · JR Verifica EC{% endblock %}
 
 {% block content %}
-
-{# ────────────────────────────────────────────────────────────────────
-   OVERRIDE del wrapper de base.html para que el hero sea full-bleed
-   (resuelve el problema del zoom-out: ya no queda cajita flotando).
-   ──────────────────────────────────────────────────────────────────── #}
 <style>
-  /* Neutralizar padding/max-width del <main> en SOLO esta vista */
-  body > main { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+/* ── Búsqueda page ─────────────────────────────────────────────── */
+.bq-grid { display: grid; gap: 22px; grid-template-columns: 390px 1fr; align-items: start; }
+.bq-grid.collapsed { grid-template-columns: 1fr 1fr; }
 
-  /* Tailwind config del brand color (compatible con la paleta del base.html) */
-  :root {
-    --brand-50:  #f0f6ff;
-    --brand-100: #e0ecff;
-    --brand-400: #64a9fc;
-    --brand-500: #3883f8;
-    --brand-600: #2563eb;
-    --brand-700: #1d4ed8;
-    --brand-900: #1e3a8a;
-    --brand-950: #0f172a;
-  }
+/* Source toggle */
+.src-toggle {
+  display: flex; align-items: center; gap: 11px; padding: 11px 13px;
+  border-radius: 13px; cursor: pointer; border: 1.5px solid var(--line);
+  background: var(--surface); text-align: left; width: 100%;
+  transition: border-color .2s, background .2s, transform .12s var(--ease);
+  font-family: var(--font-b);
+}
+.src-toggle:hover { transform: translateY(-1px); }
+.src-toggle.on { border-color: var(--tint, var(--primary)); background: color-mix(in srgb, var(--tint, var(--primary)) 6%, white); }
+.src-logo {
+  width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; border: 1px solid var(--line); overflow: hidden;
+}
+.src-logo img { width: 22px; height: 22px; object-fit: contain; }
+.src-check {
+  width: 19px; height: 19px; border-radius: 6px; flex-shrink: 0;
+  border: 2px solid #CDD0DA; background: transparent;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .18s;
+}
+.src-toggle.on .src-check {
+  border-color: var(--tint, var(--primary));
+  background: var(--tint, var(--primary));
+}
 
-  /* Plus Jakarta Sans + JetBrains Mono */
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+/* Toggle switch */
+.sw-track {
+  width: 34px; height: 20px; border-radius: 99px;
+  background: #D7D9E2; position: relative; flex-shrink: 0;
+  transition: background .2s; cursor: pointer;
+}
+.sw-track.on { background: var(--primary); }
+.sw-thumb {
+  position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  transition: left .2s var(--ease);
+}
+.sw-track.on .sw-thumb { left: 16px; }
 
-  .font-jakarta { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
-  .font-jb      { font-family: 'JetBrains Mono', monospace; }
+/* Empty state */
+.bq-empty {
+  border-radius: 22px; border: 1.5px dashed var(--line);
+  background: var(--surface-alt); padding: 64px 32px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; min-height: 380px; justify-content: center;
+}
+.bq-empty-icon {
+  width: 72px; height: 72px; border-radius: 22px;
+  background: var(--primary-soft); color: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 18px; animation: vbreath 3.5s ease-in-out infinite;
+}
 
-  /* Focus accesible */
-  .verifica-shell input:focus,
-  .verifica-shell button:focus,
-  .verifica-shell [role="tab"]:focus {
-    outline: 2px solid transparent;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.4);
-  }
+/* Skeleton */
+.bq-sk { border-radius: 22px; background: linear-gradient(100deg, var(--line2) 30%, #fff 50%, var(--line2) 70%); background-size: 200% 100%; animation: vshimmer 1.4s linear infinite; }
 
-  /* Transición suave de tabs */
-  .tab-content { transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out; }
-  .tab-content.hidden { display: none; opacity: 0; transform: translateY(4px); }
+/* Cache banner */
+.bq-cache-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #EEF2FF; border: 1px solid #D8E0FB; border-radius: 13px;
+  padding: 11px 15px;
+}
 
-  /* Pulse glow para "Activo" */
-  @keyframes pulse-glow { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-  .pulse-glow { animation: pulse-glow 2s infinite ease-in-out; }
+/* Veredicto hero */
+.vr-hero {
+  position: relative; border-radius: 22px; overflow: hidden;
+  color: #fff; padding: 30px 32px; box-shadow: var(--sh-lg);
+}
+.vr-hero-orb1 {
+  position: absolute; top: -40%; right: -12%; width: 55%; aspect-ratio: 1;
+  background: rgba(255,255,255,.16); border-radius: 50%; filter: blur(48px);
+  animation: vfloat 9s ease-in-out infinite;
+}
+.vr-hero-orb2 {
+  position: absolute; bottom: -45%; left: -10%; width: 50%; aspect-ratio: 1;
+  background: rgba(255,255,255,.09); border-radius: 50%; filter: blur(48px);
+  animation: vfloat 11s ease-in-out infinite reverse;
+}
+.vr-hero-body { position: relative; }
+.vr-hero-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .18em; color: rgba(255,255,255,.65); text-transform: uppercase; margin-bottom: 14px; }
+.vr-hero-icon-tile {
+  width: 60px; height: 60px; border-radius: 18px;
+  background: rgba(255,255,255,.18); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  animation: vpop .5s cubic-bezier(.2,1.3,.4,1) both;
+}
+.vr-hero-level { font-family: var(--font-d); font-size: 46px; font-weight: 800; letter-spacing: -.03em; line-height: .95; }
+.vr-hero-sep { border-top: 1px solid rgba(255,255,255,.18); margin-top: 22px; padding-top: 16px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.vr-hero-nom { font-family: var(--font-d); font-size: 19px; font-weight: 700; margin-top: 4px; letter-spacing: -.01em; }
+.vr-hero-fecha { font-size: 12px; color: rgba(255,255,255,.55); display: flex; align-items: center; gap: 6px; }
 
-  /* Reduced motion */
-  @media (prefers-reduced-motion: reduce) {
-    .pulse-glow, .animate-ping, .animate-spin { animation: none !important; }
-  }
+/* Source card */
+.src-card-header { display: flex; align-items: center; gap: 13px; margin-bottom: 18px; }
+.src-card-logo { width: 40px; height: 40px; border-radius: 12px; background: #fff; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
+.src-card-logo img { width: 26px; height: 26px; object-fit: contain; }
 
-  /* Brand color utilities — solo si el base no los define ya */
-  .bg-brand-50  { background-color: #f0f6ff; }
-  .bg-brand-600 { background-color: #2563eb; }
-  .bg-brand-700 { background-color: #1d4ed8; }
-  .bg-brand-950 { background-color: #0f172a; }
-  .text-brand-300 { color: #9bcafe; }
-  .text-brand-400 { color: #64a9fc; }
-  .text-brand-600 { color: #2563eb; }
-  .text-brand-700 { color: #1d4ed8; }
-  .border-brand-200 { border-color: #cbdfff; }
-  .border-brand-400 { border-color: #64a9fc; }
-  .border-brand-500 { border-color: #3883f8; }
-  .border-brand-600 { border-color: #2563eb; }
-  .ring-brand-500\/10 { --tw-ring-color: rgb(56 131 248 / 0.1); }
-  .ring-brand-500\/40 { --tw-ring-color: rgb(56 131 248 / 0.4); }
-  .shadow-brand-500\/10 { --tw-shadow-color: rgb(56 131 248 / 0.1); }
-  .shadow-brand-500\/15 { --tw-shadow-color: rgb(56 131 248 / 0.15); }
-  .hover\:bg-brand-700:hover { background-color: #1d4ed8; }
-  .hover\:border-brand-400:hover { border-color: #64a9fc; }
-  .hover\:border-brand-500:hover { border-color: #3883f8; }
-  .hover\:border-brand-200:hover { border-color: #cbdfff; }
-  .hover\:text-brand-600:hover { color: #2563eb; }
-  .hover\:text-brand-700:hover { color: #1d4ed8; }
-  .focus\:border-brand-600:focus { border-color: #2563eb; }
-  .group:hover .group-hover\:border-brand-200 { border-color: #cbdfff; }
-  .group:hover .group-hover\:text-brand-600 { color: #2563eb; }
+/* Status row */
+.vr-status {
+  display: flex; gap: 12px; align-items: flex-start;
+  border-radius: 14px; padding: 16px;
+}
+.vr-status-icon {
+  width: 34px; height: 34px; border-radius: 10px; color: #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.vr-status.success { background: var(--apto-s);  border: 1px solid rgba(18,161,80,.2); }
+.vr-status.success .vr-status-icon { background: var(--apto); box-shadow: 0 6px 14px -4px rgba(18,161,80,.5); }
+.vr-status.warning { background: var(--obs-s);   border: 1px solid rgba(224,140,11,.2); }
+.vr-status.warning .vr-status-icon { background: var(--obs); }
+.vr-status.danger  { background: var(--rech-s);  border: 1px solid rgba(224,67,56,.2); }
+.vr-status.danger  .vr-status-icon { background: var(--rech); box-shadow: 0 6px 14px -4px rgba(224,67,56,.5); }
+.vr-status.neutral { background: var(--line2);   border: 1px solid var(--line); }
+.vr-status.neutral .vr-status-icon { background: var(--text3); }
+
+/* Data grid */
+.vr-data-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px;
+  margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+}
+.vr-data-label { font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--text3); }
+.vr-data-val { font-size: 14px; font-weight: 700; color: var(--text); margin-top: 3px; }
+.vr-data-wide { grid-column: 1 / -1; }
+
+/* Lote */
+.lote-zone {
+  border-radius: 18px; padding: 40px 24px; text-align: center; cursor: pointer;
+  border: 2px dashed #D7D9E2; background: var(--surface-alt);
+  transition: all .2s var(--ease);
+}
+.lote-zone:hover, .lote-zone.drag { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, white); }
+.lote-zone.has-file { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, white); }
+
+.lote-src-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lote-src-btn {
+  display: flex; align-items: center; gap: 10px; padding: 11px 13px;
+  border-radius: 12px; cursor: pointer; border: 1.5px solid var(--line);
+  background: var(--surface); font-family: var(--font-b); transition: all .18s;
+}
+.lote-src-btn:hover { border-color: #D7D9E2; }
+.lote-src-btn.on { border-color: var(--tint); background: color-mix(in srgb, var(--tint) 6%, white); }
+.lote-src-logo { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line); overflow: hidden; }
+.lote-src-logo img { width: 19px; height: 19px; object-fit: contain; }
+
+/* Job progress */
+.job-header { padding: 24px 28px; color: #fff; position: relative; overflow: hidden; }
+.job-header-glow {
+  position: absolute; top: -60px; right: -30px; width: 180px; height: 180px;
+  border-radius: 50%; background: radial-gradient(circle, rgba(91,75,227,.5), transparent 70%); filter: blur(10px);
+}
+.job-counter { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.job-workers { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 600; padding: 13px 28px; }
+.job-bar-track { height: 8px; background: rgba(255,255,255,.16); border-radius: 99px; overflow: hidden; margin-top: 14px; }
+.job-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,#6E5BF0,#A99CFF); transition: width .25s linear; }
 </style>
 
-<div class="verifica-shell font-jakarta">
+<div class="vr-page">
+  <!-- Page header -->
+  <div class="vr-ph">
+    <div>
+      <div class="vr-eyebrow" id="pg-eyebrow">Verificación individual</div>
+      <h1 class="vr-title" id="pg-title">Búsqueda por cédula</h1>
+      <p class="vr-sub" id="pg-sub">Consulta antecedentes en las fuentes oficiales del Estado ecuatoriano.</p>
+    </div>
+  </div>
 
-  {# ══════════════════════════════════════════════════════════════════
-     HERO SECTION — full-bleed, dark mode con imagen ambiental
-     ══════════════════════════════════════════════════════════════════ #}
-  <div class="relative w-full overflow-hidden bg-slate-950 pt-16 pb-24 md:pt-20 md:pb-32 text-white border-b border-slate-900">
-
-    {# Imagen Unsplash de oficina moderna como fondo ambiental #}
-    <div class="absolute inset-0 bg-cover bg-center opacity-30 select-none pointer-events-none z-0"
-         style="background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?w=1800&q=80&auto=format&fit=crop');"></div>
-
-    {# Glow mesh sutil para profundidad #}
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_75%_30%,rgba(37,99,235,0.25),transparent_45%)] select-none pointer-events-none z-0"></div>
-    <div class="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,rgba(37,99,235,0.1),transparent_40%)] select-none pointer-events-none z-0"></div>
-
-    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 z-10">
-
-      {# Indicador de estado sistema #}
-      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold text-slate-300 bg-slate-900/90 border border-slate-800 rounded-full select-none mb-6 shadow-xl">
-        <span class="flex h-2 w-2 relative">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-        </span>
-        <span>Sistemas de consulta activos</span>
-      </div>
-
-      {# Saludo dinámico + título #}
-      <div class="max-w-3xl">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="flex h-1.5 w-1.5 relative shrink-0">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+  <!-- ── BÚSQUEDA TAB ─────────────────────────────────────────── -->
+  <div id="tab-busqueda">
+    <div class="bq-grid collapsed" id="bq-grid">
+      <!-- Left: Search panel -->
+      <div class="vr-card" style="padding:24px;position:sticky;top:24px;" id="bq-panel">
+        <label style="font-size:12.5px;font-weight:600;color:var(--text2);">Cédula de identidad</label>
+        <div style="position:relative;margin-top:8px;">
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text3);" id="bq-search-ico">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
-          <span id="greeting-text" class="text-xs font-bold uppercase tracking-widest text-brand-400 font-jb">Buenas tardes</span>
+          <input id="bq-cedula" type="text" maxlength="10" placeholder="0000000000"
+            class="vr-inp" style="padding-left:42px;padding-right:48px;font-family:var(--font-m);font-size:17px;font-weight:600;letter-spacing:.04em;"
+            oninput="bqCedulaInput(this)" onkeydown="if(event.key==='Enter')bqBuscar()">
+          <span id="bq-counter" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:11px;font-family:var(--font-m);color:var(--text3);">0/10</span>
         </div>
-        <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight mb-5"
-            style="font-weight: 800; letter-spacing: -0.025em;">
-          Verificación de Antecedentes y Competencias en <span class="text-brand-400">Ecuador</span>
-        </h1>
-        <p class="text-slate-300 text-base sm:text-lg font-normal leading-relaxed mb-8 max-w-2xl">
-          Valide de manera automatizada títulos académicos registrados en el Ministerio de Educación, causas judiciales en el SATJE y certificaciones laborales del Ministerio del Trabajo (SETEC).
-        </p>
-      </div>
 
-      {# Chips de características reales #}
-      <div class="flex flex-wrap gap-3 sm:gap-4 text-xs font-semibold text-slate-300">
-        <div class="flex items-center gap-2.5 px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
-          <i data-lucide="shield-check" class="h-4 w-4 text-brand-400"></i>
-          <span>Cumplimiento LOPDP Ecuador</span>
+        <div style="margin-top:20px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12.5px;font-weight:600;color:var(--text2);">Fuentes a consultar</span>
+          <span style="font-size:11px;color:var(--text3);" id="bq-fuentes-count">2 de 4</span>
         </div>
-        <div class="flex items-center gap-2.5 px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
-          <i data-lucide="cpu" class="h-4 w-4 text-brand-400"></i>
-          <span>Consultas Paralelas en Tiempo Real</span>
-        </div>
-        <div class="flex items-center gap-2.5 px-3.5 py-2 bg-white/5 border border-white/10 rounded-xl backdrop-blur-sm">
-          <i data-lucide="file-check" class="h-4 w-4 text-brand-400"></i>
-          <span>Reportes Firmados con QR</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  {# ══════════════════════════════════════════════════════════════════
-     CUERPO PRINCIPAL — light mode, área de trabajo + sidebar
-     ══════════════════════════════════════════════════════════════════ #}
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10 pb-24">
-
-    {# Mensajes de error (vía query params) #}
-    {% set error = request.query_params.get('error') %}
-    {% if error %}
-    <div class="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3" role="alert">
-      <i data-lucide="alert-triangle" class="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
-      <div class="text-sm text-amber-900">
-        {% if error == "sin_seleccion" %}Marca al menos una opción de verificación.
-        {% elif error == "excel" %}Error al leer el archivo Excel. Verifica el formato.
-        {% elif error == "vacio" %}El Excel no contiene cédulas. Asegúrate de tener una columna llamada <code class="bg-amber-100 px-1 rounded">cedula</code>.
-        {% elif error == "job_no_encontrado" %}El trabajo ya no existe (el servidor pudo haberse reiniciado).
-        {% elif error == "no_disponible" %}Los resultados aún no están disponibles.
-        {% elif error == "cedula_invalida" %}Cédula inválida. No pasa la verificación oficial del Registro Civil.
-        {% elif error == "pdf_error" %}No se pudo generar el PDF. Intenta de nuevo.
-        {% else %}Error: {{ error }}{% endif %}
-      </div>
-    </div>
-    {% endif %}
-
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-
-      {# ═══════════════ COLUMNA IZQUIERDA — formulario ═══════════════ #}
-      <div class="lg:col-span-8 bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-
-        {# Tabs #}
-        <div class="flex border-b border-slate-200 bg-slate-50/50" role="tablist" aria-label="Métodos de verificación">
-          <button id="tab-btn-individual" type="button" onclick="switchTab('individual')"
-                  class="flex-1 py-5 px-6 text-sm font-bold border-b-2 border-brand-600 text-brand-600 flex items-center justify-center gap-2 bg-white transition-all focus:outline-none"
-                  role="tab" aria-selected="true" aria-controls="panel-individual">
-            <i data-lucide="user-check" class="h-4 w-4"></i>
-            Búsqueda Individual (Cédula)
+        <div style="display:flex;flex-direction:column;gap:8px;" id="bq-fuentes">
+          <!-- Bachiller -->
+          <button class="src-toggle on" style="--tint:#4F6BED" onclick="bqToggle(this,'bachiller')" data-key="bachiller" data-on="1">
+            <div class="src-logo"><img src="/static/logos/logo-mineduc-mark.png" alt="Bachiller" onerror="this.parentNode.innerHTML='<svg width=17 height=17 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=2><path d=&quot;M22 10v6M2 10l10-5 10 5-10 5z&quot;/><path d=&quot;M6 12v5c0 2 4 3 6 3s6-1 6-3v-5&quot;/></svg>'"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);">Bachiller</div>
+              <div style="font-size:11px;color:var(--text3);">Educación · SENESCYT</div>
+            </div>
+            <div class="src-check">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
           </button>
-          <button id="tab-btn-lote" type="button" onclick="switchTab('lote')"
-                  class="flex-1 py-5 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30 flex items-center justify-center gap-2 transition-all focus:outline-none"
-                  role="tab" aria-selected="false" aria-controls="panel-lote">
-            <i data-lucide="file-spreadsheet" class="h-4 w-4"></i>
-            Verificación por Lote (Excel)
+          <!-- SATJE -->
+          <button class="src-toggle on" style="--tint:#4F6BED" onclick="bqToggle(this,'satje')" data-key="satje" data-on="1">
+            <div class="src-logo"><img src="/static/logos/logo-cj-mark.png" alt="SATJE" onerror="this.parentNode.innerHTML='<svg width=17 height=17 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=2><path d=&quot;m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z&quot;/><path d=&quot;m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z&quot;/><path d=&quot;M7 21h10&quot;/><path d=&quot;M12 3v18&quot;/><path d=&quot;M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2&quot;/></svg>'"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);">SATJE</div>
+              <div style="font-size:11px;color:var(--text3);">Consejo de la Judicatura</div>
+            </div>
+            <div class="src-check">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </button>
+          <!-- SETEC -->
+          <button class="src-toggle" style="--tint:#7C5CE0" onclick="bqToggle(this,'setec_check')" data-key="setec_check" data-on="0">
+            <div class="src-logo"><img src="/static/logos/logo-setec-mark.png" alt="SETEC" onerror="this.parentNode.innerHTML='<svg width=17 height=17 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=2><circle cx=12 cy=8 r=7/><polyline points=&quot;8.21 13.89 7 23 12 20 17 23 15.79 13.88&quot;/></svg>'"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);">SETEC</div>
+              <div style="font-size:11px;color:var(--text3);">Min. del Trabajo</div>
+            </div>
+            <div class="src-check"></div>
+          </button>
+          <!-- Fiscalía -->
+          <button class="src-toggle" style="--tint:#E04338" onclick="bqToggle(this,'fiscalia_check')" data-key="fiscalia_check" data-on="0">
+            <div class="src-logo"><img src="/static/logos/logo-fge-mark.png" alt="Fiscalía" onerror="this.parentNode.innerHTML='<svg width=17 height=17 viewBox=&quot;0 0 24 24&quot; fill=none stroke=currentColor stroke-width=2><path d=&quot;M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z&quot;/></svg>'"></div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);">Fiscalía</div>
+              <div style="font-size:11px;color:var(--text3);">Antecedentes penales</div>
+            </div>
+            <div class="src-check"></div>
           </button>
         </div>
 
-        {# ═══ Panel INDIVIDUAL ═══ #}
-        <div id="panel-individual" class="tab-content p-6 md:p-8" role="tabpanel" aria-labelledby="tab-btn-individual">
-          <form method="POST" action="/buscar" onsubmit="mostrarLoader(event)" class="space-y-8">
+        <!-- Force re-check -->
+        <label style="display:flex;align-items:center;gap:9px;margin-top:16px;cursor:pointer;" onclick="bqToggleForzar()">
+          <div class="sw-track" id="bq-sw-forzar">
+            <div class="sw-thumb"></div>
+          </div>
+          <span style="font-size:13px;color:var(--text2);">Forzar re-consulta (ignorar caché)</span>
+        </label>
 
-            {# Input de cédula con bandera EC + contador #}
-            <div>
-              <label for="cedula-input" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2.5">Número de Cédula del Candidato</label>
-              <div class="relative rounded-xl shadow-sm">
-                <div class="absolute inset-y-0 left-0 flex items-center gap-2 pl-4 pr-3 border-r border-slate-200 my-2.5 w-24 select-none pointer-events-none">
-                  <span class="text-base">🇪🇨</span>
-                  <span class="text-xs font-bold font-jb text-slate-500">EC</span>
-                </div>
-                <input
-                  type="text"
-                  id="cedula-input"
-                  name="cedula"
-                  required autofocus
-                  placeholder="1712345678"
-                  maxlength="10"
-                  pattern="[0-9]{10}"
-                  inputmode="numeric"
-                  autocomplete="off"
-                  class="block w-full rounded-xl border border-slate-200 bg-slate-50/30 py-4 pl-28 pr-16 text-2xl font-jb tracking-widest text-slate-900 placeholder-slate-300 transition-all focus:border-brand-600 focus:bg-white focus:ring-4 focus:ring-brand-500/10"
-                  oninput="validateCedulaInput(this)">
+        <!-- Error -->
+        <div id="bq-err" style="display:none;margin-top:14px;font-size:12.5px;padding:9px 13px;border-radius:11px;background:var(--rech-s);color:var(--rech-t);border:1px solid rgba(224,67,56,.2);"></div>
 
-                <div class="absolute inset-y-0 right-0 flex items-center pr-4">
-                  <div id="cedula-counter-badge" class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-jb font-medium rounded-md bg-slate-100 text-slate-400 select-none">
-                    <span id="cedula-char-count">0</span>/10
-                  </div>
-                  <div id="cedula-success-check" class="hidden text-emerald-600 bg-emerald-50 p-1.5 rounded-full border border-emerald-100">
-                    <i data-lucide="check" class="w-5 h-5"></i>
-                  </div>
-                </div>
-              </div>
-              <p class="mt-2.5 text-xs text-slate-500 leading-normal">
-                El sistema realiza una pre-validación del dígito verificador provincial antes de conectar con el Registro Civil ecuatoriano.
-              </p>
-            </div>
-
-            {# Selector de fuentes #}
-            <div>
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-600">Fuentes Estatales a Consultar</h3>
-                <button type="button" onclick="selectAllSources(true)" class="text-xs font-bold text-brand-600 hover:text-brand-700">Activar todas</button>
-              </div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-
-                {# Card 1: Bachiller / MinEduc #}
-                <label class="group relative flex flex-col justify-between h-[160px] p-5 rounded-xl cursor-pointer border-2 border-brand-600 bg-white hover:border-brand-500 hover:shadow-md transition-all select-none" id="source-card-minedu">
-                  <input type="checkbox" id="check-minedu" name="bachiller" value="1" checked class="sr-only" onchange="toggleSourceCard('minedu')">
-                  <div class="flex justify-between items-start">
-                    <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
-                      <i data-lucide="graduation-cap" class="h-5 w-5"></i>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <div class="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 border border-emerald-200 rounded-full">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-glow"></span>
-                        <span class="text-[9px] font-bold text-emerald-700 uppercase font-jb tracking-wider">Activo</span>
-                      </div>
-                      <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white check-indicator shadow-sm">
-                        <i data-lucide="check" class="h-3.5 w-3.5 stroke-[3]"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="mt-auto">
-                    <span class="block text-sm font-extrabold text-slate-900 tracking-tight">Bachiller</span>
-                    <span class="block text-[11px] text-slate-500 font-medium">Ministerio de Educación</span>
-                  </div>
-                </label>
-
-                {# Card 2: Causas Judiciales / SATJE #}
-                <label class="group relative flex flex-col justify-between h-[160px] p-5 rounded-xl cursor-pointer border-2 border-brand-600 bg-white hover:border-brand-500 hover:shadow-md transition-all select-none" id="source-card-satje">
-                  <input type="checkbox" id="check-satje" name="satje" value="1" checked class="sr-only" onchange="toggleSourceCard('satje')">
-                  <div class="flex justify-between items-start">
-                    <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
-                      <i data-lucide="gavel" class="h-5 w-5"></i>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <div class="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 border border-emerald-200 rounded-full">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-glow"></span>
-                        <span class="text-[9px] font-bold text-emerald-700 uppercase font-jb tracking-wider">Activo</span>
-                      </div>
-                      <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white check-indicator shadow-md">
-                        <i data-lucide="check" class="h-3.5 w-3.5 stroke-[3]"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="mt-auto">
-                    <span class="block text-sm font-extrabold text-slate-900 tracking-tight">Causas Judiciales</span>
-                    <span class="block text-[11px] text-slate-500 font-medium">Función Judicial (SATJE)</span>
-                  </div>
-                </label>
-
-                {# Card 3: Competencias / SETEC #}
-                <label class="group relative flex flex-col justify-between h-[160px] p-5 rounded-xl cursor-pointer border-2 border-brand-600 bg-white hover:border-brand-500 hover:shadow-md transition-all select-none" id="source-card-setec">
-                  <input type="checkbox" id="check-setec" name="setec_check" value="1" checked class="sr-only" onchange="toggleSourceCard('setec')">
-                  <div class="flex justify-between items-start">
-                    <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
-                      <i data-lucide="award" class="h-5 w-5"></i>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <div class="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 border border-emerald-200 rounded-full">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-glow"></span>
-                        <span class="text-[9px] font-bold text-emerald-700 uppercase font-jb tracking-wider">Activo</span>
-                      </div>
-                      <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white check-indicator shadow-md">
-                        <i data-lucide="check" class="h-3.5 w-3.5 stroke-[3]"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="mt-auto">
-                    <span class="block text-sm font-extrabold text-slate-900 tracking-tight">Competencias</span>
-                    <span class="block text-[11px] text-slate-500 font-medium">SETEC · Min. Trabajo</span>
-                  </div>
-                </label>
-
-                {# Card 4: Fiscalía / SIAF #}
-                <label class="group relative flex flex-col justify-between h-[160px] p-5 rounded-xl cursor-pointer border-2 border-brand-600 bg-white hover:border-brand-500 hover:shadow-md transition-all select-none" id="source-card-fiscalia">
-                  <input type="checkbox" id="check-fiscalia" name="fiscalia_check" value="1" checked class="sr-only" onchange="toggleSourceCard('fiscalia')">
-                  <div class="flex justify-between items-start">
-                    <div class="p-2 bg-red-50 text-red-600 rounded-lg">
-                      <i data-lucide="shield-alert" class="h-5 w-5"></i>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <div class="flex items-center gap-1.5 bg-emerald-50 px-2.5 py-0.5 border border-emerald-200 rounded-full">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse-glow"></span>
-                        <span class="text-[9px] font-bold text-emerald-700 uppercase font-jb tracking-wider">Activo</span>
-                      </div>
-                      <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white check-indicator shadow-md">
-                        <i data-lucide="check" class="h-3.5 w-3.5 stroke-[3]"></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="mt-auto">
-                    <span class="block text-sm font-extrabold text-slate-900 tracking-tight">Noticias Delito</span>
-                    <span class="block text-[11px] text-slate-500 font-medium">SIAF · Fiscalía</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {# Botón principal #}
-            <div class="pt-2">
-              <button type="submit" class="w-full flex items-center justify-center gap-2.5 px-6 py-5 bg-brand-600 hover:bg-brand-700 active:scale-[0.99] text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-500/15 text-base">
-                <i data-lucide="search" class="w-5 h-5"></i>
-                Iniciar verificación
-              </button>
-            </div>
-          </form>
-        </div>
-
-        {# ═══ Panel LOTE ═══ #}
-        <div id="panel-lote" class="tab-content p-6 md:p-8 hidden" role="tabpanel" aria-labelledby="tab-btn-lote">
-          <form method="POST" action="/procesar" enctype="multipart/form-data" onsubmit="mostrarLoaderLote(event)" class="space-y-6">
-
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Archivo de Candidatos</label>
-              <label class="border-2 border-dashed border-slate-200 rounded-xl p-8 bg-slate-50/50 hover:bg-slate-50 hover:border-brand-400 transition-all cursor-pointer flex flex-col items-center justify-center text-center group">
-                <input type="file" name="archivo" accept=".xlsx" required class="sr-only" onchange="updateFileName(this)">
-                <div class="h-12 w-12 bg-white rounded-xl shadow-sm border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-brand-600 group-hover:border-brand-200 transition-all mb-4">
-                  <i data-lucide="upload-cloud" class="h-6 w-6"></i>
-                </div>
-                <span class="text-sm font-bold text-slate-800 mb-1">Arrastra tu planilla de candidatos o haz clic para examinar</span>
-                <span id="file-name" class="text-xs text-slate-500 mb-4">Formato .xlsx · Columna <code class="bg-slate-100 px-1 rounded font-jb">cedula</code> obligatoria, <code class="bg-slate-100 px-1 rounded font-jb">nombre</code> opcional</span>
-                <a href="/plantilla" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all">
-                  <i data-lucide="download" class="h-3.5 w-3.5 text-slate-500"></i>
-                  Descargar Plantilla Excel
-                </a>
-              </label>
-            </div>
-
-            {# Selección de fuentes para lote #}
-            <div>
-              <div class="flex items-center justify-between mb-3">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-600">Fuentes a Consultar</label>
-                <button type="button" onclick="loteActivarTodas(true)" class="text-[11px] text-brand-600 font-semibold hover:underline">Activar todas</button>
-              </div>
-              <div class="grid grid-cols-2 gap-2.5">
-                <label id="lote-card-bachiller" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-brand-500 bg-white cursor-pointer hover:border-brand-400 transition-all select-none">
-                  <input type="checkbox" name="bachiller" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-bachiller')">
-                  <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white shrink-0 lote-check-ind">
-                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
-                  </div>
-                  <div>
-                    <p class="text-xs font-bold text-slate-800">Bachiller</p>
-                    <p class="text-[10px] text-slate-400">Min. Educación</p>
-                  </div>
-                </label>
-                <label id="lote-card-satje" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-brand-500 bg-white cursor-pointer hover:border-brand-400 transition-all select-none">
-                  <input type="checkbox" name="satje" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-satje')">
-                  <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white shrink-0 lote-check-ind">
-                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
-                  </div>
-                  <div>
-                    <p class="text-xs font-bold text-slate-800">Causas Judiciales</p>
-                    <p class="text-[10px] text-slate-400">SATJE · F. Judicial</p>
-                  </div>
-                </label>
-                <label id="lote-card-setec" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-brand-500 bg-white cursor-pointer hover:border-brand-400 transition-all select-none">
-                  <input type="checkbox" name="setec_check" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-setec')">
-                  <div class="w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white shrink-0 lote-check-ind">
-                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
-                  </div>
-                  <div>
-                    <p class="text-xs font-bold text-slate-800">Competencias</p>
-                    <p class="text-[10px] text-slate-400">SETEC · Min. Trabajo</p>
-                  </div>
-                </label>
-                <label id="lote-card-fiscalia" class="flex items-center gap-2.5 p-3 rounded-xl border-2 border-red-400 bg-white cursor-pointer hover:border-red-300 transition-all select-none">
-                  <input type="checkbox" name="fiscalia_check" value="1" checked class="sr-only" onchange="loteSyncCard(this, 'lote-card-fiscalia')">
-                  <div class="w-5 h-5 rounded border border-red-400 bg-red-500 flex items-center justify-center text-white shrink-0 lote-check-ind">
-                    <i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>
-                  </div>
-                  <div>
-                    <p class="text-xs font-bold text-slate-800">Fiscalía</p>
-                    <p class="text-[10px] text-slate-400">SIAF · Noticias delito</p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <div class="pt-2">
-              <button type="submit" class="w-full flex items-center justify-center gap-2 px-6 py-4 bg-brand-600 hover:bg-brand-700 active:scale-[0.99] text-white font-semibold rounded-xl transition-all shadow-md shadow-brand-500/10 text-base">
-                <i data-lucide="rocket" class="w-5 h-5"></i>
-                Iniciar Verificación Masiva
-              </button>
-            </div>
-          </form>
-        </div>
+        <!-- Verify button -->
+        <button class="vr-btn vr-btn-pri vr-btn-lg vr-btn-full" style="margin-top:18px;" id="bq-btn" onclick="bqBuscar()">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Verificar candidato
+        </button>
       </div>
 
-      {# ═══════════════ COLUMNA DERECHA — sidebar útil ═══════════════ #}
-      <div class="lg:col-span-4 flex flex-col gap-6">
-
-        {# Card 1: ¿Cuándo usar? #}
-        <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-          <div class="flex items-center gap-2.5 mb-4">
-            <div class="p-1.5 bg-brand-50 text-brand-600 rounded-lg">
-              <i data-lucide="help-circle" class="h-4 w-4"></i>
-            </div>
-            <h3 class="text-sm font-bold text-slate-900">¿Cuándo usar Individual vs Lote?</h3>
+      <!-- Right: Result area -->
+      <div id="bq-result">
+        <!-- Empty state -->
+        <div class="bq-empty" id="bq-empty">
+          <div class="bq-empty-icon">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
           </div>
-          <div class="space-y-3.5">
-            <div class="flex items-start gap-2.5">
-              <span class="text-xs font-bold text-brand-600 font-jb mt-0.5">01</span>
-              <div>
-                <h4 class="text-xs font-bold text-slate-800">Individual</h4>
-                <p class="text-[11px] text-slate-500 leading-normal">Consulta rápida por número de cédula con generación de reporte inmediato en PDF.</p>
-              </div>
-            </div>
-            <div class="flex items-start gap-2.5 pt-2.5 border-t border-slate-100">
-              <span class="text-xs font-bold text-brand-600 font-jb mt-0.5">02</span>
-              <div>
-                <h4 class="text-xs font-bold text-slate-800">Lote</h4>
-                <p class="text-[11px] text-slate-500 leading-normal">Carga masiva mediante Excel para procesar múltiples candidatos en paralelo.</p>
-              </div>
-            </div>
-          </div>
+          <div style="font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--text);">Listo para verificar</div>
+          <div style="font-size:13.5px;color:var(--text2);margin-top:6px;max-width:320px;line-height:1.5;">Ingresa una cédula y elige las fuentes oficiales. El veredicto aparecerá aquí en segundos.</div>
         </div>
-
-        {# Card 2: Niveles de Riesgo #}
-        <div class="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm">
-          <div class="flex items-center gap-2.5 mb-4">
-            <div class="p-1.5 bg-brand-50 text-brand-600 rounded-lg">
-              <i data-lucide="shield" class="h-4 w-4"></i>
-            </div>
-            <h3 class="text-sm font-bold text-slate-900">Niveles de Riesgo</h3>
-          </div>
-          <div class="space-y-3.5">
-            <div class="flex gap-3">
-              <span class="inline-flex h-5 items-center px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase font-jb bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">APTO</span>
-              <p class="text-[11px] text-slate-600 leading-normal">Sin coincidencias judiciales ni alertas académicas. Aprobado limpio.</p>
-            </div>
-            <div class="flex gap-3">
-              <span class="inline-flex h-5 items-center px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase font-jb bg-amber-50 text-amber-700 border border-amber-200 shrink-0">OBSERVACIÓN</span>
-              <p class="text-[11px] text-slate-600 leading-normal">Sin título oficial, procesos como actor, o <b>demandas de pensión alimenticia</b> (no descalifica laboralmente).</p>
-            </div>
-            <div class="flex gap-3">
-              <span class="inline-flex h-5 items-center px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase font-jb bg-orange-50 text-orange-700 border border-orange-200 shrink-0">RECHAZAR</span>
-              <p class="text-[11px] text-slate-600 leading-normal">Procesos penales activos como demandado de mediana gravedad.</p>
-            </div>
-            <div class="flex gap-3">
-              <span class="inline-flex h-5 items-center px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase font-jb bg-red-50 text-red-700 border border-red-200 shrink-0">CRÍTICO</span>
-              <p class="text-[11px] text-slate-600 leading-normal">Causas judiciales graves vigentes (ej. delitos mayores).</p>
-            </div>
-            <div class="flex gap-3">
-              <span class="inline-flex h-5 items-center px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wider uppercase font-jb bg-slate-50 text-slate-600 border border-slate-200 shrink-0">SIN DATOS</span>
-              <p class="text-[11px] text-slate-600 leading-normal">Error temporal en fuentes gubernamentales.</p>
-            </div>
-          </div>
+        <!-- Loading skeleton (hidden) -->
+        <div id="bq-skeleton" style="display:none;display:flex;flex-direction:column;gap:14px;">
+          <div class="bq-sk" style="height:168px;"></div>
+          <div class="bq-sk" style="height:120px;animation-delay:.12s;"></div>
+          <div class="bq-sk" style="height:120px;animation-delay:.24s;"></div>
         </div>
-
-        {# Card 3: 100% Oficial #}
-        <div class="bg-gradient-to-br from-slate-900 to-brand-950 border border-slate-800 rounded-2xl p-5 shadow-lg text-white relative overflow-hidden">
-          <div class="absolute inset-0 bg-[radial-gradient(circle_at_70%_120%,rgba(37,99,235,0.25),transparent_60%)] select-none pointer-events-none"></div>
-          <div class="relative z-10">
-            <div class="flex items-center gap-2.5 mb-3.5">
-              <div class="p-1.5 bg-white/10 text-brand-300 rounded-lg backdrop-blur-sm">
-                <i data-lucide="check-circle" class="h-4 w-4"></i>
-              </div>
-              <h3 class="text-sm font-bold text-white">100% Oficial</h3>
-            </div>
-            <p class="text-[11px] text-slate-300 leading-normal mb-4">
-              Consultas en tiempo real conectadas directamente a fuentes estatales oficiales del gobierno ecuatoriano.
-            </p>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="bg-white/5 border border-white/10 p-3 rounded-xl backdrop-blur-sm">
-                <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 font-jb mb-1">Costo</span>
-                <span class="text-base font-extrabold text-white">$0.004 <span class="text-[9px] text-slate-300 font-semibold font-sans">USD</span></span>
-              </div>
-              <div class="bg-white/5 border border-white/10 p-3 rounded-xl backdrop-blur-sm">
-                <span class="block text-[9px] font-bold uppercase tracking-wider text-slate-400 font-jb mb-1">Velocidad</span>
-                <span class="text-base font-extrabold text-white">~30s <span class="text-[9px] text-slate-300 font-semibold font-sans">promedio</span></span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <!-- Result (hidden) -->
+        <div id="bq-result-content" style="display:none;flex-direction:column;gap:14px;"></div>
       </div>
     </div>
   </div>
-</div>
 
-{# ══════════════════════════════════════════════════════════════════
-   LOADER OVERLAY — el real, con pasos dinámicos según módulos
-   seleccionados. El backend redirige a /resultado o /job/{id}.
-   ══════════════════════════════════════════════════════════════════ #}
-<div id="loader-overlay" class="hidden fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-  <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 border border-white/50">
-    <div class="flex flex-col items-center text-center">
-      <div class="relative w-16 h-16 mb-5">
-        <div class="absolute inset-0 border-4 border-brand-100 rounded-full"></div>
-        <div class="absolute inset-0 border-4 border-brand-600 rounded-full border-t-transparent animate-spin"></div>
-        <div class="absolute inset-0 flex items-center justify-center">
-          <i data-lucide="shield-check" class="h-5 w-5 text-brand-600"></i>
+  <!-- ── LOTE TAB ─────────────────────────────────────────────── -->
+  <div id="tab-lote" style="display:none;max-width:880px;">
+    <div class="vr-card" id="lote-upload-card" style="padding:26px;">
+      <!-- Drop zone -->
+      <div class="lote-zone" id="lote-zone"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="loteDrop(event)"
+        onclick="document.getElementById('lote-file-input').click()">
+        <div id="lote-zone-empty">
+          <div style="width:60px;height:60px;border-radius:18px;background:var(--primary-soft);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <div style="font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--text);">Arrastra tu Excel aquí</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:5px;">o haz clic para seleccionar · formato .xlsx con columna "Cédula"</div>
+        </div>
+        <div id="lote-zone-file" style="display:none;align-items:center;justify-content:center;gap:14px;">
+          <div style="width:48px;height:48px;border-radius:13px;background:var(--apto-s);color:var(--apto);display:flex;align-items:center;justify-content:center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h5"/></svg>
+          </div>
+          <div style="text-align:left;">
+            <div id="lote-file-name" style="font-weight:700;color:var(--text);font-size:15px;"></div>
+            <div id="lote-file-info" style="font-size:12.5px;color:var(--text2);"></div>
+          </div>
+          <button onclick="event.stopPropagation();loteRemoveFile()" style="margin-left:8px;width:30px;height:30px;border-radius:9px;border:none;background:var(--line2);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
       </div>
-      <h3 id="loader-titulo" class="text-lg font-bold text-slate-900 mb-1">Consultando fuentes oficiales</h3>
-      <p id="loader-subtitle" class="text-sm text-slate-500 mb-6">
-        Esto puede tardar entre 20 y 60 segundos. No cierres esta pestaña.
-      </p>
-      <div class="w-full text-left" id="loader-pasos"></div>
+      <input type="file" id="lote-file-input" accept=".xlsx" style="display:none" onchange="loteFileSelected(this)">
+
+      <!-- Source grid -->
+      <div style="margin-top:22px;margin-bottom:10px;font-size:12.5px;font-weight:600;color:var(--text2);">Fuentes a consultar</div>
+      <div class="lote-src-grid">
+        <button class="lote-src-btn on" style="--tint:#4F6BED" onclick="loteToggle(this,'bachiller')" data-key="bachiller" data-on="1">
+          <div class="lote-src-logo"><img src="/static/logos/logo-mineduc-mark.png" alt="Bachiller" onerror="this.style.display='none'"></div>
+          <span style="font-size:13.5px;font-weight:600;color:var(--text);">Bachiller</span>
+          <svg id="lote-chk-bachiller" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4F6BED" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="lote-src-btn on" style="--tint:#4F6BED" onclick="loteToggle(this,'satje')" data-key="satje" data-on="1">
+          <div class="lote-src-logo"><img src="/static/logos/logo-cj-mark.png" alt="SATJE" onerror="this.style.display='none'"></div>
+          <span style="font-size:13.5px;font-weight:600;color:var(--text);">SATJE</span>
+          <svg id="lote-chk-satje" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4F6BED" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="lote-src-btn" style="--tint:#7C5CE0" onclick="loteToggle(this,'setec_check')" data-key="setec_check" data-on="0">
+          <div class="lote-src-logo"><img src="/static/logos/logo-setec-mark.png" alt="SETEC" onerror="this.style.display='none'"></div>
+          <span style="font-size:13.5px;font-weight:600;color:var(--text);">SETEC</span>
+          <svg id="lote-chk-setec_check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7C5CE0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;display:none;"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="lote-src-btn" style="--tint:#E04338" onclick="loteToggle(this,'fiscalia_check')" data-key="fiscalia_check" data-on="0">
+          <div class="lote-src-logo"><img src="/static/logos/logo-fge-mark.png" alt="Fiscalía" onerror="this.style.display='none'"></div>
+          <span style="font-size:13.5px;font-weight:600;color:var(--text);">Fiscalía</span>
+          <svg id="lote-chk-fiscalia_check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E04338" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="margin-left:auto;display:none;"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:20px;gap:12px;flex-wrap:wrap;">
+        <a href="/plantilla" style="display:inline-flex;align-items:center;gap:7px;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;text-decoration:none;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar plantilla
+        </a>
+        <button class="vr-btn vr-btn-pri vr-btn-lg" id="lote-btn" onclick="loteIniciar()" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Iniciar verificación
+        </button>
+      </div>
+    </div>
+
+    <!-- Job progress card (hidden initially) -->
+    <div class="vr-card" id="lote-job-card" style="display:none;overflow:hidden;margin-top:0;">
+      <div class="job-header" id="job-header" style="background:var(--rail);">
+        <div class="job-header-glow"></div>
+        <div style="position:relative;">
+          <div id="job-eyebrow" style="font-size:10.5px;font-weight:700;letter-spacing:.18em;color:rgba(255,255,255,.6);text-transform:uppercase;margin-bottom:8px;">Procesando en paralelo</div>
+          <div style="display:flex;justify-content:space-between;align-items:flex-end;">
+            <div id="job-title" style="font-family:var(--font-d);font-size:28px;font-weight:800;letter-spacing:-.02em;font-family:var(--font-m);">0 / 0</div>
+            <span id="job-pct" style="font-size:22px;font-weight:800;font-family:var(--font-m);color:#A99CFF;">0%</span>
+          </div>
+          <div class="job-bar-track" id="job-bar-wrap">
+            <div class="job-bar-fill" id="job-bar" style="width:0%"></div>
+          </div>
+        </div>
+      </div>
+      <!-- Counters -->
+      <div style="padding:20px 28px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;border-bottom:1px solid var(--line);" id="job-counters">
+        <div class="job-counter"><div style="font-family:var(--font-m);font-size:28px;font-weight:800;color:var(--apto-t);letter-spacing:-.02em;" id="jc-apto">0</div><div style="margin-top:7px;"><span class="vsem vsem-apto"><span class="vsem-dot"></span>APTO</span></div></div>
+        <div class="job-counter"><div style="font-family:var(--font-m);font-size:28px;font-weight:800;color:var(--obs-t);letter-spacing:-.02em;" id="jc-obs">0</div><div style="margin-top:7px;"><span class="vsem vsem-obs"><span class="vsem-dot"></span>OBSERVACIÓN</span></div></div>
+        <div class="job-counter"><div style="font-family:var(--font-m);font-size:28px;font-weight:800;color:var(--rech-t);letter-spacing:-.02em;" id="jc-rech">0</div><div style="margin-top:7px;"><span class="vsem vsem-rech"><span class="vsem-dot"></span>RECHAZAR</span></div></div>
+        <div class="job-counter"><div style="font-family:var(--font-m);font-size:28px;font-weight:800;color:#fca5a5;letter-spacing:-.02em;" id="jc-crit">0</div><div style="margin-top:7px;"><span class="vsem vsem-crit"><span class="vsem-dot"></span>CRÍTICO</span></div></div>
+      </div>
+      <!-- Workers indicator -->
+      <div id="job-workers" class="job-workers" style="background:var(--primary-soft);color:var(--primary-ink);">
+        <span style="display:inline-flex;gap:4px;" id="job-dots">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);animation:vbounce 1s ease-in-out 0s infinite;display:inline-block;"></span>
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);animation:vbounce 1s ease-in-out .16s infinite;display:inline-block;"></span>
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--primary);animation:vbounce 1s ease-in-out .32s infinite;display:inline-block;"></span>
+        </span>
+        <span id="job-workers-txt">3 workers activos</span>
+      </div>
+      <!-- Actions -->
+      <div style="padding:18px;display:flex;gap:10px;" id="job-actions">
+        <a id="job-dl-btn" style="display:none;" class="vr-btn vr-btn-pri vr-btn-md" href="#">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar reporte
+        </a>
+        <button class="vr-btn vr-btn-sec vr-btn-md" onclick="loteReset()">Nueva verificación</button>
+      </div>
     </div>
   </div>
-</div>
-
-<style>
-  .loader-step { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; color: #94A3B8; transition: color 250ms; font-size: 0.875rem; }
-  .loader-step.active { color: #2563eb; font-weight: 600; }
-  .loader-step.done   { color: #059669; }
-  .loader-dot { width: 10px; height: 10px; border-radius: 9999px; background: #E2E8F0; transition: all 250ms; flex-shrink: 0; }
-  .loader-step.active .loader-dot { background: #2563eb; box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.18); animation: pulse-dot 1.4s ease-in-out infinite; }
-  .loader-step.done .loader-dot { background: #059669; }
-  @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.92); } }
-</style>
+</div><!-- end vr-page -->
 
 <script>
-  /* ─── Saludo dinámico por hora ─────────────────────────────── */
-  (function() {
-    const h = new Date().getHours();
-    const greet = h < 12 ? 'Buenos días' : (h < 19 ? 'Buenas tardes' : 'Buenas noches');
-    const el = document.getElementById('greeting-text');
-    if (el) el.textContent = greet;
-  })();
+/* ── Tab switching ─────────────────────────────────────────────── */
+const TAB = '{{ _tab }}';
+if (TAB === 'lote') {
+  document.getElementById('tab-busqueda').style.display = 'none';
+  document.getElementById('tab-lote').style.display = 'block';
+  document.getElementById('pg-eyebrow').textContent = 'Verificación masiva';
+  document.getElementById('pg-title').textContent   = 'Carga por lote';
+  document.getElementById('pg-sub').textContent     = 'Sube un Excel con cédulas y verifica cientos de candidatos en paralelo.';
+}
 
-  /* ─── Tabs Individual / Lote ───────────────────────────────── */
-  function switchTab(tabName) {
-    const btnI = document.getElementById('tab-btn-individual');
-    const btnL = document.getElementById('tab-btn-lote');
-    const panI = document.getElementById('panel-individual');
-    const panL = document.getElementById('panel-lote');
+/* ── Búsqueda individual ───────────────────────────────────────── */
+const SEM_GRAD = {
+  'APTO':        'linear-gradient(135deg,#22C55E 0%,#12A150 55%,#0B7A52 100%)',
+  'OBSERVACIÓN': 'linear-gradient(135deg,#F7B733 0%,#E08C0B 55%,#B86E07 100%)',
+  'RECHAZAR':    'linear-gradient(135deg,#F25A4E 0%,#E04338 55%,#A52219 100%)',
+  'CRÍTICO':     'linear-gradient(135deg,#7C1D14 0%,#4A0E08 55%,#180706 100%)',
+  'SIN DATOS':   'linear-gradient(135deg,#9BA0B2 0%,#6E7385 55%,#3D4150 100%)',
+  '':            'linear-gradient(135deg,#9BA0B2 0%,#6E7385 55%,#3D4150 100%)',
+};
+const SEM_ICO = {
+  'APTO':        `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`,
+  'OBSERVACIÓN': `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  'RECHAZAR':    `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  'CRÍTICO':     `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+  '':            `<svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+};
 
-    if (tabName === 'individual') {
-      btnI.className = "flex-1 py-5 px-6 text-sm font-bold border-b-2 border-brand-600 text-brand-600 flex items-center justify-center gap-2 bg-white transition-all focus:outline-none";
-      btnL.className = "flex-1 py-5 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30 flex items-center justify-center gap-2 transition-all focus:outline-none";
-      btnI.setAttribute('aria-selected', 'true');
-      btnL.setAttribute('aria-selected', 'false');
-      panL.classList.add('hidden');
-      panI.classList.remove('hidden');
+let bqForzar = false;
+
+function bqCedulaInput(inp) {
+  inp.value = inp.value.replace(/\D/g,'').slice(0,10);
+  const n = inp.value.length;
+  const counter = document.getElementById('bq-counter');
+  counter.textContent = n + '/10';
+  counter.style.color = n === 10 ? 'var(--apto)' : 'var(--text3)';
+  document.getElementById('bq-err').style.display = 'none';
+}
+
+function bqToggle(btn, key) {
+  const on = btn.dataset.on === '1';
+  btn.dataset.on = on ? '0' : '1';
+  btn.classList.toggle('on', !on);
+  const chk = btn.querySelector('.src-check');
+  if (chk) {
+    chk.innerHTML = !on ? `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>` : '';
+    chk.style.borderColor = !on ? 'var(--tint, var(--primary))' : '#CDD0DA';
+    chk.style.background  = !on ? 'var(--tint, var(--primary))' : 'transparent';
+  }
+  const cnt = document.querySelectorAll('#bq-fuentes .src-toggle[data-on="1"]').length;
+  document.getElementById('bq-fuentes-count').textContent = cnt + ' de 4';
+}
+
+function bqToggleForzar() {
+  bqForzar = !bqForzar;
+  document.getElementById('bq-sw-forzar').classList.toggle('on', bqForzar);
+}
+
+function bqShowErr(msg) {
+  const el = document.getElementById('bq-err');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function bqSetState(state) {
+  document.getElementById('bq-empty').style.display    = state === 'empty'  ? 'flex'  : 'none';
+  document.getElementById('bq-skeleton').style.display = state === 'loading' ? 'flex'  : 'none';
+  document.getElementById('bq-result-content').style.display = state === 'result' ? 'flex' : 'none';
+  const grid = document.getElementById('bq-grid');
+  if (state === 'empty') {
+    grid.classList.add('collapsed');
+  } else {
+    grid.classList.remove('collapsed');
+  }
+}
+
+async function bqBuscar() {
+  const cedula = document.getElementById('bq-cedula').value;
+  if (cedula.length !== 10) { bqShowErr('La cédula debe tener exactamente 10 dígitos.'); return; }
+  const fuentes = document.querySelectorAll('#bq-fuentes .src-toggle[data-on="1"]');
+  if (!fuentes.length) { bqShowErr('Selecciona al menos una fuente.'); return; }
+  document.getElementById('bq-err').style.display = 'none';
+
+  bqSetState('loading');
+  const btn = document.getElementById('bq-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation:vspin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Verificando…`;
+
+  const fd = new FormData();
+  fd.append('cedula', cedula);
+  document.querySelectorAll('#bq-fuentes .src-toggle').forEach(b => {
+    if (b.dataset.on === '1') fd.append(b.dataset.key, '1');
+  });
+  if (bqForzar) fd.append('forzar', '1');
+
+  try {
+    const res = await fetch('/api/buscar', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.error) { bqSetState('empty'); bqShowErr(bqErrMsg(data.error)); }
+    else { bqRenderResult(data); }
+  } catch(e) {
+    bqSetState('empty'); bqShowErr('Error de conexión. Intenta de nuevo.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Verificar candidato`;
+  }
+}
+
+function bqErrMsg(code) {
+  if (code === 'cedula_invalida') return 'Cédula inválida o dígito verificador incorrecto.';
+  if (code === 'sin_seleccion')   return 'Selecciona al menos una fuente.';
+  if (code === 'no_auth')         return 'Sesión expirada. Por favor recarga la página.';
+  return 'Error inesperado: ' + code;
+}
+
+function bqRenderResult(r) {
+  const container = document.getElementById('bq-result-content');
+  const sem = r.semaforo || '';
+  const grad = SEM_GRAD[sem] || SEM_GRAD[''];
+  const ico  = SEM_ICO[sem]  || SEM_ICO[''];
+  const label = sem || 'SIN VEREDICTO';
+
+  let html = '';
+
+  // Cache banner
+  if (r._cache) {
+    html += `<div class="bq-cache-banner">
+      <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:#3B4DA8;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5470E0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        <span><strong>Resultado desde caché.</strong> ${r.hace_cuanto ? 'Consultado ' + r.hace_cuanto + '.' : ''}</span>
+      </div>
+      <button class="vr-btn vr-btn-sec vr-btn-sm" onclick="bqForzar=true;bqBuscar()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Re-verificar
+      </button>
+    </div>`;
+  }
+
+  // Veredicto hero
+  html += `<div class="vr-hero" style="background:${grad};">
+    <div class="vr-hero-orb1"></div><div class="vr-hero-orb2"></div>
+    <div class="vr-hero-body">
+      <div class="vr-hero-eyebrow">Veredicto oficial</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-top:0;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="vr-hero-icon-tile">${ico}</div>
+          <div class="vr-hero-level">${label}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.18em;color:rgba(255,255,255,.6);">CÉDULA</div>
+          <div style="font-family:var(--font-m);font-size:18px;font-weight:700;margin-top:3px;">${r.cedula}</div>
+        </div>
+      </div>
+      <div class="vr-hero-sep">
+        <div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.18em;color:rgba(255,255,255,.6);">NOMBRE OFICIAL</div>
+          <div class="vr-hero-nom">${r.nombre || 'No disponible'}</div>
+        </div>
+        <div class="vr-hero-fecha">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          ${r.fecha || ''}
+        </div>
+      </div>
+      ${!sem ? `<div style="margin-top:16px;font-size:12.5px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.12);padding:8px 12px;border-radius:10px;display:inline-block;">Consulta Bachiller + SATJE para obtener un veredicto consolidado.</div>` : ''}
+    </div>
+  </div>`;
+
+  // Source cards
+  if (r.bachiller) html += bqCardBachiller(r.bachiller);
+  if (r.satje)     html += bqCardSatje(r.satje);
+  if (r.setec)     html += bqCardSetec(r.setec);
+  if (r.fiscalia)  html += bqCardFiscalia(r.fiscalia);
+
+  // Action buttons
+  html += `<div style="display:flex;gap:10px;">
+    <button class="vr-btn vr-btn-sec vr-btn-md" style="flex:1;" onclick="bqReset()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+      Nueva búsqueda
+    </button>
+    <a href="/pdf?cedula=${r.cedula}&bachiller=${r.bachiller?1:0}&satje=${r.satje?1:0}&setec_check=${r.setec?1:0}" class="vr-btn vr-btn-pri vr-btn-md" style="flex:1;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar PDF oficial
+    </a>
+  </div>`;
+
+  container.innerHTML = html;
+  bqSetState('result');
+}
+
+function bqReset() {
+  document.getElementById('bq-result-content').innerHTML = '';
+  bqSetState('empty');
+  document.getElementById('bq-cedula').value = '';
+  document.getElementById('bq-counter').textContent = '0/10';
+  document.getElementById('bq-counter').style.color = 'var(--text3)';
+  bqForzar = false;
+  document.getElementById('bq-sw-forzar').classList.remove('on');
+}
+
+function bqSourceCard(logoSrc, title, source, bodyHtml) {
+  return `<div class="vr-card" style="padding:22px;">
+    <div class="src-card-header">
+      <div class="src-card-logo"><img src="${logoSrc}" alt="${title}" onerror="this.style.display='none'"></div>
+      <div style="flex:1;min-width:0;">
+        <h3 style="margin:0;font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.01em;">${title}</h3>
+        <p style="margin:2px 0 0;font-size:12px;color:var(--text3);">${source}</p>
+      </div>
+    </div>
+    ${bodyHtml}
+  </div>`;
+}
+
+function bqStatusRow(tone, iconSvg, title, body) {
+  const tones = {
+    success: { cls:'success', label: title, body: body },
+    warning: { cls:'warning', label: title, body: body },
+    danger:  { cls:'danger',  label: title, body: body },
+    neutral: { cls:'neutral', label: title, body: body },
+  };
+  const t = tones[tone];
+  return `<div class="vr-status ${t.cls}">
+    <div class="vr-status-icon">${iconSvg}</div>
+    <div style="min-width:0;">
+      <div style="font-weight:700;font-size:14px;">${t.label}</div>
+      <div style="font-size:13px;margin-top:2px;line-height:1.45;">${t.body}</div>
+    </div>
+  </div>`;
+}
+
+const ICO_CHECK = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+const ICO_ALERT = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+const ICO_X     = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+const ICO_OCT   = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
+const ICO_SHIELD= `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>`;
+
+function bqCardBachiller(b) {
+  let body = '';
+  if (b.estado === 'ENCONTRADO') {
+    body = bqStatusRow('success', ICO_CHECK, 'Título confirmado oficialmente', 'Registro verificado en la base del Ministerio de Educación.');
+    body += `<div class="vr-data-grid">
+      <div><div class="vr-data-label">Título</div><div class="vr-data-val">${b.titulo||'—'}</div></div>
+      <div><div class="vr-data-label">Especialidad</div><div class="vr-data-val">${b.especialidad||'—'}</div></div>
+      <div class="vr-data-wide"><div class="vr-data-label">Institución</div><div class="vr-data-val">${b.institucion||'—'}</div></div>
+      <div><div class="vr-data-label">Año de grado</div><div class="vr-data-val" style="font-family:var(--font-m);">${(b.fecha_grado||'').slice(0,4)||'—'}</div></div>
+    </div>`;
+  } else if (b.estado === 'NO_ENCONTRADO') {
+    body = bqStatusRow('warning', ICO_ALERT, 'Sin registro oficial', 'No existe título de bachiller registrado para esta cédula.');
+  } else {
+    body = bqStatusRow('neutral', ICO_X, 'Error de consulta', b.detalle || 'No se pudo completar la consulta.');
+  }
+  return bqSourceCard('/static/logos/logo-mineduc-mark.png', 'Bachiller', 'Ministerio de Educación del Ecuador', body);
+}
+
+function bqCardSatje(s) {
+  let body = '';
+  if (s.estado === 'SIN_PROCESOS') {
+    body = bqStatusRow('success', ICO_SHIELD, 'Sin procesos judiciales', 'No tiene causas activas como demandado ni como actor.');
+  } else if (s.estado === 'TIENE_PROCESOS') {
+    body = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      ${bqCounter(s.total_demandado||0,'Como demandado',(s.total_demandado||0)>0?'danger':'neutral')}
+      ${bqCounter(s.total_actor||0,'Como actor',(s.total_actor||0)>0?'warning':'neutral')}
+    </div>`;
+    if (s.delitos && s.delitos.length) {
+      body += `<div style="background:var(--rech-s);border:1px solid rgba(224,67,56,.2);border-radius:14px;padding:16px;margin-top:12px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;">${ICO_ALERT}<span style="font-weight:700;font-size:13px;color:var(--rech-t);">Delitos detectados</span></div>
+        ${s.delitos.map(d=>`<div style="display:flex;gap:9px;align-items:flex-start;font-size:13px;color:var(--rech-t);margin-bottom:7px;"><span style="width:5px;height:5px;border-radius:50%;background:var(--rech);margin-top:6px;flex-shrink:0;display:inline-block;"></span><span style="font-weight:500;">${d}</span></div>`).join('')}
+      </div>`;
+    }
+  } else {
+    body = bqStatusRow('neutral', ICO_X, 'Error de consulta', s.detalle || 'No se pudo completar la consulta.');
+  }
+  return bqSourceCard('/static/logos/logo-cj-mark.png', 'Procesos Judiciales', 'SATJE — Consejo de la Judicatura', body);
+}
+
+function bqCounter(n, label, tone) {
+  const styles = {
+    danger:  { num:'var(--rech-t)', bg:'var(--rech-s)', bd:'rgba(224,67,56,.2)' },
+    warning: { num:'var(--obs-t)',  bg:'var(--obs-s)',  bd:'rgba(224,140,11,.2)' },
+    neutral: { num:'var(--text3)', bg:'var(--line2)',  bd:'var(--line)' },
+  }[tone];
+  return `<div style="background:${styles.bg};border:1px solid ${styles.bd};border-radius:14px;padding:14px 16px;text-align:center;">
+    <div style="font-size:32px;font-weight:800;color:${styles.num};font-family:var(--font-m);letter-spacing:-.02em;line-height:1;">${n}</div>
+    <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:${styles.num};margin-top:7px;opacity:.85;">${label}</div>
+  </div>`;
+}
+
+function bqCardSetec(st) {
+  let body = '';
+  if (st.estado === 'TIENE_CERTIFICADOS') {
+    body = `<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;">
+      <span style="font-size:26px;font-weight:800;color:#6D4FD0;font-family:var(--font-m);">${st.total}</span>
+      <span style="font-size:11px;font-weight:700;color:#7C5CE0;text-transform:uppercase;letter-spacing:.05em;">certificaciones registradas</span>
+    </div>`;
+    body += (st.cursos||[]).map(c=>`<div style="display:flex;gap:10px;align-items:center;background:#FAF8FF;border:1px solid #EEE9FB;border-radius:11px;padding:11px 14px;margin-bottom:7px;">
+      <div style="width:22px;height:22px;border-radius:50%;background:#7C5CE0;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <span style="font-size:13px;font-weight:600;color:var(--text);">${c}</span>
+    </div>`).join('');
+  } else if (st.estado === 'SIN_CERTIFICADOS') {
+    body = bqStatusRow('neutral', ICO_ALERT, 'Sin certificaciones registradas', 'No tiene cursos registrados en el SETEC.');
+  } else {
+    body = bqStatusRow('neutral', ICO_X, 'Error de consulta', st.detalle || 'No se pudo completar la consulta.');
+  }
+  return bqSourceCard('/static/logos/logo-setec-mark.png', 'Capacitaciones Oficiales', 'SETEC — Ministerio del Trabajo', body);
+}
+
+function bqCardFiscalia(f) {
+  let body = '';
+  if (f.estado === 'SIN_ANTECEDENTES') {
+    body = bqStatusRow('success', ICO_SHIELD, 'Sin antecedentes en Fiscalía', 'No se encontraron noticias del delito para esta cédula.');
+  } else if (f.estado === 'DENUNCIANTE') {
+    body = bqStatusRow('warning', ICO_ALERT, `Figura como denunciante en ${f.como_denunciante||1} noticia(s)`, f.detalle||'');
+  } else if (f.estado === 'PERJUDICADO') {
+    body = bqStatusRow('warning', ICO_ALERT, `Figura como perjudicado en ${f.como_perjudicado||1} noticia(s)`, f.detalle||'');
+  } else {
+    body = bqStatusRow('danger', ICO_OCT, `Aparece como sospechoso en ${f.como_sospechoso||1} noticia(s)`, f.detalle||'');
+    if (f.noticias && f.noticias.length) {
+      body += (f.noticias||[]).map(n=>{
+        const isVictim = n.rol === 'DENUNCIANTE' || n.rol === 'PERJUDICADO';
+        return `<div style="display:flex;gap:11px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:11px;padding:11px 14px;margin-top:7px;">
+          <div style="width:22px;height:22px;border-radius:50%;background:${isVictim?'var(--sin)':'var(--rech)'};color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;">
+            ${isVictim ? '·' : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'}
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;">
+            <span style="font-weight:700;font-size:13px;color:var(--text);">${n.delito}</span>
+            <span style="font-size:12px;color:var(--text3);font-family:var(--font-m);">${n.fecha}</span>
+            <span style="font-size:12px;color:var(--text3);">· ${n.lugar}</span>
+          </div>
+          <span style="font-size:10.5px;font-weight:700;letter-spacing:.04em;color:${isVictim?'var(--text2)':'var(--rech-t)'};background:${isVictim?'var(--line2)':'var(--rech-s)'};padding:3px 9px;border-radius:99px;">${n.rol}</span>
+        </div>`;
+      }).join('');
+    }
+  }
+  return bqSourceCard('/static/logos/logo-fge-mark.png', 'Noticias del Delito', 'SIAF — Fiscalía General del Estado', body);
+}
+
+/* ── Lote ──────────────────────────────────────────────────────── */
+let loteFile = null;
+let loteJobId = null;
+let lotePollTimer = null;
+
+function loteToggle(btn, key) {
+  const on = btn.dataset.on === '1';
+  btn.dataset.on = on ? '0' : '1';
+  btn.classList.toggle('on', !on);
+  const chk = document.getElementById('lote-chk-' + key);
+  if (chk) chk.style.display = !on ? 'block' : 'none';
+}
+
+function loteFileSelected(input) {
+  if (input.files && input.files[0]) {
+    const f = input.files[0];
+    loteSetFile({ name: f.name, size: f.size, file: f });
+  }
+}
+
+function loteDrop(e) {
+  e.preventDefault();
+  const z = document.getElementById('lote-zone');
+  z.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f && f.name.endsWith('.xlsx')) {
+    loteSetFile({ name: f.name, size: f.size, file: f });
+    // Put file into the file input
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    document.getElementById('lote-file-input').files = dt.files;
+  }
+}
+
+function loteSetFile(info) {
+  loteFile = info;
+  const zone = document.getElementById('lote-zone');
+  zone.classList.add('has-file');
+  document.getElementById('lote-zone-empty').style.display = 'none';
+  const zf = document.getElementById('lote-zone-file');
+  zf.style.display = 'flex';
+  document.getElementById('lote-file-name').textContent = info.name;
+  document.getElementById('lote-file-info').textContent = Math.round(info.size/1024) + ' KB · Archivo cargado';
+  document.getElementById('lote-btn').disabled = false;
+}
+
+function loteRemoveFile() {
+  loteFile = null;
+  document.getElementById('lote-file-input').value = '';
+  document.getElementById('lote-zone').classList.remove('has-file');
+  document.getElementById('lote-zone-empty').style.display = 'block';
+  document.getElementById('lote-zone-file').style.display = 'none';
+  document.getElementById('lote-btn').disabled = true;
+}
+
+async function loteIniciar() {
+  if (!loteFile) return;
+  const fd = new FormData();
+  fd.append('archivo', document.getElementById('lote-file-input').files[0]);
+  document.querySelectorAll('.lote-src-btn[data-on="1"]').forEach(b => fd.append(b.dataset.key, '1'));
+
+  document.getElementById('lote-btn').disabled = true;
+  document.getElementById('lote-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation:vspin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Iniciando…';
+
+  try {
+    const res = await fetch('/api/procesar', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.job_id) {
+      loteJobId = data.job_id;
+      loteShowJob(data.total);
+      lotePoll();
     } else {
-      btnL.className = "flex-1 py-5 px-6 text-sm font-bold border-b-2 border-brand-600 text-brand-600 flex items-center justify-center gap-2 bg-white transition-all focus:outline-none";
-      btnI.className = "flex-1 py-5 px-6 text-sm font-bold border-b-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50/30 flex items-center justify-center gap-2 transition-all focus:outline-none";
-      btnI.setAttribute('aria-selected', 'false');
-      btnL.setAttribute('aria-selected', 'true');
-      panI.classList.add('hidden');
-      panL.classList.remove('hidden');
+      alert('Error al iniciar el job: ' + JSON.stringify(data));
+      document.getElementById('lote-btn').disabled = false;
     }
-    if (window.lucide) lucide.createIcons();
+  } catch(e) {
+    alert('Error de conexión.');
+    document.getElementById('lote-btn').disabled = false;
   }
+}
 
-  /* ─── Counter + validación visual del input cédula ─────────── */
-  function validateCedulaInput(input) {
-    input.value = input.value.replace(/\D/g, '');
-    const n = input.value.length;
-    const countLabel = document.getElementById('cedula-char-count');
-    const badge      = document.getElementById('cedula-counter-badge');
-    const check      = document.getElementById('cedula-success-check');
-    if (countLabel) countLabel.textContent = n;
-    if (n === 10) {
-      badge.classList.add('hidden');
-      check.classList.remove('hidden');
-      input.classList.remove('border-slate-200');
-      input.classList.add('border-emerald-500', 'focus:border-emerald-600');
+function loteShowJob(total) {
+  document.getElementById('lote-upload-card').style.display = 'none';
+  const jc = document.getElementById('lote-job-card');
+  jc.style.display = 'block';
+  document.getElementById('job-title').textContent = '0 / ' + total;
+  document.getElementById('job-pct').textContent = '0%';
+}
+
+async function lotePoll() {
+  if (!loteJobId) return;
+  try {
+    const res = await fetch('/job/' + loteJobId + '/status');
+    const d = await res.json();
+    const pct = Math.round(d.progreso || 0);
+    document.getElementById('job-title').textContent = d.procesados + ' / ' + d.total;
+    document.getElementById('job-pct').textContent = pct + '%';
+    document.getElementById('job-bar').style.width = pct + '%';
+
+    if (d.estado === 'completado') {
+      loteJobCompleto(d);
     } else {
-      badge.classList.remove('hidden');
-      check.classList.add('hidden');
-      input.classList.remove('border-emerald-500', 'focus:border-emerald-600');
-      input.classList.add('border-slate-200');
-      if (n > 0) {
-        badge.classList.remove('bg-slate-100', 'text-slate-400');
-        badge.classList.add('bg-brand-50', 'text-brand-600', 'font-bold');
-      } else {
-        badge.classList.remove('bg-brand-50', 'text-brand-600', 'font-bold');
-        badge.classList.add('bg-slate-100', 'text-slate-400');
-      }
+      lotePollTimer = setTimeout(lotePoll, 600);
     }
+  } catch(e) {
+    lotePollTimer = setTimeout(lotePoll, 2000);
   }
+}
 
-  /* ─── Toggle visual de cards de fuentes ────────────────────── */
-  function toggleSourceCard(name) {
-    const cb   = document.getElementById('check-' + name);
-    const card = document.getElementById('source-card-' + name);
-    const ind  = card.querySelector('.check-indicator');
-    if (cb.checked) {
-      card.classList.remove('border-slate-200');
-      card.classList.add('border-brand-600');
-      ind.className = "w-5 h-5 rounded border border-brand-500 bg-brand-600 flex items-center justify-center text-white check-indicator shadow-md";
-      ind.innerHTML = '<i data-lucide="check" class="h-3.5 w-3.5 stroke-[3]"></i>';
-    } else {
-      card.classList.remove('border-brand-600');
-      card.classList.add('border-slate-200');
-      ind.className = "w-5 h-5 rounded border border-slate-400 bg-white flex items-center justify-center text-transparent check-indicator";
-      ind.innerHTML = '';
-    }
-    if (window.lucide) lucide.createIcons();
-  }
+function loteJobCompleto(d) {
+  clearTimeout(lotePollTimer);
+  const header = document.getElementById('job-header');
+  header.style.background = 'linear-gradient(135deg,#22C55E 0%,#12A150 55%,#0B7A52 100%)';
+  document.getElementById('job-eyebrow').textContent = 'Verificación completada';
+  document.getElementById('job-title').textContent = d.total + ' candidatos verificados';
+  document.getElementById('job-pct').innerHTML = '<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+  document.getElementById('job-bar-wrap').style.display = 'none';
+  document.getElementById('job-workers').style.display = 'none';
+  const dl = document.getElementById('job-dl-btn');
+  dl.href = '/job/' + loteJobId + '/descargar';
+  dl.style.display = 'inline-flex';
+  vrToast('Verificación por lote completada · ' + d.total + ' candidatos');
+}
 
-  function loteSyncCard(cb, cardId) {
-    const card = document.getElementById(cardId);
-    const ind  = card.querySelector('.lote-check-ind');
-    if (cb.checked) {
-      card.classList.remove('border-slate-200', 'border-red-200');
-      card.classList.add(cardId === 'lote-card-fiscalia' ? 'border-red-400' : 'border-brand-500');
-      ind.classList.remove('bg-white', 'text-transparent');
-      ind.classList.add(cardId === 'lote-card-fiscalia' ? 'bg-red-500' : 'bg-brand-600', 'text-white');
-      ind.innerHTML = '<i data-lucide="check" class="h-3 w-3 stroke-[3]"></i>';
-    } else {
-      card.classList.remove('border-brand-500', 'border-red-400');
-      card.classList.add('border-slate-200');
-      ind.classList.remove('bg-brand-600', 'bg-red-500', 'text-white');
-      ind.classList.add('bg-white', 'text-transparent');
-      ind.innerHTML = '';
-    }
-    if (window.lucide) lucide.createIcons();
-  }
-
-  function loteActivarTodas(state) {
-    [['bachiller','lote-card-bachiller'], ['satje','lote-card-satje'],
-     ['setec_check','lote-card-setec'], ['fiscalia_check','lote-card-fiscalia']].forEach(([name, cardId]) => {
-      const cb = document.querySelector(`#${cardId} input[type="checkbox"]`);
-      if (cb && cb.checked !== state) { cb.checked = state; loteSyncCard(cb, cardId); }
-    });
-  }
-
-  function selectAllSources(state) {
-    ['minedu', 'satje', 'setec', 'fiscalia'].forEach(s => {
-      const cb = document.getElementById('check-' + s);
-      if (cb && cb.checked !== state) {
-        cb.checked = state;
-        toggleSourceCard(s);
-      }
-    });
-  }
-
-  /* ─── Nombre de archivo en upload de lote ──────────────────── */
-  function updateFileName(input) {
-    const lbl = document.getElementById('file-name');
-    if (input.files.length > 0) {
-      lbl.innerHTML = '<span class="text-emerald-600 font-semibold">✓ ' + input.files[0].name + '</span>';
-    }
-  }
-
-  /* ─── Loader REAL — pasos dinámicos según módulos ──────────── */
-  function mostrarLoader(e) {
-    const form = e.target;
-    const wB = form.querySelector('input[name="bachiller"]')?.checked;
-    const wS = form.querySelector('input[name="satje"]')?.checked;
-    const wT = form.querySelector('input[name="setec_check"]')?.checked;
-    const pasos = [];
-    if (wB) {
-      pasos.push('Consultando Ministerio de Educación');
-      pasos.push('Verificando título de bachiller');
-    }
-    if (wS) pasos.push('Consultando Función Judicial (SATJE)');
-    if (wT) pasos.push('Consultando SETEC — Min. del Trabajo');
-    pasos.push('Generando reporte');
-
-    document.getElementById('loader-pasos').innerHTML = pasos.map((txt, i) =>
-      `<div id="paso-${i+1}" class="loader-step ${i === 0 ? 'active' : ''}">
-         <span class="loader-dot"></span><span>${txt}</span>
-       </div>`
-    ).join('');
-
-    document.getElementById('loader-overlay').classList.remove('hidden');
-    if (window.lucide) lucide.createIcons();
-
-    pasos.forEach((_, i) => {
-      if (i === 0) return;
-      setTimeout(() => marcarPaso(i + 1), i * 10000);
-    });
-  }
-
-  function mostrarLoaderLote(e) {
-    document.getElementById('loader-titulo').textContent = "Procesando lote";
-    document.getElementById('loader-subtitle').innerHTML =
-      "Estamos verificando todas las cédulas en paralelo.<br>Puede tardar varios minutos.";
-    document.getElementById('loader-overlay').classList.remove('hidden');
-  }
-
-  function marcarPaso(n) {
-    const p = document.getElementById('paso-' + n);
-    if (!p) return;
-    p.classList.add('active');
-    const ant = document.getElementById('paso-' + (n - 1));
-    if (ant) { ant.classList.remove('active'); ant.classList.add('done'); }
-  }
+function loteReset() {
+  clearTimeout(lotePollTimer);
+  loteJobId = null; loteFile = null;
+  document.getElementById('lote-file-input').value = '';
+  document.getElementById('lote-upload-card').style.display = 'block';
+  document.getElementById('lote-job-card').style.display = 'none';
+  document.getElementById('lote-zone').classList.remove('has-file');
+  document.getElementById('lote-zone-empty').style.display = 'block';
+  document.getElementById('lote-zone-file').style.display = 'none';
+  document.getElementById('lote-btn').disabled = true;
+  document.getElementById('lote-btn').innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Iniciar verificación';
+}
 </script>
 {% endblock %}
