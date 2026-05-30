@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block title %}Resultado · JR Verifica EC{% endblock %}
 
+{# Normaliza mensajes técnicos a algo legible para el usuario final #}
+{% macro mensaje_amigable(detalle, fuente) -%}
+  {%- set d = (detalle or '') | lower -%}
+  {%- if 'incapsula' in d or 'bot detection' in d or 'challenge' in d or 'captcha' in d -%}
+    El portal {{ fuente }} está aplicando protección anti-automatización en este momento. Esto suele resolverse solo en 1-2 horas. Podés reintentar más tarde.
+  {%- elif 'timeout' in d or 'tardó demasiado' in d -%}
+    El portal {{ fuente }} demoró más de lo esperado. Reintentá en unos minutos.
+  {%- elif 'proxy' in d -%}
+    Conexión saturada al consultar {{ fuente }}. Reintentá en unos minutos.
+  {%- elif 'no disponible' in d or 'http 5' in d -%}
+    El portal {{ fuente }} está fuera de servicio temporalmente.
+  {%- else -%}
+    No se pudo completar la consulta a {{ fuente }} en este momento. Reintentá más tarde.
+  {%- endif -%}
+{%- endmacro %}
+
 {% block content %}
 {% set b = resultado.bachiller or {} %}
 {% set s = resultado.satje or {} %}
@@ -216,7 +232,7 @@
       </div>
       <div>
         <div style="font-weight:700;font-size:13px;color:var(--text2);">Error de consulta</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ b.detalle or "No se pudo completar la consulta" }}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ mensaje_amigable(b.detalle, 'el Ministerio de Educación') }}</div>
       </div>
     </div>
     {% endif %}
@@ -288,7 +304,7 @@
       </div>
       <div>
         <div style="font-weight:700;font-size:13px;color:var(--text2);">Error de consulta</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ s.detalle or "No se pudo completar la consulta" }}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ mensaje_amigable(s.detalle, 'la Función Judicial') }}</div>
       </div>
     </div>
     {% endif %}
@@ -342,8 +358,8 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <div>
-        <div style="font-weight:700;font-size:13px;color:var(--text2);">Portal no disponible</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ setec.detalle or "No se pudo consultar el SETEC en este momento." }}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">SETEC no disponible</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ mensaje_amigable(setec.detalle, 'el SETEC') }}</div>
       </div>
     </div>
     {% endif %}
@@ -424,8 +440,22 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <div>
-        <div style="font-weight:700;font-size:13px;color:var(--text2);">Portal no disponible</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ fiscalia.detalle or "No se pudo consultar la Fiscalía en este momento." }}</div>
+        <div style="font-weight:700;font-size:13px;color:var(--text2);">Fiscalía no disponible</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ mensaje_amigable(fiscalia.detalle, 'la Fiscalía') }}</div>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <form method="POST" action="/buscar" style="display:inline;" onsubmit="mostrarLoaderReverificar()">
+            <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
+            <input type="hidden" name="bachiller" value="">
+            <input type="hidden" name="satje" value="">
+            <input type="hidden" name="setec_check" value="">
+            <input type="hidden" name="fiscalia_check" value="1">
+            <input type="hidden" name="forzar" value="1">
+            <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--primary);border-color:var(--primary);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
+              Reintentar solo Fiscalía
+            </button>
+          </form>
+        </div>
       </div>
     </div>
     {% endif %}
