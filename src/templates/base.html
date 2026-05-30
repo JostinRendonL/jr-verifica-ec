@@ -486,6 +486,83 @@
   <span id="vr-toast-msg"></span>
 </div>
 
+<!-- ═════════════════════════════════════════════════════════════════
+     Modal universal (vrConfirm / vrAlert) — reemplaza confirm()/alert()
+     ═════════════════════════════════════════════════════════════════ -->
+<style>
+.vrm-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(13,14,20,.55); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 16px; animation: vfade .18s ease-out;
+}
+.vrm-overlay.show { display: flex; }
+.vrm-card {
+  background: var(--surface); border-radius: 22px;
+  max-width: 460px; width: 100%; padding: 0;
+  box-shadow: var(--sh-lg);
+  animation: vpop .28s cubic-bezier(.2,1.1,.4,1) both;
+  overflow: hidden;
+}
+.vrm-head { display: flex; gap: 14px; padding: 24px 26px 16px; align-items: flex-start; }
+.vrm-icon {
+  width: 44px; height: 44px; border-radius: 13px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.vrm-icon.danger  { background: var(--rech-s); color: var(--rech); }
+.vrm-icon.warn    { background: var(--obs-s);  color: var(--obs); }
+.vrm-icon.info    { background: var(--primary-soft); color: var(--primary); }
+.vrm-icon.success { background: var(--apto-s); color: var(--apto); }
+.vrm-title {
+  font-family: var(--font-d); font-size: 18px; font-weight: 800;
+  color: var(--text); letter-spacing: -.01em; margin: 2px 0 6px;
+  line-height: 1.25;
+}
+.vrm-msg {
+  font-size: 13.5px; color: var(--text2); line-height: 1.55;
+  white-space: pre-wrap;
+}
+.vrm-msg strong { color: var(--text); }
+.vrm-actions {
+  display: flex; gap: 10px; padding: 8px 26px 22px; justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.vrm-btn {
+  padding: 10px 18px; border-radius: 11px; border: none; cursor: pointer;
+  font-family: var(--font-b); font-weight: 600; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 7px;
+  transition: all .15s; white-space: nowrap;
+}
+.vrm-btn.cancel { background: var(--surface); color: var(--text); border: 1px solid var(--line); }
+.vrm-btn.cancel:hover { border-color: #D7D9E2; }
+.vrm-btn.ok      { background: var(--primary); color: #fff; }
+.vrm-btn.ok:hover { background: var(--primary-hi); }
+.vrm-btn.danger  { background: var(--rech); color: #fff; }
+.vrm-btn.danger:hover { background: #C0382B; }
+.vrm-btn.warn    { background: var(--obs); color: #fff; }
+.vrm-btn.warn:hover { background: #B57208; }
+
+@media (max-width: 640px) {
+  .vrm-card { border-radius: 16px; }
+  .vrm-head { padding: 20px 18px 12px; }
+  .vrm-actions { padding: 8px 18px 18px; }
+  .vrm-btn { flex: 1; justify-content: center; }
+}
+</style>
+
+<div class="vrm-overlay" id="vrm-overlay">
+  <div class="vrm-card" role="dialog" aria-modal="true">
+    <div class="vrm-head">
+      <div class="vrm-icon" id="vrm-icon"></div>
+      <div style="flex:1;min-width:0;">
+        <div class="vrm-title" id="vrm-title">Confirmar</div>
+        <div class="vrm-msg" id="vrm-msg">¿Continuar?</div>
+      </div>
+    </div>
+    <div class="vrm-actions" id="vrm-actions"></div>
+  </div>
+</div>
+
 <script>
 /* ── Sliding nav pill indicator ───────────────────────────────── */
 (function() {
@@ -541,6 +618,107 @@ document.querySelectorAll('.vr-sidebar a').forEach(a => {
     if (sb && sb.classList.contains('open')) vrToggleSidebar();
   });
 });
+
+/* ── Modal universal: vrConfirm / vrAlert ─────────────────────── */
+const VRM_ICONS = {
+  danger:  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>',
+  warn:    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  info:    '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  success: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+};
+let _vrmResolve = null;
+let _vrmEscHandler = null;
+
+function _vrmClose(value) {
+  const ov = document.getElementById('vrm-overlay');
+  ov.classList.remove('show');
+  document.body.style.overflow = '';
+  if (_vrmEscHandler) { document.removeEventListener('keydown', _vrmEscHandler); _vrmEscHandler = null; }
+  const r = _vrmResolve; _vrmResolve = null;
+  if (r) r(value);
+}
+
+/**
+ * Modal de confirmación. Retorna Promise<boolean>.
+ *   await vrConfirm({ title, message, confirmText, cancelText, type })
+ *   type: 'danger' | 'warn' | 'info' (default warn)
+ */
+function vrConfirm(opts = {}) {
+  const {
+    title = '¿Confirmar?',
+    message = '',
+    confirmText = 'Confirmar',
+    cancelText = 'Cancelar',
+    type = 'warn',
+  } = opts;
+  return new Promise(resolve => {
+    _vrmResolve = resolve;
+    document.getElementById('vrm-title').textContent = title;
+    document.getElementById('vrm-msg').innerHTML = message;  // permite <strong>, <br>
+    const icon = document.getElementById('vrm-icon');
+    icon.className = 'vrm-icon ' + type;
+    icon.innerHTML = VRM_ICONS[type] || VRM_ICONS.warn;
+    const btnClass = type === 'danger' ? 'danger' : (type === 'warn' ? 'warn' : 'ok');
+    document.getElementById('vrm-actions').innerHTML =
+      `<button type="button" class="vrm-btn cancel" onclick="_vrmClose(false)">${cancelText}</button>
+       <button type="button" class="vrm-btn ${btnClass}" id="vrm-ok-btn" onclick="_vrmClose(true)">${confirmText}</button>`;
+    const ov = document.getElementById('vrm-overlay');
+    ov.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    ov.onclick = e => { if (e.target === ov) _vrmClose(false); };
+    _vrmEscHandler = e => {
+      if (e.key === 'Escape') _vrmClose(false);
+      else if (e.key === 'Enter') _vrmClose(true);
+    };
+    document.addEventListener('keydown', _vrmEscHandler);
+    setTimeout(() => document.getElementById('vrm-ok-btn')?.focus(), 50);
+  });
+}
+
+/**
+ * Modal de alerta (un solo botón). Retorna Promise<void>.
+ *   await vrAlert({ title, message, type, buttonText })
+ */
+function vrAlert(opts = {}) {
+  const {
+    title = 'Aviso',
+    message = '',
+    type = 'info',
+    buttonText = 'Entendido',
+  } = opts;
+  return new Promise(resolve => {
+    _vrmResolve = () => resolve();
+    document.getElementById('vrm-title').textContent = title;
+    document.getElementById('vrm-msg').innerHTML = message;
+    const icon = document.getElementById('vrm-icon');
+    icon.className = 'vrm-icon ' + type;
+    icon.innerHTML = VRM_ICONS[type] || VRM_ICONS.info;
+    const btnClass = type === 'danger' ? 'danger' : (type === 'warn' ? 'warn' : 'ok');
+    document.getElementById('vrm-actions').innerHTML =
+      `<button type="button" class="vrm-btn ${btnClass}" id="vrm-ok-btn" onclick="_vrmClose(true)">${buttonText}</button>`;
+    const ov = document.getElementById('vrm-overlay');
+    ov.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    ov.onclick = e => { if (e.target === ov) _vrmClose(true); };
+    _vrmEscHandler = e => { if (e.key === 'Escape' || e.key === 'Enter') _vrmClose(true); };
+    document.addEventListener('keydown', _vrmEscHandler);
+    setTimeout(() => document.getElementById('vrm-ok-btn')?.focus(), 50);
+  });
+}
+
+/**
+ * Helper para forms: reemplaza onsubmit="return confirm('...')"
+ * Uso: <form onsubmit="return vrConfirmForm(event, {title, message, type})">
+ * Previene el submit, muestra modal, y si confirma hace form.submit() (sin re-disparar onsubmit).
+ */
+function vrConfirmForm(ev, opts = {}) {
+  ev.preventDefault();
+  const form = ev.target;
+  vrConfirm(opts).then(ok => {
+    if (ok) { form.onsubmit = null; form.submit(); }
+  });
+  return false;
+}
 
 /* ── Toast helper ─────────────────────────────────────────────── */
 function vrToast(msg) {

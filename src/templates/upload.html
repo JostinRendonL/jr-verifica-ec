@@ -866,11 +866,19 @@ async function loteIniciar() {
       loteShowJob(data.total);
       lotePoll();
     } else {
-      alert('Error al iniciar el job: ' + JSON.stringify(data));
+      vrAlert({
+        title: 'No se pudo iniciar el lote',
+        message: 'El servidor respondió: <code style="background:var(--line2);padding:2px 6px;border-radius:4px;font-family:var(--font-m);font-size:12px;">' + (data.error || JSON.stringify(data)) + '</code>',
+        type: 'danger',
+      });
       document.getElementById('lote-btn').disabled = false;
     }
   } catch(e) {
-    alert('Error de conexión.');
+    vrAlert({
+      title: 'Error de conexión',
+      message: 'No se pudo conectar al servidor. Verifica tu conexión a internet y volvé a intentarlo.',
+      type: 'danger',
+    });
     document.getElementById('lote-btn').disabled = false;
   }
 }

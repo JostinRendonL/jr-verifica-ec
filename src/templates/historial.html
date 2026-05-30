@@ -143,7 +143,7 @@
       <div style="font-weight:700;color:var(--obs-t);font-size:14px;">Tu lote tiene <span id="err-count">0</span> cédula(s) con vacíos</div>
       <div style="font-size:12px;color:var(--text2);margin-top:2px;">Fallaron por problemas temporales del Ministerio. Antes de exportar, re-procesa para completar.</div>
     </div>
-    <form method="POST" action="/lotes/{{ filtro_lote }}/reprocesar-errores" style="flex-shrink:0;" onsubmit="return confirm('Re-procesar las cédulas con errores? Tarda ~30s por cédula.')">
+    <form method="POST" action="/lotes/{{ filtro_lote }}/reprocesar-errores" style="flex-shrink:0;" onsubmit="return vrConfirmForm(event, {title:'Re-procesar errores del lote', message:'Se re-consultarán las cédulas con vacíos. <strong>Tarda ~30 segundos por cédula.</strong>', confirmText:'Re-procesar', type:'warn'})">
       <button type="submit" class="vr-btn vr-btn-sm" style="background:var(--obs);color:#fff;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
         Re-procesar
@@ -183,7 +183,7 @@
           Excel filtrado
         </button>
       </form>
-      <form method="POST" action="/historial/limpiar" onsubmit="return confirm('¿Borrar TODO el caché y el historial? Esta acción es irreversible.')">
+      <form method="POST" action="/historial/limpiar" onsubmit="return vrConfirmForm(event, {title:'Limpiar TODO el caché', message:'Se borrarán <strong>todas las verificaciones del historial</strong>. Esta acción <strong>no se puede deshacer</strong>.', confirmText:'Borrar todo', type:'danger'})">
         <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--rech-t);border-color:rgba(224,67,56,.35);">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
           Limpiar caché
@@ -369,7 +369,7 @@
                 <a href="/historial/{{ e.id }}/pdf" class="hist-icon-btn" title="Descargar PDF">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 </a>
-                <form method="POST" action="/historial/{{ e.id }}/borrar" style="display:inline;" onsubmit="return confirm('¿Borrar esta entrada?')">
+                <form method="POST" action="/historial/{{ e.id }}/borrar" style="display:inline;" onsubmit="return vrConfirmForm(event, {title:'¿Borrar esta entrada?', message:'Se eliminará la verificación de la cédula <strong>{{ e.cedula }}</strong> del historial.', confirmText:'Borrar', type:'danger'})">
                   <button type="submit" class="hist-icon-btn danger" title="Borrar entrada">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="m19 6-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
                   </button>
@@ -703,9 +703,15 @@ function histDeselectAll() {
   histSel.clear();
   histUpdateFab();
 }
-function histBorrarSeleccionados() {
+async function histBorrarSeleccionados() {
   if (histSel.size === 0) return;
-  if (!confirm(`¿Borrar ${histSel.size} entrada(s) del historial? Esta acción es irreversible.`)) return;
+  const ok = await vrConfirm({
+    title: `Borrar ${histSel.size} entrada${histSel.size>1?'s':''}`,
+    message: `Se eliminarán <strong>${histSel.size} verificación${histSel.size>1?'es':''}</strong> del historial. Esta acción <strong>no se puede deshacer</strong>.`,
+    confirmText: 'Borrar',
+    type: 'danger',
+  });
+  if (!ok) return;
   document.getElementById('hist-form-bulk-ids').value = [...histSel].join(',');
   document.getElementById('hist-form-bulk').submit();
 }
@@ -718,24 +724,41 @@ function histSelInOrderVisual() {
   });
   return out;
 }
-function histExportarExcel() {
+async function histExportarExcel() {
   if (histSel.size === 0) return;
   if (histSel.size > 1000) {
-    alert(`Tope de 1000 entradas (seleccionaste ${histSel.size}). Filtra primero.`);
+    await vrAlert({
+      title: 'Tope de 1000 entradas',
+      message: `Seleccionaste <strong>${histSel.size}</strong>, pero el máximo por export es 1000. Aplicá un filtro o exportá por partes.`,
+      type: 'warn',
+    });
     return;
   }
   document.getElementById('hist-form-xlsx-ids').value = histSelInOrderVisual().join(',');
   document.getElementById('hist-form-xlsx').submit();
   vrToast(`Generando Excel con ${histSel.size} entradas…`);
 }
-function histDescargarZip() {
+async function histDescargarZip() {
   if (histSel.size === 0) return;
   if (histSel.size > 200) {
-    alert(`Tope de 200 PDFs por descarga (seleccionaste ${histSel.size}). Filtra y descarga por partes.`);
+    await vrAlert({
+      title: 'Tope de 200 PDFs',
+      message: `Seleccionaste <strong>${histSel.size}</strong>. El máximo por descarga es 200. Aplicá un filtro y descargá por partes.`,
+      type: 'warn',
+    });
     return;
   }
   // Aviso: cada PDF ~0.5s. 200 PDFs = ~2 minutos de espera.
-  if (histSel.size > 30 && !confirm(`Vas a generar ${histSel.size} PDFs en un ZIP. Puede tardar ${Math.ceil(histSel.size*0.5)} segundos. ¿Continuar?`)) return;
+  if (histSel.size > 30) {
+    const segundos = Math.ceil(histSel.size * 0.5);
+    const ok = await vrConfirm({
+      title: `Generar ${histSel.size} PDFs`,
+      message: `Se va a generar un ZIP con <strong>${histSel.size} PDFs</strong>. Puede tardar <strong>~${segundos} segundos</strong>. No cierres la pestaña mientras se genera.`,
+      confirmText: 'Generar ZIP',
+      type: 'info',
+    });
+    if (!ok) return;
+  }
   document.getElementById('hist-form-zip-ids').value = histSelInOrderVisual().join(',');
   document.getElementById('hist-form-zip').submit();
   vrToast(`Generando ${histSel.size} PDFs… no cierres la pestaña`);
@@ -747,10 +770,19 @@ function abrirModalOlvido(ced) {
   document.getElementById('btn-olvido').disabled = !ced || ced.length !== 10;
   document.getElementById('modal-olvido').style.display = 'flex';
 }
-function confirmarOlvido(e) {
+async function confirmarOlvido(e) {
+  e.preventDefault();
+  const form = e.target;
   const ced = document.getElementById('olvido-cedula').value;
-  if (!/^\d{10}$/.test(ced)) { e.preventDefault(); return false; }
-  return confirm(`⚠️ DERECHO AL OLVIDO\n\nVas a borrar TODO rastro de la cédula ${ced}.\nEsta acción es IRREVERSIBLE. ¿Continuar?`);
+  if (!/^\d{10}$/.test(ced)) return false;
+  const ok = await vrConfirm({
+    title: 'Derecho al olvido — LOPDP',
+    message: `Vas a borrar <strong>todo rastro</strong> de la cédula <strong>${ced}</strong>:<br>• Todas las verificaciones del historial<br>• Códigos de verificación de PDFs emitidos<br><br>Esta acción es <strong>irreversible</strong> y queda registrada en logs de cumplimiento.`,
+    confirmText: 'Ejecutar borrado',
+    type: 'danger',
+  });
+  if (ok) { form.onsubmit = null; form.submit(); }
+  return false;
 }
 </script>
 {% endblock %}

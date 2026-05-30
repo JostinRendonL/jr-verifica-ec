@@ -132,7 +132,7 @@
 
               <!-- Activate / Deactivate -->
               {% if u.activo and u.id != usuario.id %}
-              <form method="POST" action="/admin/usuarios/{{ u.id }}/desactivar" onsubmit="return confirm('¿Desactivar a {{ u.email }}?');">
+              <form method="POST" action="/admin/usuarios/{{ u.id }}/desactivar" onsubmit="return vrConfirmForm(event, {title:'Desactivar usuario', message:'Se desactivará a <strong>{{ u.email }}</strong>. Podrás reactivarlo en cualquier momento.', confirmText:'Desactivar', type:'warn'});">
                 <button type="submit" class="usr-action-btn danger">Desactivar</button>
               </form>
               {% elif not u.activo %}
