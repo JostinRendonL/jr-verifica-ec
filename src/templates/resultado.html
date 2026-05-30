@@ -387,8 +387,15 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div>
-          <div style="font-weight:800;font-size:14px;color:var(--rech-t);">Aparece como sospechoso en {{ fiscalia.como_sospechoso }} noticia(s)</div>
-          <div style="font-size:12px;color:var(--rech);margin-top:3px;">{{ fiscalia.detalle }}</div>
+          <div style="font-weight:800;font-size:14px;color:var(--rech-t);">
+            Aparece como sospechoso{% if fiscalia.como_sospechoso %} en {{ fiscalia.como_sospechoso }} noticia(s){% endif %}
+            {% if fiscalia.manual and fiscalia.manual.verificado %}
+            <span style="font-size:10.5px;font-weight:700;background:var(--obs-s);color:var(--obs-t);padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;">VERIFICACIÓN MANUAL</span>
+            {% endif %}
+          </div>
+          <div style="font-size:12px;color:var(--rech);margin-top:3px;">
+            {{ fiscalia.detalle }}{% if fiscalia.manual and fiscalia.manual.verificado %} — Verificado manualmente{% if fiscalia.manual.operador_nombre %} por <strong>{{ fiscalia.manual.operador_nombre }}</strong>{% endif %}.{% endif %}
+          </div>
         </div>
       </div>
     </div>
@@ -418,8 +425,15 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E08C0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
       <div>
-        <div style="font-weight:800;font-size:13px;color:var(--obs-t);">Aparece como denunciante / víctima</div>
-        <div style="font-size:12px;color:var(--obs);margin-top:2px;">{{ fiscalia.detalle }} — No implica responsabilidad penal.</div>
+        <div style="font-weight:800;font-size:13px;color:var(--obs-t);">
+          Aparece como denunciante / víctima
+          {% if fiscalia.manual and fiscalia.manual.verificado %}
+          <span style="font-size:10.5px;font-weight:700;background:var(--obs-s);color:var(--obs-t);padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;">VERIFICACIÓN MANUAL</span>
+          {% endif %}
+        </div>
+        <div style="font-size:12px;color:var(--obs);margin-top:2px;">
+          {{ fiscalia.detalle }}{% if fiscalia.manual and fiscalia.manual.verificado %} — Verificado por <strong>{{ fiscalia.manual.operador_nombre or 'operador' }}</strong>{% endif %} — No implica responsabilidad penal.
+        </div>
       </div>
     </div>
 
@@ -429,19 +443,31 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
       </div>
       <div>
-        <div style="font-weight:800;font-size:14px;color:var(--apto-t);">Sin antecedentes en Fiscalía</div>
-        <div style="font-size:12px;color:var(--apto);margin-top:3px;">No se encontraron noticias del delito para esta cédula.</div>
+        <div style="font-weight:800;font-size:14px;color:var(--apto-t);">
+          Sin antecedentes en Fiscalía
+          {% if fiscalia.manual and fiscalia.manual.verificado %}
+          <span style="font-size:10.5px;font-weight:700;background:var(--obs-s);color:var(--obs-t);padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle;">VERIFICACIÓN MANUAL</span>
+          {% endif %}
+        </div>
+        <div style="font-size:12px;color:var(--apto);margin-top:3px;">
+          {% if fiscalia.manual and fiscalia.manual.verificado %}
+            Verificado manualmente{% if fiscalia.manual.operador_nombre %} por <strong>{{ fiscalia.manual.operador_nombre }}</strong>{% endif %}{% if fiscalia.detalle %} — {{ fiscalia.detalle }}{% endif %}.
+          {% else %}
+            No se encontraron noticias del delito para esta cédula.
+          {% endif %}
+        </div>
       </div>
     </div>
 
     {% else %}
-    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);">
+    <div class="res-status-row" style="background:var(--surface-alt);border-color:var(--line);align-items:flex-start;">
       <div style="width:36px;height:36px;border-radius:11px;background:var(--line2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       </div>
-      <div>
+      <div style="flex:1;min-width:0;">
         <div style="font-weight:700;font-size:13px;color:var(--text2);">Fiscalía no disponible</div>
         <div style="font-size:12px;color:var(--text3);margin-top:2px;">{{ mensaje_amigable(fiscalia.detalle, 'la Fiscalía') }}</div>
+
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
           <form method="POST" action="/buscar" style="display:inline;" onsubmit="mostrarLoaderReverificar()">
             <input type="hidden" name="cedula" value="{{ resultado.cedula }}">
@@ -452,9 +478,52 @@
             <input type="hidden" name="forzar" value="1">
             <button type="submit" class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--primary);border-color:var(--primary);">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/></svg>
-              Reintentar solo Fiscalía
+              Reintentar
             </button>
           </form>
+          <a href="https://www.gestiondefiscalias.gob.ec/siaf/informacion/web/noticiasdelito/index.php" target="_blank"
+             class="vr-btn vr-btn-sec vr-btn-sm" style="color:var(--text2);text-decoration:none;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Consultar portal
+          </a>
+          <button type="button" class="vr-btn vr-btn-sm" style="background:var(--obs);color:#fff;border:none;"
+                  onclick="document.getElementById('fm-form-{{ resultado.cedula }}').style.display='block';this.style.display='none'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            Marcar manual
+          </button>
+        </div>
+
+        <div id="fm-form-{{ resultado.cedula }}" style="display:none;margin-top:14px;padding:14px;background:var(--surface);border:1px solid var(--obs-s);border-left:3px solid var(--obs);border-radius:10px;">
+          <div style="font-weight:700;font-size:13px;color:var(--obs-t);margin-bottom:6px;">📋 Verificación manual de Fiscalía</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5;">
+            Hacé la consulta en el portal oficial (botón "Consultar portal" arriba), luego marcá acá qué encontraste.
+            Queda registrado en el PDF como verificación manual con tu nombre y fecha.
+          </p>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+            <button type="button" onclick="fmSelEstado('{{ resultado.cedula }}','SIN_ANTECEDENTES',this)"
+                    class="fm-est-btn vr-btn-sm" data-ced="{{ resultado.cedula }}" style="padding:7px 13px;border-radius:9px;background:var(--apto-s);color:var(--apto-t);border:1.5px solid transparent;font-weight:700;cursor:pointer;font-size:12.5px;">
+              ✓ Sin antecedentes
+            </button>
+            <button type="button" onclick="fmSelEstado('{{ resultado.cedula }}','DENUNCIANTE',this)"
+                    class="fm-est-btn vr-btn-sm" data-ced="{{ resultado.cedula }}" style="padding:7px 13px;border-radius:9px;background:var(--obs-s);color:var(--obs-t);border:1.5px solid transparent;font-weight:700;cursor:pointer;font-size:12.5px;">
+              ⚠ Como denunciante/víctima
+            </button>
+            <button type="button" onclick="fmSelEstado('{{ resultado.cedula }}','SOSPECHOSO',this)"
+                    class="fm-est-btn vr-btn-sm" data-ced="{{ resultado.cedula }}" style="padding:7px 13px;border-radius:9px;background:var(--rech-s);color:var(--rech-t);border:1.5px solid transparent;font-weight:700;cursor:pointer;font-size:12.5px;">
+              🚨 Sospechoso/imputado
+            </button>
+          </div>
+          <textarea id="fm-detalle-{{ resultado.cedula }}" placeholder="Detalle opcional. Ej: 2 noticias del delito (robo en 2023, hurto en 2024)."
+            style="width:100%;border:1.5px solid var(--line);border-radius:9px;padding:8px 10px;font-family:var(--font-b);font-size:12.5px;color:var(--text);outline:none;resize:vertical;min-height:42px;margin-bottom:10px;"></textarea>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" onclick="fmGuardar('{{ resultado.cedula }}')" id="fm-save-{{ resultado.cedula }}"
+                    class="vr-btn vr-btn-pri vr-btn-sm" disabled style="opacity:.5;">
+              Guardar verificación
+            </button>
+            <button type="button" onclick="document.getElementById('fm-form-{{ resultado.cedula }}').style.display='none'"
+                    class="vr-btn vr-btn-sec vr-btn-sm">Cancelar</button>
+            <span id="fm-status-{{ resultado.cedula }}" style="font-size:11.5px;color:var(--text3);"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -556,6 +625,53 @@ function cancelarEditorNombre() {
   document.getElementById('nombre-editor').style.display = 'none';
   document.getElementById('nombre-display').style.display = 'flex';
 }
+/* ── Verificación manual de Fiscalía ────────────────────────────── */
+let fmEstadoSel = null;
+function fmSelEstado(cedula, estado, btn) {
+  fmEstadoSel = estado;
+  // Reset todos los borders del grupo
+  document.querySelectorAll('.fm-est-btn[data-ced="' + cedula + '"]').forEach(b => {
+    b.style.border = '1.5px solid transparent';
+    b.style.transform = '';
+  });
+  // Highlight el seleccionado
+  btn.style.border = '1.5px solid var(--text)';
+  btn.style.transform = 'scale(1.04)';
+  // Habilitar boton de guardar
+  const save = document.getElementById('fm-save-' + cedula);
+  save.disabled = false;
+  save.style.opacity = '1';
+}
+async function fmGuardar(cedula) {
+  if (!fmEstadoSel) return;
+  const detalle = document.getElementById('fm-detalle-' + cedula).value.trim();
+  const status  = document.getElementById('fm-status-' + cedula);
+  const save    = document.getElementById('fm-save-' + cedula);
+  save.disabled = true; save.style.opacity = '.5';
+  status.textContent = 'Guardando…'; status.style.color = 'var(--text3)';
+  try {
+    const fd = new FormData();
+    fd.append('estado', fmEstadoSel);
+    fd.append('detalle', detalle);
+    const r = await fetch('/historial/cedula/' + cedula + '/fiscalia-manual',
+                          { method: 'POST', body: fd, credentials: 'same-origin' });
+    const d = await r.json();
+    if (d.ok) {
+      status.textContent = '✓ Guardado. Recargando…';
+      status.style.color = 'var(--apto)';
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      status.textContent = 'Error al guardar';
+      status.style.color = 'var(--rech)';
+      save.disabled = false; save.style.opacity = '1';
+    }
+  } catch(e) {
+    status.textContent = 'Error de red';
+    status.style.color = 'var(--rech)';
+    save.disabled = false; save.style.opacity = '1';
+  }
+}
+
 let notasDirty = false;
 function notasMarcaPendiente() {
   notasDirty = true;

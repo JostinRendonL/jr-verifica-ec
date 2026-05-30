@@ -90,7 +90,7 @@ from src.historial_sqlite import (
     borrar_entrada, borrar_por_cedula, borrar_multiples, limpiar_todo,
     actualizar_nombre, actualizar_semaforo, obtener_lotes,
     listar_por_cedula, cedulas_con_errores_lote, actualizar_notas,
-    obtener_notas,
+    obtener_notas, actualizar_fiscalia_manual,
 )
 from src.pdf_generator import generar_pdf
 from src.verificaciones import obtener as obtener_verificacion
@@ -1360,6 +1360,31 @@ async def guardar_notas_cedula(
         return JSONResponse({"ok": False, "error": "no_auth"}, status_code=401)
     from src.historial_sqlite import actualizar_notas as _act_notas
     ok = _act_notas(cedula, notas)
+    return JSONResponse({"ok": ok})
+
+
+@app.post("/historial/cedula/{cedula}/fiscalia-manual")
+async def guardar_fiscalia_manual(
+    request: Request,
+    cedula: str,
+    estado: str = Form(...),       # SIN_ANTECEDENTES / SOSPECHOSO / DENUNCIANTE
+    detalle: str = Form(""),
+    jr_session: str | None = Cookie(None),
+):
+    """Marca Fiscalia como verificada manualmente cuando el scraper fallo.
+    El operador hizo la consulta a mano en el portal y nos dice el resultado."""
+    from fastapi.responses import JSONResponse
+    u = _usuario_actual(jr_session)
+    if not u:
+        return JSONResponse({"ok": False, "error": "no_auth"}, status_code=401)
+    ok = actualizar_fiscalia_manual(
+        cedula, estado, detalle,
+        operador_email=u.email,
+        operador_nombre=u.nombre,
+    )
+    if ok:
+        audit_log.registrar(u, "fiscalia_manual", target=cedula,
+                            ip=_ip_cliente(request), estado=estado, detalle=detalle[:100])
     return JSONResponse({"ok": ok})
 
 

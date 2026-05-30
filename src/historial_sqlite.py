@@ -700,6 +700,67 @@ def actualizar_semaforo(cedula: str, semaforo: str) -> bool:
     return True
 
 
+def actualizar_fiscalia_manual(cedula: str, estado: str, detalle: str,
+                                operador_email: str = "", operador_nombre: str = "") -> bool:
+    """
+    Marca Fiscalia como verificada manualmente cuando el scraper automatico falla.
+    Modifica resultado_json para reemplazar fiscalia.estado=ERROR por una
+    verificacion manual con estado SIN_ANTECEDENTES o SOSPECHOSO/DENUNCIANTE,
+    y deja un registro de quien/cuando lo verifico manualmente.
+
+    Tambien actualiza el semaforo si correspondiera (depende del nuevo estado).
+    """
+    import time
+    ESTADOS_VALIDOS = {
+        "SIN_ANTECEDENTES": "SIN_ANTECEDENTES",
+        "SOSPECHOSO":       "SOSPECHOSO",
+        "DENUNCIANTE":      "DENUNCIANTE",
+    }
+    cedula = (cedula or "").strip()
+    est = (estado or "").strip().upper()
+    if not cedula or est not in ESTADOS_VALIDOS:
+        return False
+    estado_fmt = ESTADOS_VALIDOS[est]
+
+    conn = _get_conn()
+    cur = conn.execute(
+        "SELECT id, resultado_json, semaforo FROM historial WHERE cedula = ? ORDER BY timestamp DESC LIMIT 1",
+        (cedula,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return False
+
+    try:
+        resultado = json.loads(row["resultado_json"])
+    except Exception:
+        resultado = {}
+
+    # Reemplazar fiscalia con la verificacion manual
+    resultado["fiscalia"] = {
+        "estado":           estado_fmt,
+        "como_sospechoso":  1 if estado_fmt == "SOSPECHOSO" else 0,
+        "como_denunciante": 1 if estado_fmt == "DENUNCIANTE" else 0,
+        "noticias":         [],
+        "detalle":          (detalle or "").strip()[:500],
+        "manual": {
+            "verificado":      True,
+            "operador_email":  operador_email or "",
+            "operador_nombre": operador_nombre or "",
+            "timestamp":       int(time.time()),
+        },
+    }
+
+    resultado_json_nuevo = json.dumps(resultado, ensure_ascii=False)
+
+    with _write_lock:
+        conn.execute(
+            "UPDATE historial SET resultado_json = ? WHERE id = ?",
+            (resultado_json_nuevo, row["id"]),
+        )
+    return True
+
+
 def borrar_entrada(id_entrada: str) -> bool:
     """Elimina UNA entrada del historial. True si la borró."""
     conn = _get_conn()
